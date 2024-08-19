@@ -1,7 +1,7 @@
 cp /data/junkim100/dotfiles/ubuntu_server/.bashrc $HOME
-cp /data/junkim100/dotfiles/ubuntu_server/.vimrc $HOME
+cp /data/junkim100/dotfiles/ubuntu_common/.vimrc $HOME
 
-bash /data/junkim100/dotfiles/ubuntu_server/setup_tmux.sh
+bash /data/junkim100/dotfiles/ubuntu_common/setup_tmux.sh
 
 cp /data/junkim100/dotfiles/ubuntu_server/runtitle /usr/bin/
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the source and destination paths for the configuration files
-TMUX_CONF_SOURCE="/data/junkim100/dotfiles/ubuntu_server/.tmux.conf"
+TMUX_CONF_SOURCE="/data/junkim100/dotfiles/ubuntu_common/.tmux.conf"
 TMUX_CONF_DEST="$HOME/.tmux.conf"
 
 # Function to copy the tmux configuration file to the home directory

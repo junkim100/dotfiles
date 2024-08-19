@@ -4,6 +4,7 @@ packages=(
   fzf
   bat
   ranger
+  btop
 )
 
 # Function to check if a package is installed
