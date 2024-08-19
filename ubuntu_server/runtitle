@@ -1,0 +1,12 @@
+# Get the current username
+TITLE=$(whoami)
+COMMAND="$@"
+
+# Execute the command with a new title
+exec -a "$TITLE" $COMMAND &
+
+# Capture the PID of the executed command
+PID=$!
+
+# Return the PID
+echo "Process $PID Started"
