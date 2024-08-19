@@ -15,4 +15,4 @@ else
 fi
 
 # Install apt packages
-bash /data/junkim100/dotfiles/ubuntu_server/install_packages.sh
+bash /data/junkim100/dotfiles/ubuntu_common/install_packages.sh
