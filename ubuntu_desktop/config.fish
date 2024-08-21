@@ -1,6 +1,9 @@
+bind -f ~/.inputrc
 clear
 neofetch
 
+alias ll="command ls -al"
+alias clr="command clear"
 alias clear="command clear; neofetch"
 
 if status is-interactive
