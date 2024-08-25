@@ -1,4 +1,4 @@
-alias clr='clear'
+alias clr='\clear'
 alias clear='clear && neofetch'
 clear
 cd /data/junkim100/
