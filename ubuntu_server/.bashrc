@@ -159,11 +159,16 @@ gcm() {
 git diff --cached
 \`\`\`
 
-    Please generate a concise, one-line commit message for these changes. Only output the commit message, not the diff itself."
+    Please generate a concise, one-line commit message for these changes. Only output the commit message, not the diff itself. Don't use quotation marks for the commit message."
 
     # Function to generate commit message
     generate_commit_message() {
         git diff --cached | llm --model "4o" --key "$OPENAI_API_KEY" "$PROMPT"
+    }
+
+    # Function to remove the quotation marks around the commit message if they exist
+    remove_quotation_marks() {
+        echo "$1" | sed 's/^"\(.*\)"$/\1/'
     }
 
     # Function to read user input compatibly with both Bash and Zsh
