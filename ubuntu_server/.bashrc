@@ -159,7 +159,7 @@ gcm() {
 git diff --cached
 \`\`\`
 
-    Please generate a concise, one-line commit message for these changes. Only output the commit message, not the diff itself."
+    Please generate a concise, one-line commit message for these changes. Only respond with the commit message itself"
 
     # Function to generate commit message
     generate_commit_message() {
