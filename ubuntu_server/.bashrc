@@ -153,14 +153,17 @@ unset __conda_setup
 # the `llm` CLI util is awesome, can get it here: https://llm.datasette.io/en/stable/
 
 gcm() {
-    # Function to generate commit message
-    generate_commit_message() {
-        git diff --cached | llm "
-Below is a diff of all staged changes, coming from the command:
+    PROMPT="Below is a diff of all staged changes, coming from the command:
+
 \`\`\`
 git diff --cached
 \`\`\`
-Generate a one-line, short, and concise commit message for these changes for git."
+
+    Please generate a concise, one-line commit message for these changes. Only output the commit message, not the diff itself."
+
+    # Function to generate commit message
+    generate_commit_message() {
+        git diff --cached | llm --model "4o" --key "$OPENAI_API_KEY" "$PROMPT"
     }
 
     # Function to read user input compatibly with both Bash and Zsh
