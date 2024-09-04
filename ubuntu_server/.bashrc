@@ -1,5 +1,5 @@
 alias clr='\clear'
-alias clear='clear && neofetch'
+#alias clear='clear && neofetch'
 clear
 cd /data/junkim100/
 
@@ -227,3 +227,16 @@ git diff --cached
         esac
     done
 }
+
+# Save github credentials for 24 hours
+git_credential_cache() {
+    if ! git config --global --get credential.helper | grep -q 'cache --timeout=86400'; then
+        git config --global credential.helper 'cache --timeout=86400'
+        echo "Git credential cache set to 1 day timeout."
+    fi
+}
+
+git_credential_cache
+
+export PATH=/usr/local/cuda-12.3/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH
