@@ -14,7 +14,17 @@ compinit
 
 ##### Keybindings #####
 bindkey -e
-bindkey "^X\x7f" backward-kill-line
+
+#Command Backspace
+bindkey '^U' backward-kill-line
+
+# Option + Left/Right
+bindkey '\e\e[D' backward-word
+bindkey '\e\e[C' forward-word
+
+# Command + Left/Right (Home/End style)
+bindkey '^[[H' beginning-of-line
+bindkey '^[[F' end-of-line
 
 ##### Aliases #####
 alias ll='ls -lA'
@@ -54,5 +64,5 @@ source "$(brew --prefix zsh-syntax-highlighting)/share/zsh-syntax-highlighting/z
 
 ##### Oh My Posh (last line) #####
 # Oh My Posh: add init as the last line to ~/.zshrc. [web:17]
-eval "$(oh-my-posh init zsh --config ~/.ohmyposh-nord-theme.json)"
+eval "$(oh-my-posh init zsh --config https://raw.githubusercontent.com/junkim100/dotfiles/refs/heads/main/macOS/.ohmyposh-nord-theme.json)"
 
