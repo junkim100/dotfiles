@@ -1,0 +1,58 @@
+##### Basics #####
+export SHELL="$(command -v zsh)"
+export LANG="en_US.UTF-8"
+
+# History (simple, sane defaults)
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt HIST_IGNORE_DUPS HIST_REDUCE_BLANKS SHARE_HISTORY
+
+# Completion
+autoload -Uz compinit
+compinit
+
+##### Keybindings #####
+bindkey -e
+bindkey "^X\x7f" backward-kill-line
+
+##### Aliases #####
+alias ll='ls -lA'
+alias claudeyolo='claude --dangerously-skip-permissions'
+
+##### NVM #####
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion" >/dev/null 2>&1
+
+##### Local env script (optional) #####
+[[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" >/dev/null 2>&1
+
+##### Conda (kept, silenced) #####
+if [[ -n "$CONDA_PREFIX" ]] && [[ ! -d "$CONDA_PREFIX" ]]; then
+  unset CONDA_PREFIX CONDA_DEFAULT_ENV
+fi
+
+__conda_setup="$('/Users/junkim/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+  eval "$__conda_setup" >/dev/null 2>&1
+else
+  if [ -f "/Users/junkim/miniconda3/etc/profile.d/conda.sh" ]; then
+    . "/Users/junkim/miniconda3/etc/profile.d/conda.sh" >/dev/null 2>&1
+  else
+    export PATH="/Users/junkim/miniconda3/bin:$PATH"
+  fi
+fi
+unset __conda_setup
+
+##### Homebrew Zsh plugins #####
+# zsh-autosuggestions (Homebrew install instructions use brew prefix sourcing). [web:56]
+source "$(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+
+# zsh-syntax-highlighting should be sourced at the end of ~/.zshrc. [web:72]
+source "$(brew --prefix zsh-syntax-highlighting)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+##### Oh My Posh (last line) #####
+# Oh My Posh: add init as the last line to ~/.zshrc. [web:17]
+eval "$(oh-my-posh init zsh --config ~/.ohmyposh-nord-theme.json)"
+
