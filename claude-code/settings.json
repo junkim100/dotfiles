@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "defaultMode": "default"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash /Users/junkim/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "commit-commands@claude-plugins-official": true,
+    "ralph-wiggum@claude-code-plugins": true
+  },
+  "syntaxHighlightingDisabled": false,
+  "autoUpdatesChannel": "stable"
+}
