@@ -8,8 +8,15 @@
   },
   "enabledPlugins": {
     "commit-commands@claude-plugins-official": true,
-    "ralph-wiggum@claude-code-plugins": true
+    "context7@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true
+  },
+  "env": {
   },
   "syntaxHighlightingDisabled": false,
-  "autoUpdatesChannel": "stable"
+  "autoUpdatesChannel": "stable",
+  "skipDangerousModePermissionPrompt": true
 }
