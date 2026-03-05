@@ -67,9 +67,5 @@ source "$(brew --prefix zsh-syntax-highlighting)/share/zsh-syntax-highlighting/z
 eval "$(oh-my-posh init zsh --config https://raw.githubusercontent.com/junkim100/dotfiles/refs/heads/main/macOS/.ohmyposh-nord-theme.json)"
 
 
-# Twitter/X (bird) credentials
-export AUTH_TOKEN="ce28f7dbb050c5d623b3a2eec050c3bce636f8be"
-export CT0="b3fce11aa0d02a0a721f011f4f6600538bb5537ea0630b238846b7edfae6bbb9fec614970fcbc53df5d85bfa41f4f4a672206054439c108d5c597885f5a4732a9abf5013cb1212f64b7896b139696b04"
-
 # OpenClaw Completion
-source "/Users/junkim/.openclaw/completions/openclaw.zsh"
+# source "/Users/junkim/.openclaw/completions/openclaw.zsh"
