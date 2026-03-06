@@ -1,11 +1,4 @@
-alias clr='\clear'
-#alias clear='clear && neofetch'
-clear
-cd /data/junkim100/
-
-alias ntop="nvitop"
-alias wnv='watch nvidia-smi'
-alias py='runtitle python'
+cd /mnt/weka/private/junkim/
 
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
