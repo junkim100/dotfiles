@@ -1,4 +1,4 @@
-cd /mnt/weka/private/junkim/
+[ -d "/mnt/weka/private/junkim/" ] && cd /mnt/weka/private/junkim/
 
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
@@ -230,3 +230,14 @@ git_credential_cache() {
 }
 
 git_credential_cache
+
+# Auto-start SLURM notifier (sends Slack DMs on job state changes)
+# Secrets are stored in ~/.slurm_notifier.env (not committed to git)
+if command -v squeue &>/dev/null && [ -f "$HOME/slurm_notifier.sh" ] && [ -f "$HOME/.slurm_notifier.env" ]; then
+    if ! pgrep -f "slurm_notifier.sh" &>/dev/null; then
+        source "$HOME/.slurm_notifier.env"
+        nohup bash "$HOME/slurm_notifier.sh" &>/dev/null &
+        disown
+        echo "SLURM notifier started (PID: $!)"
+    fi
+fi

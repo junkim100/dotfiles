@@ -1,30 +1,39 @@
-chmod -R +x .
+DOTFILES_DIR="$HOME/dotfiles"
+SCRIPT_DIR="$DOTFILES_DIR/ubuntu_server"
+
+chmod -R +x "$SCRIPT_DIR"
 
 clear
 
 # Create symbolic links for .bashrc and .vimrc
-if ln -sf /data/junkim100/dotfiles/ubuntu_server/.bashrc $HOME/.bashrc; then
+if ln -sf "$SCRIPT_DIR/.bashrc" "$HOME/.bashrc"; then
     echo "Successfully linked .bashrc"
 else
     echo "Failed to link .bashrc"
 fi
 
-if ln -sf /data/junkim100/dotfiles/ubuntu_common/.vimrc $HOME/.vimrc; then
+if ln -sf "$DOTFILES_DIR/ubuntu_common/.vimrc" "$HOME/.vimrc"; then
     echo "Successfully linked .vimrc"
 else
     echo "Failed to link .vimrc"
 fi
 
+# Symlink slurm_notifier.sh
+if ln -sf "$SCRIPT_DIR/slurm_notifier.sh" "$HOME/slurm_notifier.sh"; then
+    echo "Successfully linked slurm_notifier.sh"
+else
+    echo "Failed to link slurm_notifier.sh"
+fi
 
-bash /data/junkim100/dotfiles/ubuntu_common/setup_tmux.sh
+bash "$DOTFILES_DIR/ubuntu_common/setup_tmux.sh"
 
-cp /data/junkim100/dotfiles/ubuntu_server/runtitle /usr/bin/
+cp "$SCRIPT_DIR/runtitle" /usr/bin/
 
 # Check if conda is installed and run setup_conda.sh if it's not
 if command -v conda &> /dev/null; then
     echo "Conda is not installed. Running setup_conda.sh..."
-    bash /data/junkim100/dotfiles/ubuntu_server/setup_conda.sh
+    bash "$SCRIPT_DIR/setup_conda.sh"
 fi
 
 # Install apt packages
-bash /data/junkim100/dotfiles/ubuntu_common/install_packages.sh
+bash "$DOTFILES_DIR/ubuntu_common/install_packages.sh"
