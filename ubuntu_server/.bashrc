@@ -1,4 +1,8 @@
-[ -d "/mnt/weka/private/junkim/" ] && cd /mnt/weka/private/junkim/
+if [ -d "/mnt/weka/private/junkim/" ]; then
+  cd /mnt/weka/private/junkim/
+elif [ -d "$HOME/data00/private/junkim/" ]; then
+  cd "$HOME/data00/private/junkim/"
+fi
 
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
