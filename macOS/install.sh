@@ -1,6 +1,16 @@
 #!/bin/sh
 set -eu
  
+# Install Homebrew if missing
+if ! command -v brew > /dev/null 2>&1; then
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+ 
+# Install everything from Brewfile
+brew bundle install --file=~/dotfiles/macOS/Brewfile
+ 
+# Symlink dotfiles
 ln -sf ~/dotfiles/macOS/.zshrc ~/.zshrc
 ln -sf ~/dotfiles/macOS/.vimrc ~/.vimrc
 ln -sf ~/dotfiles/macOS/.tmux.conf ~/.tmux.conf
