@@ -1,0 +1,29 @@
+# Fonts
+cask "font-fira-code-nerd-font"
+cask "font-meslo-lg-nerd-font"
+
+# Applications
+cask "arc"
+cask "claude"
+cask "cursor"
+cask "ghostty"
+cask "google-chrome"
+cask "slack"
+cask "spotify"
+cask "stats"
+cask "superwhisper"
+cask "logi-options+"
+cask "docker"
+
+# CLI Tools
+brew "bat"
+brew "neofetch"
+brew "oh-my-posh"
+brew "ranger"
+brew "tmux"
+brew "tree"
+brew "uv"
+brew "watch"
+brew "yt-dlp"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
