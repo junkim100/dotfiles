@@ -5,6 +5,9 @@ chmod -R +x "$SCRIPT_DIR"
 
 clear
 
+# Symlink .gitconfig
+ln -sf "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
+
 # Create symbolic links for .bashrc and .vimrc
 if ln -sf "$SCRIPT_DIR/.bashrc" "$HOME/.bashrc"; then
     echo "Successfully linked .bashrc"

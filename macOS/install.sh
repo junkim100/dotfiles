@@ -11,6 +11,7 @@ fi
 brew bundle install --file=~/dotfiles/macOS/Brewfile
  
 # Symlink dotfiles
+ln -sf ~/dotfiles/.gitconfig ~/.gitconfig
 ln -sf ~/dotfiles/macOS/.zshrc ~/.zshrc
 ln -sf ~/dotfiles/macOS/.vimrc ~/.vimrc
 ln -sf ~/dotfiles/macOS/.tmux.conf ~/.tmux.conf
