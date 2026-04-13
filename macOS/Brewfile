@@ -13,10 +13,10 @@ cask "spotify"
 cask "stats"
 cask "superwhisper"
 cask "logi-options+"
-cask "docker"
 
 # CLI Tools
 brew "bat"
+brew "gh"
 brew "neofetch"
 brew "oh-my-posh"
 brew "ranger"
