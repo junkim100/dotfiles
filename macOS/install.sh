@@ -25,12 +25,5 @@ if [ ! -f "$HOME/.tmux/plugins/tpm/tpm" ]; then
   git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
 fi
  
-# Start tmux once so it reads ~/.tmux.conf (initializes TPM env)
-tmux start-server
-tmux new-session -d -s __bootstrap "exit"
-sleep 1
- 
 # Install plugins listed in ~/.tmux.conf
-"$HOME/.tmux/plugins/tpm/bin/install_plugins"
- 
-tmux kill-server
+"$HOME/.tmux/plugins/tpm/scripts/install_plugins.sh"

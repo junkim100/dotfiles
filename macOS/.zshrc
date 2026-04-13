@@ -43,14 +43,14 @@ if [[ -n "$CONDA_PREFIX" ]] && [[ ! -d "$CONDA_PREFIX" ]]; then
   unset CONDA_PREFIX CONDA_DEFAULT_ENV
 fi
 
-__conda_setup="$('/Users/junkim/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+__conda_setup="$("$HOME/miniconda3/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
 if [ $? -eq 0 ]; then
   eval "$__conda_setup" >/dev/null 2>&1
 else
-  if [ -f "/Users/junkim/miniconda3/etc/profile.d/conda.sh" ]; then
-    . "/Users/junkim/miniconda3/etc/profile.d/conda.sh" >/dev/null 2>&1
+  if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+    . "$HOME/miniconda3/etc/profile.d/conda.sh" >/dev/null 2>&1
   else
-    export PATH="/Users/junkim/miniconda3/bin:$PATH"
+    export PATH="$HOME/miniconda3/bin:$PATH"
   fi
 fi
 unset __conda_setup
