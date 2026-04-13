@@ -1,5 +1,5 @@
 DOTFILES_DIR="$HOME/dotfiles"
-SCRIPT_DIR="$DOTFILES_DIR/ubuntu_server"
+SCRIPT_DIR="$DOTFILES_DIR/ubuntu"
 
 chmod -R +x "$SCRIPT_DIR"
 
@@ -12,7 +12,7 @@ else
     echo "Failed to link .bashrc"
 fi
 
-if ln -sf "$DOTFILES_DIR/ubuntu_common/.vimrc" "$HOME/.vimrc"; then
+if ln -sf "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"; then
     echo "Successfully linked .vimrc"
 else
     echo "Failed to link .vimrc"
@@ -25,15 +25,13 @@ else
     echo "Failed to link slurm_notifier.sh"
 fi
 
-bash "$DOTFILES_DIR/ubuntu_common/setup_tmux.sh"
-
-cp "$SCRIPT_DIR/runtitle" /usr/bin/
+bash "$SCRIPT_DIR/setup_tmux.sh"
 
 # Check if conda is installed and run setup_conda.sh if it's not
-if command -v conda &> /dev/null; then
+if ! command -v conda &> /dev/null; then
     echo "Conda is not installed. Running setup_conda.sh..."
     bash "$SCRIPT_DIR/setup_conda.sh"
 fi
 
 # Install apt packages
-bash "$DOTFILES_DIR/ubuntu_common/install_packages.sh"
+bash "$SCRIPT_DIR/install_packages.sh"

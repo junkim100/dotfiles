@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the source and destination paths for the configuration files
-TMUX_CONF_SOURCE="/data/junkim100/dotfiles/ubuntu_common/.tmux.conf"
+TMUX_CONF_SOURCE="$(cd "$(dirname "$0")" && pwd)/.tmux.conf"
 TMUX_CONF_DEST="$HOME/.tmux.conf"
 
 # Function to copy the tmux configuration file to the home directory
@@ -23,8 +23,7 @@ clone_tpm() {
 # Function to install tmux plugins
 install_plugins() {
   echo "Installing tmux plugins..."
-  tmux new-session -d -s temp_tpm_install 'sleep 2; tmux kill-session -t temp_tpm_install'
-  tmux new-session -d -s temp_tpm_install 'sleep 2; tmux run-shell ~/.tmux/plugins/tpm/scripts/install_plugins.sh; tmux kill-session -t temp_tpm_install'
+  ~/.tmux/plugins/tpm/scripts/install_plugins.sh
 }
 
 # Execute the functions
