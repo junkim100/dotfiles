@@ -4,10 +4,10 @@
 TMUX_CONF_SOURCE="$(cd "$(dirname "$0")" && pwd)/.tmux.conf"
 TMUX_CONF_DEST="$HOME/.tmux.conf"
 
-# Function to copy the tmux configuration file to the home directory
+# Function to symlink the tmux configuration file to the home directory
 copy_tmux_conf() {
-  echo "Copying tmux configuration file to the home directory..."
-  cp $TMUX_CONF_SOURCE $TMUX_CONF_DEST
+  echo "Linking tmux configuration file to the home directory..."
+  ln -sf $TMUX_CONF_SOURCE $TMUX_CONF_DEST
 }
 
 # Function to clone TPM (tmux Plugin Manager)

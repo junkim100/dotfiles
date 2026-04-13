@@ -26,7 +26,7 @@ done
 
 # Rename batcat to bat (Ubuntu ships it as batcat)
 if [ -f /usr/bin/batcat ] && [ ! -f /usr/bin/bat ]; then
-  mv /usr/bin/batcat /usr/bin/bat
+  sudo mv /usr/bin/batcat /usr/bin/bat
 fi
 
 pip3 install --upgrade nvitop
