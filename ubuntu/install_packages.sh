@@ -1,6 +1,7 @@
 # List of packages to check and install
 packages=(
   bat
+  jq
   ranger
   btop
 )
