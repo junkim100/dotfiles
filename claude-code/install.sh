@@ -1,5 +1,5 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+set -e
 
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 
