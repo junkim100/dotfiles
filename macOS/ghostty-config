@@ -3,3 +3,4 @@ theme = nord
 mouse-hide-while-typing = true
 font-family = "MesloLGM Nerd Font"
 keybind = shift+enter=text:\x1b\r
+background-opacity = 0.98
