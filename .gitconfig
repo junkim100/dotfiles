@@ -3,3 +3,5 @@
 	email = junkim100@gmail.com
 [init]
 	defaultBranch = main
+[credential]
+	helper = cache --timeout=86400
