@@ -22,12 +22,12 @@ if [ ! -f "$HOME/.nvm/nvm.sh" ]; then
 fi
 
 # Load nvm
-. "$HOME/.nvm/nvm.sh"
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
 
-# Install node if missing
-if ! command -v node > /dev/null 2>&1; then
-  nvm install --lts
-fi
+# Always install/use LTS node via nvm (avoid system node)
+nvm install --lts
+nvm use --lts
 
 # Install claude-code if missing
 if ! command -v claude > /dev/null 2>&1; then
