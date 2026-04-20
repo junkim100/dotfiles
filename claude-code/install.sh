@@ -16,18 +16,5 @@ if [ -d "$DOTFILES_DIR/commands" ]; then
   done
 fi
 
-# Install nvm if missing
-if [ ! -f "$HOME/.nvm/nvm.sh" ]; then
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-fi
-
-# Load nvm
-export NVM_DIR="$HOME/.nvm"
-. "$NVM_DIR/nvm.sh"
-
-# Always install/use LTS node via nvm (avoid system node)
-nvm install --lts
-nvm use --lts
-
-# Install or update claude-code to latest
-npm install -g @anthropic-ai/claude-code@latest
+# Install or update claude-code via native installer (auto-updates in background)
+curl -fsSL https://claude.ai/install.sh | bash
