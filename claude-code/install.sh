@@ -29,7 +29,5 @@ export NVM_DIR="$HOME/.nvm"
 nvm install --lts
 nvm use --lts
 
-# Install claude-code if missing
-if ! command -v claude > /dev/null 2>&1; then
-  npm install -g @anthropic-ai/claude-code
-fi
+# Install or update claude-code to latest
+npm install -g @anthropic-ai/claude-code@latest
