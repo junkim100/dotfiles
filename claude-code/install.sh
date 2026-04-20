@@ -17,4 +17,4 @@ if [ -d "$DOTFILES_DIR/commands" ]; then
 fi
 
 # Install or update claude-code via native installer (auto-updates in background)
-curl -fsSL https://claude.ai/install.sh | bash
+curl -fsSL https://claude.ai/install.sh | bash -s -- latest
