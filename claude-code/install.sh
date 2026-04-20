@@ -18,3 +18,7 @@ fi
 
 # Install or update claude-code via native installer (auto-updates in background)
 curl -fsSL https://claude.ai/install.sh | bash -s -- latest
+
+# Install plugins (marketplaces are declared in settings.json)
+"$HOME/.local/bin/claude" plugin install pr-review-toolkit@claude-plugins-official
+"$HOME/.local/bin/claude" plugin install autoresearch@autoresearch
