@@ -29,7 +29,7 @@ bindkey '^[[F' end-of-line
 
 ##### Aliases #####
 alias ll='ls -lA'
-alias claudeyolo='claude --dangerously-skip-permissions'
+alias claudeyolo='clear && claude --dangerously-skip-permissions'
 
 ##### NVM #####
 export NVM_DIR="$HOME/.nvm"
