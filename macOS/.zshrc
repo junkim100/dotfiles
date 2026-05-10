@@ -1,7 +1,6 @@
 ##### Basics #####
 export SHELL="$(command -v zsh)"
 export LANG="en_US.UTF-8"
-export TERM=xterm-256color
 
 # History (simple, sane defaults)
 HISTFILE="$HOME/.zsh_history"
@@ -67,6 +66,3 @@ source "$(brew --prefix zsh-syntax-highlighting)/share/zsh-syntax-highlighting/z
 # Oh My Posh: add init as the last line to ~/.zshrc. [web:17]
 eval "$(oh-my-posh init zsh --config https://raw.githubusercontent.com/junkim100/dotfiles/refs/heads/main/macOS/.ohmyposh-nord-theme.json)"
 
-
-# OpenClaw Completion
-# source "/Users/junkim/.openclaw/completions/openclaw.zsh"
