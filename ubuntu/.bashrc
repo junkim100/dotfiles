@@ -1,3 +1,14 @@
+# ─── Always-load (interactive AND non-interactive shells) ────────
+# Needed for SSH-invoked commands from agent tools like Hermes.
+
+# PATH additions
+export PATH="$HOME/.local/bin:$PATH"
+
+# nvm — load in non-interactive shells too (must precede the interactive guard below)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Project cwd default
 if [ -d "/data/project/private/junkim/" ]; then
   cd /data/project/private/junkim/
 fi
@@ -244,3 +255,7 @@ if command -v squeue &>/dev/null && [ -f "$HOME/slurm_notifier.sh" ] && [ -f "$H
     fi
 fi
 
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
