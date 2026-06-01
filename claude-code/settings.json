@@ -16,7 +16,8 @@
     "security-guidance@claude-plugins-official": false,
     "autoresearch@autoresearch": true,
     "slack@claude-plugins-official": true,
-    "codex@openai-codex": true
+    "codex@openai-codex": true,
+    "understand-anything@understand-anything": true
   },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
@@ -36,10 +37,17 @@
         "source": "github",
         "repo": "openai/codex-plugin-cc"
       }
+    },
+    "understand-anything": {
+      "source": {
+        "source": "github",
+        "repo": "Lum1104/Understand-Anything"
+      }
     }
   },
   "syntaxHighlightingDisabled": false,
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
+  "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true
 }
