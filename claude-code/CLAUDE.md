@@ -67,3 +67,14 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Run `uv run ruff check --fix` and `uv run ruff format` on all Python code after completing a task.
 - Run `uv run ruff check --fix` and `uv run ruff format` before making any git commits.
 - Use `fire` for handling command-line arguments in Python scripts.
+
+## 6. Writing in Korean
+
+**Default to English (Latin) for every technical / computing / loanword term; Hangul carries only native grammar and ordinary words — a principle, not a word list. When unsure, use English.**
+
+- 음차 whitelist (only loanwords kept in Hangul): model→모델, node→노드, file→파일 — all others (benchmark, directory, log, script, throughput, …) are English.
+- 의역 whitelist (translated to Korean): optimize→최적화, evaluation→평가.
+- Section / structure labels are English: Overview, Prerequisites, Step N, Checklist, Reference, Variant, Notes.
+- No Korean gloss in parens after an English term: `deploy`, not `deploy(배포)` — a description like `main.py (the entry point)` is fine.
+- Tone: terse `~함` / `~임` (개조식), not `~합니다` / `~해요`; instructions as `~할 것`.
+- Code, YAML, and quoted output stay verbatim; save a translated doc as `<name>.ko.md`.
