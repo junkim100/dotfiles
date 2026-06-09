@@ -14,6 +14,13 @@ ln -sf "$DOTFILES_DIR/statusline-command.sh" ~/.claude/statusline-command.sh
 # symlinked dir (which would create self-referencing links inside the repo).
 ln -sfn "$DOTFILES_DIR/commands" ~/.claude/commands
 
+# Symlink individual skills (not the whole dir) so machine-local skills in
+# ~/.claude/skills are left in place.
+mkdir -p ~/.claude/skills
+for skill in "$DOTFILES_DIR"/skills/*/; do
+  ln -sfn "${skill%/}" ~/.claude/skills/"$(basename "$skill")"
+done
+
 # Install or update claude-code via native installer (auto-updates in background)
 curl -fsSL https://claude.ai/install.sh | bash -s -- latest
 
