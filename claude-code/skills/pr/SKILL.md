@@ -5,14 +5,14 @@ description: >
   Verification-first PR review: fetches the PR at its head SHA, checks every
   claim, reference, and feature-invariant against actually-pushed code (never
   the working tree, never the author's reply), classifies findings by severity
-  with exact file:line anchors at head, prints a review, and ON REQUEST drafts
+  with exact file:line anchors at head, prints a review, then drafts short,
   post-ready inline comments in the user's Korean style. Does not post anything;
   the user posts comments himself.
 ---
 
 # /pr — verification-first PR review
 
-Reviews PR `<N>` (Phases 0–6), then drafts comments only when the user asks (Phase 7).
+Reviews PR `<N>` (Phases 0–6), then drafts comments (Phase 7).
 Pseudocode is normative. Follow steps in order. Take each branch literally.
 
 ## Hard rules (apply in every phase)
@@ -159,24 +159,24 @@ two code paths that must agree):
       - Findings table: severity | file:line@HEAD | problem | fix.
       - CI status + mergeable/mergeStateStatus.
 6.2 Lead with High/Medium. Separate Note/Nit.
-6.3 Offer: "Want me to draft these as PR comments?" → if yes, PHASE 7.
+6.3 Proceed to PHASE 7 and draft comments for the High/Medium findings (no need to ask).
 ```
 
-## PHASE 7 — DRAFT COMMENTS (only when the user requests)
+## PHASE 7 — DRAFT COMMENTS (always, after Phase 6)
 ```
 7.1 For each FINDING to comment:
       re-run fileAtHead(file) and confirm line_at_head still points at the
       intended code (anchor may have moved if the PR was updated). Update line.
-7.2 Compose body in STYLE = ko-formal:
+7.2 Compose body in STYLE = ko-formal, SHORT & SIMPLE:
+      - Keep it to 1–2 sentences. No preamble, no restating the code, no hedging.
+      - State the problem; add the fix only if it is not obvious from the problem.
       - Korean with 입니다/습니다 endings.
       - English (Latin) for all technical/computing terms (timeout, env, default,
         override, regex, semaphore, ...). Hangul only for native grammar/words.
       - No Korean gloss in parens after an English term.
-      - Lead with the problem in one sentence; add the fix only if it adds signal.
       - Reference cross-file evidence as `path:line`.
 7.3 Emit each as: file · Line N · body.  (one block per comment)
 7.4 The user posts them. Do NOT call gh to post.
-7.5 Offer a shorter variant of any comment on request.
 ```
 
 ## Notes for the operator (you)
