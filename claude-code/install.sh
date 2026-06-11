@@ -5,6 +5,17 @@ DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 mkdir -p ~/.claude
 
+# jq is required by statusline-command.sh (model name / token segments)
+if ! command -v jq > /dev/null; then
+  if command -v apt-get > /dev/null; then
+    sudo apt-get install -y jq
+  elif command -v brew > /dev/null; then
+    brew install jq
+  else
+    echo "WARNING: jq not found and no known package manager; statusline will be incomplete" >&2
+  fi
+fi
+
 # Claude Code config
 ln -sf "$DOTFILES_DIR/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES_DIR/settings.json" ~/.claude/settings.json
