@@ -39,9 +39,11 @@ curl -fsSL https://claude.ai/install.sh | bash -s -- latest
 "$HOME/.local/bin/claude" plugin marketplace add uditgoenka/autoresearch
 "$HOME/.local/bin/claude" plugin marketplace add openai/codex-plugin-cc
 "$HOME/.local/bin/claude" plugin marketplace add Lum1104/Understand-Anything
+"$HOME/.local/bin/claude" plugin marketplace add junkim100/gavel
 
 # Install plugins
 "$HOME/.local/bin/claude" plugin install pr-review-toolkit@claude-plugins-official
 "$HOME/.local/bin/claude" plugin install autoresearch@autoresearch
 "$HOME/.local/bin/claude" plugin install codex@openai-codex
 "$HOME/.local/bin/claude" plugin install understand-anything@understand-anything
+"$HOME/.local/bin/claude" plugin install gavel@gavel
