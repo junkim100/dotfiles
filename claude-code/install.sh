@@ -41,9 +41,17 @@ curl -fsSL https://claude.ai/install.sh | bash -s -- latest
 "$HOME/.local/bin/claude" plugin marketplace add Lum1104/Understand-Anything
 "$HOME/.local/bin/claude" plugin marketplace add junkim100/gavel
 
-# Install plugins
-"$HOME/.local/bin/claude" plugin install pr-review-toolkit@claude-plugins-official
-"$HOME/.local/bin/claude" plugin install autoresearch@autoresearch
-"$HOME/.local/bin/claude" plugin install codex@openai-codex
-"$HOME/.local/bin/claude" plugin install understand-anything@understand-anything
-"$HOME/.local/bin/claude" plugin install gavel@gavel
+# Install plugins, then update. `install` is a no-op once any version is present, so an explicit
+# `update` is required for re-runs to pick up new plugin versions (e.g. a bumped gavel). Update is
+# best-effort (|| true) so "already latest" doesn't abort the script under `set -e`.
+PLUGINS=(
+  pr-review-toolkit@claude-plugins-official
+  autoresearch@autoresearch
+  codex@openai-codex
+  understand-anything@understand-anything
+  gavel@gavel
+)
+for plugin in "${PLUGINS[@]}"; do
+  "$HOME/.local/bin/claude" plugin install "$plugin"
+  "$HOME/.local/bin/claude" plugin update "$plugin" || true
+done
