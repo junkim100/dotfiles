@@ -1,2 +1,5 @@
 # NFS silly-rename temp files
 .nfs*
+
+# Claude Code hook logs
+**/.claude/hooks/.logs/

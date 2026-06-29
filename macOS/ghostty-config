@@ -1,6 +1,7 @@
 macos-icon = xray
-theme = nord
+theme = glassy-nord
 mouse-hide-while-typing = true
 font-family = "MesloLGM Nerd Font"
 keybind = shift+enter=text:\x1b\r
-background-opacity = 0.98
+background-opacity = 0.9
+background-blur = 20

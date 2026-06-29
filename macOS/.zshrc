@@ -66,3 +66,9 @@ source "$(brew --prefix zsh-syntax-highlighting)/share/zsh-syntax-highlighting/z
 # Oh My Posh: add init as the last line to ~/.zshrc. [web:17]
 eval "$(oh-my-posh init zsh --config https://raw.githubusercontent.com/junkim100/dotfiles/refs/heads/main/macOS/.ohmyposh-nord-theme.json)"
 
+
+export PATH="$HOME/.local/bin:$PATH"
+
+
+# Added by Antigravity CLI installer
+export PATH="/Users/junkim/.local/bin:$PATH"

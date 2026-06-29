@@ -17,8 +17,15 @@ ln -sf ~/dotfiles/macOS/.vimrc ~/.vimrc
 ln -sf ~/dotfiles/macOS/.tmux.conf ~/.tmux.conf
  
 # Ghostty
-mkdir -p ~/.config/ghostty
+mkdir -p ~/.config/ghostty/themes
 ln -sf ~/dotfiles/macOS/ghostty-config ~/.config/ghostty/config
+ln -sf ~/dotfiles/macOS/ghostty-theme-glassy-nord ~/.config/ghostty/themes/glassy-nord
+
+# Zed
+mkdir -p ~/.config/zed/themes
+ln -sf ~/dotfiles/macOS/zed-settings.json ~/.config/zed/settings.json
+ln -sf ~/dotfiles/macOS/zed-keymap.json ~/.config/zed/keymap.json
+ln -sf ~/dotfiles/macOS/zed-theme-glassy-nord.json ~/.config/zed/themes/glassy_nord.json
  
 # Install TPM if missing
 if [ ! -f "$HOME/.tmux/plugins/tpm/tpm" ]; then

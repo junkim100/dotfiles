@@ -5,7 +5,6 @@ cask "font-meslo-lg-nerd-font"
 # Applications
 cask "arc"
 cask "claude"
-cask "cursor"
 cask "ghostty"
 cask "google-chrome"
 cask "nordvpn"
@@ -14,6 +13,7 @@ cask "spotify"
 cask "stats"
 cask "superwhisper"
 cask "logi-options+"
+cask "zed"
 
 # CLI Tools
 brew "bat"
