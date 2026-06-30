@@ -8,12 +8,14 @@
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
   "edit_predictions": {
-    "provider": "copilot",
+    "disabled_globs": [],
+    "provider": "copilot"
   },
   "collaboration_panel": {
-    "button": false,
+    "button": false
   },
   "git_panel": {
+    "default_width": 400.0,
     "show_count_badge": false,
     "folder_icons": true,
     "file_icons": false,
@@ -21,10 +23,10 @@
     "collapse_untracked_diff": false,
     "sort_by_path": false,
     "tree_view": true,
-    "button": true,
+    "button": true
   },
   "outline_panel": {
-    "git_status": true,
+    "git_status": true
   },
   "buffer_font_weight": 400.0,
   "buffer_line_height": "comfortable",
@@ -35,10 +37,10 @@
     "show_diagnostics": "off",
     "close_position": "right",
     "file_icons": true,
-    "git_status": true,
+    "git_status": true
   },
   "tab_bar": {
-    "show": true,
+    "show": true
   },
   "title_bar": {
     "show_menus": false,
@@ -47,32 +49,33 @@
     "show_onboarding_banner": false,
     "show_project_items": true,
     "show_branch_name": true,
-    "show_branch_status_icon": false,
+    "show_branch_status_icon": false
   },
   "debugger": {
-    "button": false,
+    "button": false
   },
   "search": {
-    "button": true,
+    "button": true
   },
   "diagnostics": {
-    "button": false,
+    "button": false
   },
   "terminal": {
-    "button": false,
+    "button": false
   },
   "project_panel": {
+    "default_width": 400.0,
     "hide_root": false,
     "sticky_scroll": true,
     "git_status_indicator": false,
     "dock": "right",
-    "button": true,
+    "button": true
   },
   "status_bar": {
     "show_active_file": false,
     "cursor_position_button": true,
     "active_encoding_button": "non_utf8",
-    "active_language_button": true,
+    "active_language_button": true
   },
   "autosave": "on_focus_change",
   "ssh_connections": [
@@ -82,31 +85,36 @@
       "projects": [
         {
           "paths": [
-            "/mnt/a1256d8f-58a4-4b4c-a60b-43cc768ad996/private/junkim/solar-system/eval/wbl-eval/./",
-          ],
+            "/data/project/public/llm-eval/workspace/solar-open2/solar-system-jun/eval/wbl-eval/./"
+          ]
         },
-      ],
-    },
+        {
+          "paths": [
+            "/mnt/a1256d8f-58a4-4b4c-a60b-43cc768ad996/private/junkim/solar-system/eval/wbl-eval/./"
+          ]
+        }
+      ]
+    }
   ],
   "icon_theme": "Material Icon Theme",
   "telemetry": {
     "diagnostics": false,
     "metrics": false,
-    "anthropic_retention": false,
+    "anthropic_retention": false
   },
   "session": {
-    "trust_all_worktrees": true,
+    "trust_all_worktrees": true
   },
   "agent_servers": {
     "claude-acp": {
-      "type": "registry",
-    },
+      "type": "registry"
+    }
   },
   "base_keymap": "VSCode",
   "minimap": {
-    "show": "always",
+    "show": "always"
   },
   "soft_wrap": "editor_width",
   "ui_font_size": 16.0,
-  "theme": "Glassy Nord Dark",
+  "theme": "Glassy Nord Dark"
 }

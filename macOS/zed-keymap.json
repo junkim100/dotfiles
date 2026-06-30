@@ -56,7 +56,7 @@
   },
   {
     "bindings": {
-      "cmd-o": "editor::OpenFile"
+      "cmd-o": null
     }
   }
 ]
