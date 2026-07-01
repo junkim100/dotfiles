@@ -7,6 +7,22 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "prettier": {
+    "allowed": false
+  },
+  "file_finder": {
+    "file_icons": true
+  },
+  "proxy": "",
+  "git": {
+    "inline_blame": {
+      "enabled": false,
+      "delay_ms": 0
+    },
+    "blame": {
+      "show_avatar": true
+    }
+  },
   "edit_predictions": {
     "disabled_globs": [],
     "provider": "copilot"

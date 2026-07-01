@@ -58,5 +58,39 @@
     "bindings": {
       "cmd-o": null
     }
+  },
+  {
+    "context": "ProjectPanel",
+    "bindings": {
+      "cmd-backspace": [
+        "project_panel::Delete",
+        {
+          "skip_prompt": false
+        }
+      ]
+    }
+  },
+  {
+    "context": "ProjectPanel",
+    "unbind": {
+      "alt-cmd-backspace": [
+        "project_panel::Delete",
+        {
+          "skip_prompt": false
+        }
+      ]
+    }
+  },
+  {
+    "context": "ProjectPanel",
+    "bindings": {
+      "enter": "project_panel::Rename"
+    }
+  },
+  {
+    "context": "ProjectPanel",
+    "unbind": {
+      "f2": "project_panel::Rename"
+    }
   }
 ]
