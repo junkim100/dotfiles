@@ -1,5 +1,6 @@
 # List of packages to check and install
 packages=(
+  tmux
   bat
   jq
   ranger
