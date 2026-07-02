@@ -35,6 +35,32 @@
     "disabled_globs": [],
     "provider": "copilot"
   },
+  "languages": {
+    "Python": {
+      "language_servers": ["basedpyright", "ruff"],
+      "format_on_save": "on",
+      "code_actions_on_format": {
+        "source.organizeImports.ruff": true
+      },
+      "formatter": {
+        "language_server": {
+          "name": "ruff"
+        }
+      }
+    }
+  },
+  "lsp": {
+    "basedpyright": {
+      "settings": {
+        "python.analysis": {
+          "typeCheckingMode": "basic"
+        }
+      }
+    }
+  },
+  "inlay_hints": {
+    "enabled": true
+  },
   "collaboration_panel": {
     "button": false
   },
