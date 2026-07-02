@@ -61,6 +61,10 @@
   "inlay_hints": {
     "enabled": true
   },
+  "scrollbar": {
+    "git_diff": true,
+    "diagnostics": "none"
+  },
   "collaboration_panel": {
     "button": false
   },
