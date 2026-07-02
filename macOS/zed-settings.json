@@ -9,6 +9,7 @@
 {
   "diff_view_style": "split",
   "agent": {
+    "enabled": false,
     "button": false,
     "favorite_models": [],
     "model_parameters": []
