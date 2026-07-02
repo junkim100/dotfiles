@@ -7,6 +7,13 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "diff_view_style": "split",
+  "agent": {
+    "button": false,
+    "favorite_models": [],
+    "model_parameters": []
+  },
+  "disable_ai": false,
   "prettier": {
     "allowed": false
   },
