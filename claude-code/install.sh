@@ -21,10 +21,6 @@ ln -sf "$DOTFILES_DIR/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES_DIR/settings.json" ~/.claude/settings.json
 ln -sf "$DOTFILES_DIR/statusline-command.sh" ~/.claude/statusline-command.sh
 
-# Symlink the whole commands dir. -n avoids descending into an existing
-# symlinked dir (which would create self-referencing links inside the repo).
-ln -sfn "$DOTFILES_DIR/commands" ~/.claude/commands
-
 # Symlink individual skills (not the whole dir) so machine-local skills in
 # ~/.claude/skills are left in place.
 mkdir -p ~/.claude/skills
@@ -45,7 +41,6 @@ curl -fsSL https://claude.ai/install.sh | bash -s -- latest
 # `update` is required for re-runs to pick up new plugin versions (e.g. a bumped gavel). Update is
 # best-effort (|| true) so "already latest" doesn't abort the script under `set -e`.
 PLUGINS=(
-  pr-review-toolkit@claude-plugins-official
   autoresearch@autoresearch
   codex@openai-codex
   understand-anything@understand-anything
