@@ -247,17 +247,6 @@ git_credential_cache() {
 
 git_credential_cache
 
-# Auto-start SLURM notifier (sends Slack DMs on job state changes)
-# Secrets are stored in ~/.slurm_notifier.env (not committed to git)
-if command -v squeue &>/dev/null && [ -f "$HOME/slurm_notifier.sh" ] && [ -f "$HOME/.slurm_notifier.env" ]; then
-    if ! pgrep -f "slurm_notifier.sh" &>/dev/null; then
-        source "$HOME/.slurm_notifier.env"
-        nohup bash "$HOME/slurm_notifier.sh" &>/dev/null &
-        disown
-        echo "SLURM notifier started (PID: $!)"
-    fi
-fi
-
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm

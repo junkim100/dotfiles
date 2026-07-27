@@ -21,13 +21,6 @@ else
     echo "Failed to link .vimrc"
 fi
 
-# Symlink slurm_notifier.sh
-if ln -sf "$SCRIPT_DIR/slurm_notifier.sh" "$HOME/slurm_notifier.sh"; then
-    echo "Successfully linked slurm_notifier.sh"
-else
-    echo "Failed to link slurm_notifier.sh"
-fi
-
 bash "$SCRIPT_DIR/setup_tmux.sh"
 
 # Ranger config
