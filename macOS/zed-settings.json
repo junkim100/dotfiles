@@ -148,6 +148,17 @@
           ]
         }
       ]
+    },
+    {
+      "host": "nhn",
+      "args": [],
+      "projects": [
+        {
+          "paths": [
+            "/data/project/private/junkim/solar-system/eval/wbl-eval/./"
+          ]
+        }
+      ]
     }
   ],
   "icon_theme": "Material Icon Theme",

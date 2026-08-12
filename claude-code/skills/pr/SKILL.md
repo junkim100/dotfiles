@@ -2,12 +2,7 @@
 name: pr
 description: >
   Use when the user types /pr <N> or asks to review a GitHub pull request.
-  Verification-first PR review: fetches the PR at its head SHA, checks every
-  claim, reference, and feature-invariant against actually-pushed code (never
-  the working tree, never the author's reply), classifies findings by severity
-  with exact file:line anchors at head, prints a review, then drafts short,
-  post-ready inline comments in the user's Korean style. Does not post anything;
-  the user posts comments himself.
+  Verification-first PR review: fetches the PR at its head SHA, checks every claim, reference, and feature-invariant against actually-pushed code (never the working tree, never the author's reply), classifies findings by severity with exact file:line anchors at head, prints a review, then drafts short, post-ready inline comments in the user's Korean style. However, the response to the user should be English. Does not post anything; the user posts comments himself.
 ---
 
 # /pr — verification-first PR review
