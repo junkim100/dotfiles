@@ -55,11 +55,6 @@
     }
   },
   {
-    "bindings": {
-      "cmd-o": null
-    }
-  },
-  {
     "context": "ProjectPanel",
     "bindings": {
       "cmd-backspace": [
