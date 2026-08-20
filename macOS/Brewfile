@@ -17,8 +17,11 @@ cask "zed"
 
 # CLI Tools
 brew "bat"
+brew "fd"
 brew "gh"
+brew "lazygit"
 brew "neofetch"
+brew "neovim"
 brew "oh-my-posh"
 brew "ranger"
 brew "tmux"

@@ -24,6 +24,16 @@ ln -sf ~/dotfiles/macOS/ghostty-theme-glassy-nord ~/.config/ghostty/themes/glass
 mkdir -p ~/Library/Application\ Support/com.mitchellh.ghostty
 ln -sf ~/dotfiles/macOS/ghostty-config ~/Library/Application\ Support/com.mitchellh.ghostty/config
 
+# Neovim (LazyVim). lazy-lock.json is committed, so `Lazy! restore` installs the
+# same plugin commits here as on the Ubuntu boxes.
+mkdir -p ~/.config
+ln -sfn ~/dotfiles/nvim ~/.config/nvim
+if command -v nvim > /dev/null 2>&1; then
+  nvim --headless "+Lazy! restore" +qa 2>/dev/null || true
+  # Language servers, so the first session opens complete rather than downloading.
+  nvim --headless -c "luafile $HOME/dotfiles/nvim/bootstrap-mason.lua" 2>&1 | tail -1 || true
+fi
+
 # bat
 mkdir -p ~/.config/bat
 ln -sf ~/dotfiles/bat-config ~/.config/bat/config
