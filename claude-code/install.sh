@@ -7,8 +7,9 @@ mkdir -p ~/.claude
 
 # jq is required by statusline-command.sh (model name / token segments)
 if ! command -v jq > /dev/null; then
-  if command -v apt-get > /dev/null; then
-    sudo apt-get install -y jq
+  if command -v apt-get > /dev/null && { [ "$(id -u)" -eq 0 ] || sudo -n true 2>/dev/null; }; then
+    [ "$(id -u)" -eq 0 ] && jq_sudo="" || jq_sudo="sudo"
+    $jq_sudo apt-get install -y jq
   elif command -v brew > /dev/null; then
     brew install jq
   else
