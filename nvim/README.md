@@ -2,14 +2,7 @@
 
 LazyVim, set up as a code reader rather than an IDE: Claude Code does the editing, this navigates and reviews.
 
-Symlinked to `~/.config/nvim` by both platforms' `install.sh`. To set up only the editor, without the rest of the dotfiles:
-
-```sh
-bash ~/dotfiles/macOS/setup_nvim.sh    # macOS, via Homebrew
-bash ~/dotfiles/ubuntu/setup_nvim.sh   # Ubuntu, into ~/.local, no sudo
-```
-
-Both are idempotent, and each platform's `install.sh` calls its own, so there is one implementation rather than two.
+Symlinked to `~/.config/nvim` by both `macOS/install.sh` and `ubuntu/install.sh`.
 
 ## Reproducibility
 

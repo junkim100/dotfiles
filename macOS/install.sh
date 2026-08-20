@@ -24,9 +24,28 @@ ln -sf ~/dotfiles/macOS/ghostty-theme-glassy-nord ~/.config/ghostty/themes/glass
 mkdir -p ~/Library/Application\ Support/com.mitchellh.ghostty
 ln -sf ~/dotfiles/macOS/ghostty-config ~/Library/Application\ Support/com.mitchellh.ghostty/config
 
-# Neovim (LazyVim). Extracted so it can be run on its own:
-#   bash ~/dotfiles/macOS/setup_nvim.sh
-bash ~/dotfiles/macOS/setup_nvim.sh
+# Neovim (LazyVim). lazy-lock.json is committed, so `Lazy! restore` installs the
+# same plugin commits here as on the Ubuntu boxes.
+mkdir -p ~/.config
+# Not `ln -sfn`: against an existing REAL directory that creates the link INSIDE
+# it and returns 0, so the install looks fine while the config was never linked.
+if [ -L ~/.config/nvim ]; then
+  ln -sfn ~/dotfiles/nvim ~/.config/nvim
+elif [ -e ~/.config/nvim ]; then
+  nvim_backup=~/.config/nvim.backup.$(date +%Y%m%d%H%M%S)
+  echo "$HOME/.config/nvim exists and is not a symlink; moving it to $nvim_backup"
+  mv ~/.config/nvim "$nvim_backup"
+  ln -s ~/dotfiles/nvim ~/.config/nvim
+else
+  ln -s ~/dotfiles/nvim ~/.config/nvim
+fi
+if command -v nvim > /dev/null 2>&1; then
+  nvim --headless "+Lazy! restore" +qa 2>/dev/null || true
+  # Language servers, so the first session opens complete rather than downloading.
+  nvim --headless -c "luafile $HOME/dotfiles/nvim/bootstrap-mason.lua" 2>&1 | tail -4 || true
+else
+  echo "WARNING: nvim not on PATH after brew bundle; skipped plugin and server install."
+fi
 
 # bat
 mkdir -p ~/.config/bat
