@@ -42,6 +42,12 @@ local packages = {
   "docker-compose-language-service", -- wbl-eval has a docker-compose.yml
   "bash-language-server",
   "lua-language-server", -- for editing this config
+  -- formatters. LazyVim wires conform to these; without them <leader>cf is a
+  -- no-op on the file types you actually hand-edit -- this config, the install
+  -- scripts, and the json/yaml/toml under wbl-eval.
+  "stylua", -- lua
+  "shfmt", -- shell
+  "prettier", -- json, yaml, markdown
   -- linters
   "shellcheck",
   "hadolint",

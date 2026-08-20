@@ -20,7 +20,7 @@ Plugin versions only change when you run `:Lazy update` and commit the new lockf
 |---|---|---|
 | 1 | Providers off | Opening a `.py` file made neovim shell out probing for a python3 provider. Measured 104ms startup with them on, 42ms with them off. |
 | 2 | Auto-reload on `CursorHold` | LazyVim covers `FocusGained` and `autoread` covers buffer switches, but neither catches a file rewritten while you sit still on it. `swapfile` is off for the same reason. |
-| 3 | mason `ensure_installed` filter | Drops `stylua` and `shfmt`, keeps everything else. See the warning below. |
+| 3 | *(removed)* | Formerly filtered `stylua`/`shfmt` out of mason. The reasoning went stale once the config moved into dotfiles: stylua formats this config and shfmt formats the install scripts, both hand-edited. |
 | 4 | nord, transparent | Matches ghostty and tmux. `transparent = true` so ghostty's `background-opacity 0.7` shows through. |
 | 5 | treesitter `ensure_installed` filter | Drops the web stack, which appears nowhere in solar-system and costs compile time on every new machine. |
 | 6 | Dotfiles visible in pickers | snacks hides them by default, which makes the explorer useless in a dotfiles repo. `ignored` stays false so `.venv` and `__pycache__` do not flood results. |
@@ -29,11 +29,28 @@ Plugin versions only change when you run `:Lazy update` and commit the new lockf
 | 9 | neominimap | Replaces Zed's `"minimap": { "show": "always" }`. `<leader>mm` toggles. |
 | 10 | Mouse | `mousescroll=ver:2,hor:4`, and `mousemoveevent` on locally but off over SSH where per-movement events read as lag. |
 | 11 | BUILD and Jinja filetypes | 240 pants BUILD files in wbl-eval are Python but carry no extension, so they rendered as plain text. |
+| 13 | Formatters for json, toml, yaml | Stock LazyVim wires conform for lua, sh, markdown, and fish only, leaving the rest to conform's LSP fallback. That fallback is not dependable: taplo attaches to a `.toml` buffer advertising `textDocument/formatting` and the fallback still does nothing. Naming the formatter per filetype makes it deterministic. |
 | 12 | diffview | Side-by-side changeset review, which lazygit does not do. `<leader>gr` resolves the repo's actual default branch rather than assuming `main`. |
 
 ## Warning: filter, do not replace
 
-Both mason and treesitter mark `ensure_installed` as `opts_extend`. Setting it to a fixed list in an override silently discards everything the `lang.*` extras contribute, so enabling `lang.yaml` and friends installs nothing at all. Both overrides in `lua/plugins/overrides.lua` remove only unwanted entries and pass the rest through. Keep them that way.
+Both mason and treesitter mark `ensure_installed` as `opts_extend`. Setting it to a fixed list in an override silently discards everything the `lang.*` extras contribute, so enabling `lang.yaml` and friends installs nothing at all. The treesitter override in `lua/plugins/overrides.lua` removes only unwanted entries and passes the rest through. Keep it that way.
+
+The same applies to `formatters_by_ft` in `lua/plugins/format.lua`: LazyVim has already populated that table, so assigning a fresh one drops lua and sh.
+
+## Formatting
+
+`<leader>cf` formats. Verified working on all seven types this repo uses:
+
+| filetype | formatter |
+|---|---|
+| lua | stylua |
+| sh | shfmt |
+| json, jsonc | prettier |
+| yaml | prettier |
+| toml | taplo |
+| markdown | prettier, markdownlint-cli2, markdown-toc |
+| python | ruff |
 
 ## Dependencies
 
