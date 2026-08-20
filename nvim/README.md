@@ -39,6 +39,8 @@ Both mason and treesitter mark `ensure_installed` as `opts_extend`. Setting it t
 
 Required: `git`, a C compiler (treesitter parsers build from source).
 
-Optional but assumed: `lazygit` for `<leader>gg`, `fd` for fast file finding (snacks falls back to `ripgrep`), `node` for the npm-based language servers — basedpyright, yaml-language-server, json-lsp, bash-language-server, dockerfile-language-server.
+`ripgrep` is also required, not optional: snacks hardcodes `rg` for its grep source with no fallback, so `<leader>/` does nothing without it. On Ubuntu, `setup_nvim.sh` installs neovim, lazygit, ripgrep, and fd as static binaries into `~/.local`, so none of them need root or apt.
+
+Optional: `fd` for faster file finding (it degrades to `ripgrep`, then `find`), `node` for the npm-based language servers — basedpyright, yaml-language-server, json-lsp, bash-language-server, dockerfile-language-server.
 
 Without node, treesitter highlighting still works and go-to-definition does not. `ubuntu/setup_nvim.sh` checks for all of these and reports what is missing rather than failing partway through.
