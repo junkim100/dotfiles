@@ -23,6 +23,10 @@ fi
 
 bash "$SCRIPT_DIR/setup_tmux.sh"
 
+# bat config
+mkdir -p ~/.config/bat
+ln -sf "$DOTFILES_DIR/bat-config" ~/.config/bat/config
+
 # Ranger config
 mkdir -p ~/.config/ranger
 ln -sf "$SCRIPT_DIR/ranger/rc.conf" ~/.config/ranger/rc.conf

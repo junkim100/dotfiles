@@ -1,0 +1,15 @@
+# bat config. Shared by macOS and Ubuntu; symlinked to ~/.config/bat/config.
+# Run `bat --list-themes` / `bat --list-languages` to see what else is available.
+
+# Pager. less already has vim's core motions (j/k, ctrl-d/ctrl-u, ctrl-f/ctrl-b,
+# g/G, /, ?, n/N, q). These flags add what it is missing:
+#   -R              pass ANSI color through, otherwise the highlighting is escape codes
+#   -F              skip the pager entirely when the file fits one screen
+#   --mouse         scroll wheel scrolls. Hold shift to select text in Ghostty
+#   --wheel-lines=3 3 lines per wheel click instead of 1
+#   --incsearch     `/` jumps as you type, like vim's incsearch
+#   -i              case-insensitive search unless the pattern has a capital, like smartcase
+--pager="less -RF --mouse --wheel-lines=3 --incsearch -i"
+
+# Keep the pager for long files but let short ones print inline (that is -F above).
+--paging=auto

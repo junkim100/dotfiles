@@ -24,6 +24,10 @@ ln -sf ~/dotfiles/macOS/ghostty-theme-glassy-nord ~/.config/ghostty/themes/glass
 mkdir -p ~/Library/Application\ Support/com.mitchellh.ghostty
 ln -sf ~/dotfiles/macOS/ghostty-config ~/Library/Application\ Support/com.mitchellh.ghostty/config
 
+# bat
+mkdir -p ~/.config/bat
+ln -sf ~/dotfiles/bat-config ~/.config/bat/config
+
 # Zed
 mkdir -p ~/.config/zed/themes
 ln -sf ~/dotfiles/macOS/zed-settings.json ~/.config/zed/settings.json
