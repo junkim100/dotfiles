@@ -11,9 +11,11 @@ vim.g.loaded_perl_provider = 0
 vim.g.loaded_ruby_provider = 0
 
 -- MOD 2 (part 1) -- support for reloading files Claude Code edits underneath you.
--- swapfile off removes the second prompt that appears when a file changes on disk;
--- undofile keeps real undo history, which is the thing you actually want.
-vim.opt.swapfile = false
+--
+-- swapfile stays at its default (on). An earlier version of this turned it off
+-- claiming it reduced prompts from Claude Code's edits, which is wrong: swap
+-- conflicts come from a crashed session or two nvim instances on one file, not
+-- from a file changing on disk. Turning it off only gave up crash recovery.
 vim.opt.undofile = true
 vim.opt.autoread = true
 vim.opt.updatetime = 200 -- how long the cursor must rest before CursorHold fires
