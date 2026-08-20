@@ -16,3 +16,12 @@
 - Do not swap in a spaced hyphen ( - ) as a stand-in; restructure the sentence.
 - Hyphens in compound words (well-known, end-to-end) and ranges written with a hyphen or "to" are fine.
 - Leave verbatim quotes, cited text, and third-party content unchanged.
+
+# Never Publish Claude Session Links
+
+**Never include a Claude session or conversation link in anything you write.**
+
+- Applies to PR descriptions, PR and issue comments, commit messages, code comments, docs, Slack messages, emails, and any other outward-facing text.
+- Covers any URL that points at a Claude session or transcript, including claude.ai/code links, session share links, and cloud session URLs, as well as raw session IDs presented as a way to reach the conversation.
+- The "Generated with Claude Code" attribution line and the Co-Authored-By trailer are fine, as long as they carry no session link.
+- If the user explicitly asks for the session link in a specific place, share it there and nowhere else.
