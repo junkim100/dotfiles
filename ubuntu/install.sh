@@ -27,10 +27,6 @@ bash "$SCRIPT_DIR/setup_tmux.sh"
 mkdir -p ~/.config/bat
 ln -sf "$DOTFILES_DIR/bat-config" ~/.config/bat/config
 
-# Neovim (LazyVim). Installs neovim into ~/.local with no sudo, since apt's
-# version is too old, then symlinks the config and restores pinned plugins.
-DOTFILES_DIR="$DOTFILES_DIR" bash "$SCRIPT_DIR/setup_nvim.sh"
-
 # Ranger config
 mkdir -p ~/.config/ranger
 ln -sf "$SCRIPT_DIR/ranger/rc.conf" ~/.config/ranger/rc.conf
@@ -43,3 +39,8 @@ fi
 
 # Install apt packages
 bash "$SCRIPT_DIR/install_packages.sh"
+
+# Neovim (LazyVim). Installs neovim into ~/.local with no sudo, since apt's
+# version is too old, then symlinks the config and restores pinned plugins.
+# Runs last so anything install_packages.sh provides is already in place.
+DOTFILES_DIR="$DOTFILES_DIR" bash "$SCRIPT_DIR/setup_nvim.sh"

@@ -15,6 +15,20 @@
 -- means a silent no-op the moment LazyVim renames something, and a silent no-op
 -- here looks exactly like a working install until you press `gd` and nothing
 -- happens.
+--
+-- Which of them can actually install here depends on the machine: mason pulls
+-- from several ecosystems and each needs its own toolchain. That is read from
+-- each package's registry entry rather than hardcoded, so it stays correct if a
+-- package changes how it ships. At time of writing:
+--   github -> standalone binary, no runtime (ruff, marksman, taplo,
+--             lua-language-server, shellcheck, hadolint)
+--   pypi   -> needs python3                 (basedpyright)
+--   npm    -> needs node                    (yaml, json, docker, bash, markdown)
+--
+-- Per-package matters. An earlier version gated the whole run behind `node`,
+-- which on a box without node installed zero servers where seven would have been
+-- fine. basedpyright especially: it is pypi, and python3 is a safe bet on a GPU
+-- box in a way node is not.
 
 local packages = {
   -- language servers
@@ -25,6 +39,7 @@ local packages = {
   "marksman", -- markdown
   "taplo", -- toml
   "dockerfile-language-server",
+  "docker-compose-language-service", -- wbl-eval has a docker-compose.yml
   "bash-language-server",
   "lua-language-server", -- for editing this config
   -- linters
@@ -33,6 +48,27 @@ local packages = {
   "markdownlint-cli2",
   "markdown-toc",
 }
+
+local runtimes = {
+  npm = "node",
+  pypi = "python3",
+  cargo = "cargo",
+  golang = "go",
+  gem = "gem",
+  composer = "php",
+  luarocks = "luarocks",
+}
+
+-- Returns the name of the missing toolchain, or nil when the package can install.
+local function blocked_by(pkg)
+  local id = pkg.spec and pkg.spec.source and pkg.spec.source.id or ""
+  local ecosystem = id:match("^pkg:([^/]+)")
+  local needs = ecosystem and runtimes[ecosystem]
+  if needs and vim.fn.executable(needs) ~= 1 then
+    return needs
+  end
+  return nil
+end
 
 vim.cmd("Lazy! load mason.nvim")
 
@@ -43,7 +79,7 @@ if not ok then
   return
 end
 
-local pending, failed, installed = 0, {}, {}
+local pending, failed, installed, skipped = 0, {}, {}, {}
 local refreshed = false
 
 registry.refresh(function()
@@ -54,16 +90,23 @@ registry.refresh(function()
     elseif pkg:is_installed() then
       table.insert(installed, name)
     else
-      pending = pending + 1
-      pkg:once("install:success", function()
-        pending = pending - 1
-        table.insert(installed, name)
-      end)
-      pkg:once("install:failed", function()
-        pending = pending - 1
-        table.insert(failed, name)
-      end)
-      pkg:install()
+      local missing_runtime = blocked_by(pkg)
+      if missing_runtime then
+        -- Not a failure: this machine simply cannot build it. Say which toolchain
+        -- would fix it instead of letting mason error out mid-install.
+        table.insert(skipped, name .. " (needs " .. missing_runtime .. ")")
+      else
+        pending = pending + 1
+        pkg:once("install:success", function()
+          pending = pending - 1
+          table.insert(installed, name)
+        end)
+        pkg:once("install:failed", function()
+          pending = pending - 1
+          table.insert(failed, name)
+        end)
+        pkg:install()
+      end
     end
   end
   refreshed = true
@@ -89,8 +132,11 @@ if not refreshed then
 end
 
 io.write(("mason: %d installed"):format(#installed))
+if #skipped > 0 then
+  io.write(("\n  skipped (missing toolchain): %s"):format(table.concat(skipped, ", ")))
+end
 if #failed > 0 then
-  io.write((", %d FAILED: %s"):format(#failed, table.concat(failed, ", ")))
+  io.write(("\n  FAILED: %s"):format(table.concat(failed, ", ")))
 end
 if pending > 0 then
   io.write((", %d still running at timeout"):format(pending))

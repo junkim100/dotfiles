@@ -41,6 +41,16 @@ Required: `git`, a C compiler (treesitter parsers build from source).
 
 `ripgrep` is also required, not optional: snacks hardcodes `rg` for its grep source with no fallback, so `<leader>/` does nothing without it. On Ubuntu, `setup_nvim.sh` installs neovim, lazygit, ripgrep, and fd as static binaries into `~/.local`, so none of them need root or apt.
 
-Optional: `fd` for faster file finding (it degrades to `ripgrep`, then `find`), `node` for the npm-based language servers — basedpyright, yaml-language-server, json-lsp, bash-language-server, dockerfile-language-server.
+Optional: `fd` for faster file finding (it degrades to `ripgrep`, then `find`).
 
-Without node, treesitter highlighting still works and go-to-definition does not. `ubuntu/setup_nvim.sh` checks for all of these and reports what is missing rather than failing partway through.
+Language servers come from three ecosystems, and `bootstrap-mason.lua` reads which from each package's registry entry rather than assuming, so it installs whatever the machine can actually build:
+
+| source | needs | packages |
+|---|---|---|
+| github | nothing | ruff, marksman, taplo, lua-language-server, shellcheck, hadolint |
+| pypi | `python3` | basedpyright |
+| npm | `node` | yaml-language-server, json-lsp, dockerfile-language-server, docker-compose-language-service, bash-language-server, markdownlint-cli2, markdown-toc |
+
+The split matters on the GPU boxes. `python3` is a safe bet there and `node` is not, and basedpyright is a pypi package, so **Python keeps full go-to-definition on a machine with no node at all** — seven of the fourteen install. An earlier version gated the whole run on `node` and got zero.
+
+`ubuntu/setup_nvim.sh` reports what is missing rather than failing partway through.

@@ -29,9 +29,45 @@ esac
 
 have() { command -v "$1" > /dev/null 2>&1; }
 
+# Everything below downloads and unpacks, so check the tools that does with
+# before using them. Failing here names the missing tool; failing later just
+# reports a download error and sends you looking at the URL.
+for required in curl tar; do
+  if ! have "$required"; then
+    echo "Missing $required, which this script needs to fetch anything."
+    echo "  apt-get install $required"
+    exit 1
+  fi
+done
+
+# Symlink a path, refusing to nest inside an existing real directory.
+#
+# `ln -sfn src dir` on an existing REAL directory does not replace it: it creates
+# src INSIDE it and returns 0. The install then reports success while the config
+# was never linked, and nvim quietly loads whatever was already there.
+link_config() {
+  src="$1"; dest="$2"
+  if [ -L "$dest" ]; then
+    ln -sfn "$src" "$dest"
+  elif [ -e "$dest" ]; then
+    backup="${dest}.backup.$(date +%Y%m%d%H%M%S)"
+    echo "  $dest already exists and is not a symlink; moving it to $backup"
+    mv "$dest" "$backup"
+    ln -s "$src" "$dest"
+  else
+    ln -s "$src" "$dest"
+  fi
+}
+
 # ---------------------------------------------------------------- neovim ----
-if have nvim && nvim --version | head -1 | grep -q "${NVIM_VERSION#v}"; then
-  echo "neovim ${NVIM_VERSION} already installed"
+# NVIM_BIN is whichever nvim we end up using. Assuming "$BIN/nvim" is wrong when
+# a matching nvim is already installed somewhere else on PATH: the download is
+# skipped, then every later "$BIN/nvim" call hits a nonexistent file, plugins and
+# servers never install, and the script still prints "Done" and exits 0.
+NVIM_BIN=""
+if have nvim && nvim --version | head -1 | grep -qF "${NVIM_VERSION#v}"; then
+  echo "neovim ${NVIM_VERSION} already installed at $(command -v nvim)"
+  NVIM_BIN="$(command -v nvim)"
 else
   echo "Installing neovim ${NVIM_VERSION} (${NVIM_ARCH}) into ${PREFIX}..."
   tarball="nvim-linux-${NVIM_ARCH}.tar.gz"
@@ -41,7 +77,8 @@ else
     tar xzf "$tmp/$tarball" -C "$tmp"
     # The tarball unpacks to nvim-linux-<arch>/{bin,lib,share}; merge into ~/.local
     cp -R "$tmp/nvim-linux-${NVIM_ARCH}/." "$PREFIX/"
-    echo "  neovim -> $BIN/nvim"
+    NVIM_BIN="$BIN/nvim"
+    echo "  neovim -> $NVIM_BIN"
   else
     echo "  FAILED to download $url"
     echo "  Check the version exists, or set NVIM_VERSION to one that does."
@@ -119,7 +156,7 @@ fi
 
 # ------------------------------------------------------------- symlink ------
 mkdir -p "$HOME/.config"
-ln -sfn "$DOTFILES_DIR/nvim" "$HOME/.config/nvim"
+link_config "$DOTFILES_DIR/nvim" "$HOME/.config/nvim"
 echo "config: ~/.config/nvim -> $DOTFILES_DIR/nvim"
 
 # -------------------------------------------------- dependency warnings ------
@@ -132,7 +169,11 @@ if ! have cc && ! have gcc && ! have clang; then
 fi
 
 if ! have node; then
-  missing="${missing}\n  - No node. These language servers are npm packages and will fail\n    to install: basedpyright, yaml-language-server, json-lsp,\n    bash-language-server, dockerfile-language-server.\n    Treesitter highlighting still works; go-to-definition will not.\n    Fix: install node, or accept a treesitter-only setup on this box."
+  missing="${missing}\n  - No node. The npm-based servers will be skipped: yaml-language-server,\n    json-lsp, bash-language-server, dockerfile-language-server,\n    markdownlint-cli2, markdown-toc. Python still gets full LSP, since\n    basedpyright is a pypi package and ruff is a standalone binary."
+fi
+
+if ! have python3; then
+  missing="${missing}\n  - No python3. basedpyright is a pypi package, so go-to-definition in\n    Python will not work. This is the one that actually matters here."
 fi
 
 if ! have git; then
@@ -152,17 +193,18 @@ fi
 if have git; then
   echo
   echo "Bootstrapping plugins (this takes a few minutes on a fresh box)..."
-  "$BIN/nvim" --headless "+Lazy! restore" +qa 2>&1 | tail -3 || true
+  "$NVIM_BIN" --headless "+Lazy! restore" +qa 2>&1 | tail -3 || true
   echo "Plugins installed from lazy-lock.json"
 
   # Language servers. Without this they install lazily on first file open, so the
   # first real session on this box would sit there with no LSP while it downloads.
-  if have node; then
-    echo "Installing language servers (up to 10 minutes on a slow link)..."
-    "$BIN/nvim" --headless -c "luafile $DOTFILES_DIR/nvim/bootstrap-mason.lua" 2>&1 | tail -2 || true
-  else
-    echo "Skipping language servers: no node. Treesitter highlighting still works."
-  fi
+  #
+  # No node check here on purpose: only some of these are npm packages, and
+  # bootstrap-mason.lua decides per package from the registry. Gating the whole
+  # run on node skipped the six standalone binaries and basedpyright (which is
+  # pypi) along with the npm ones.
+  echo "Installing language servers (up to 10 minutes on a slow link)..."
+  "$NVIM_BIN" --headless -c "luafile $DOTFILES_DIR/nvim/bootstrap-mason.lua" 2>&1 | tail -4 || true
 fi
 
 # ----------------------------------------------------------------- PATH ------
@@ -176,4 +218,4 @@ case ":${PATH}:" in
 esac
 
 echo
-echo "Done. nvim $("$BIN/nvim" --version | head -1 | awk '{print $2}')"
+echo "Done. $("$NVIM_BIN" --version | head -1)"
