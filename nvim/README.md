@@ -29,6 +29,7 @@ Plugin versions only change when you run `:Lazy update` and commit the new lockf
 | 9 | neominimap | Replaces Zed's `"minimap": { "show": "always" }`. `<leader>mm` toggles. |
 | 10 | Mouse | `mousescroll=ver:2,hor:4`, and `mousemoveevent` on locally but off over SSH where per-movement events read as lag. |
 | 11 | BUILD and Jinja filetypes | 240 pants BUILD files in wbl-eval are Python but carry no extension, so they rendered as plain text. |
+| 14 | `root_spec = { "cwd" }` | LazyVim's default walks up to `.git`, which in a monorepo means launching nvim from `eval/wbl-eval` roots the explorer at `solar-system` and greps the whole repo. Leaving `lsp` in the chain fixes the common case but narrows without warning inside vendored trees. |
 | 13 | Formatters for json, toml, yaml | Stock LazyVim wires conform for lua, sh, markdown, and fish only, leaving the rest to conform's LSP fallback. That fallback is not dependable: taplo attaches to a `.toml` buffer advertising `textDocument/formatting` and the fallback still does nothing. Naming the formatter per filetype makes it deterministic. |
 | 12 | diffview | Side-by-side changeset review, which lazygit does not do. `<leader>gr` resolves the repo's actual default branch rather than assuming `main`. |
 

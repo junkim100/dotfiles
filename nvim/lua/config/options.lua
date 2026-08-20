@@ -49,3 +49,26 @@ vim.filetype.add({
     jinja = "htmldjango",
   },
 })
+
+-- MOD 14 -- keep the project root where you launched nvim, not at the monorepo top.
+--
+-- LazyVim's default is { "lsp", { ".git", "lua" }, "cwd" }. Opening a Python file
+-- under eval/wbl-eval is already correct, because basedpyright roots itself there
+-- and the lsp detector runs first. Launching nvim with no file is not: nothing has
+-- attached yet, so it falls to the .git marker and jumps to the solar-system root,
+-- putting 40-odd sibling projects in the explorer and grepping the whole monorepo.
+--
+-- "cwd" alone, so the root is always where you launched, full stop.
+--
+-- Leaving "lsp" ahead of it looks smarter and mostly works, but it narrows without
+-- warning inside vendored code: open src/wbl_eval/evals/agents/mini-swe-agent/... and
+-- basedpyright roots itself at that vendored tree, so <leader>/ silently greps the
+-- dependency instead of the project. During a PR review that is exactly wrong.
+--
+-- pyproject.toml is deliberately NOT a marker either: wbl-eval contains 74 of them
+-- in vendored trees, so it would root you inside whatever dependency you opened.
+--
+-- To get the LSP-aware behaviour back, use { "lsp", "cwd" }. The cwd variants of
+-- each picker stay available regardless: <leader>E explorer, <leader>fF files,
+-- <leader>sG grep.
+vim.g.root_spec = { "cwd" }
