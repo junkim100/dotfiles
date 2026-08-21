@@ -4,6 +4,13 @@
 # PATH additions
 export PATH="$HOME/.local/bin:$PATH"
 
+# Editor. Without this, `git commit` with no -m and `git rebase -i` get plain vim
+# rather than the neovim setup this repo installs into ~/.local/bin.
+if command -v nvim > /dev/null 2>&1; then
+  export EDITOR="nvim"
+  export VISUAL="nvim"
+fi
+
 # Disable shell auto-logout on idle
 export TMOUT=0
 
@@ -137,14 +144,14 @@ fi
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/junkim/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+__conda_setup="$("$HOME/miniconda3/bin/conda" 'shell.bash' 'hook' 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__conda_setup"
 else
-    if [ -f "/home/junkim/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/junkim/miniconda3/etc/profile.d/conda.sh"
+    if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+        . "$HOME/miniconda3/etc/profile.d/conda.sh"
     else
-        export PATH="/home/junkim/miniconda3/bin:$PATH"
+        export PATH="$HOME/miniconda3/bin:$PATH"
     fi
 fi
 unset __conda_setup

@@ -19,6 +19,8 @@ cask "zed"
 brew "bat"
 brew "fd"
 brew "gh"
+# Required by claude-code/statusline-command.sh for the model and token segments.
+brew "jq"
 brew "lazygit"
 brew "neofetch"
 brew "neovim"

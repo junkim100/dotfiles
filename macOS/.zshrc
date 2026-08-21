@@ -56,19 +56,34 @@ fi
 unset __conda_setup
 
 ##### Homebrew Zsh plugins #####
+# Guarded: sourcing a missing file makes zsh print an error on every single shell,
+# which is what happens on a machine where brew bundle has not run yet.
+BREW_PREFIX="${HOMEBREW_PREFIX:-$(brew --prefix)}"
+
 # zsh-autosuggestions (Homebrew install instructions use brew prefix sourcing). [web:56]
-source "$(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+[[ -r "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] \
+  && source "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 
 # zsh-syntax-highlighting should be sourced at the end of ~/.zshrc. [web:72]
-source "$(brew --prefix zsh-syntax-highlighting)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+[[ -r "$BREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] \
+  && source "$BREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+unset BREW_PREFIX
 
-##### Oh My Posh (last line) #####
-# Oh My Posh: add init as the last line to ~/.zshrc. [web:17]
-eval "$(oh-my-posh init zsh --config https://raw.githubusercontent.com/junkim100/dotfiles/refs/heads/main/macOS/.ohmyposh-nord-theme.json)"
-
+##### Editor #####
+# Without this, `git commit` with no -m, `git rebase -i`, and anything else that opens
+# $EDITOR gets plain vim rather than the neovim setup this repo configures.
+if command -v nvim > /dev/null 2>&1; then
+  export EDITOR="nvim"
+  export VISUAL="nvim"
+fi
 
 export PATH="$HOME/.local/bin:$PATH"
 
-
-# Added by Antigravity CLI installer
-export PATH="/Users/junkim/.local/bin:$PATH"
+##### Oh My Posh (last line) #####
+# Oh My Posh: add init as the last line to ~/.zshrc. [web:17]
+#
+# The config is read from the checkout, not from raw.githubusercontent.com. Fetching it
+# over the network meant every shell used whatever was on main rather than the commit
+# this machine has, so editing the theme locally did nothing until it was pushed, and a
+# shell with no network paid 0.3s waiting for it.
+eval "$(oh-my-posh init zsh --config "$HOME/dotfiles/macOS/.ohmyposh-nord-theme.json")"

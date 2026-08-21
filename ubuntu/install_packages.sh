@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+# bash, not sh: uses arrays.
 # List of packages to check and install
 packages=(
   tmux

@@ -1,9 +1,16 @@
+#!/usr/bin/env bash
+# bash, not sh: this script uses `&>`. Without a shell and errexit, a failed symlink
+# or a failed setup_conda.sh let the install carry on and report success.
+set -eu
+
 DOTFILES_DIR="$HOME/dotfiles"
 SCRIPT_DIR="$DOTFILES_DIR/ubuntu"
 
 chmod -R +x "$SCRIPT_DIR"
 
-clear
+# `|| true` because clear exits non-zero with no TERM, which under errexit would
+# abort the install when it is piped or run from a provisioning script.
+clear || true
 
 # Symlink .gitconfig
 ln -sf "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
