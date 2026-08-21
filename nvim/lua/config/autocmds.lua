@@ -66,3 +66,18 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 -- The colorscheme has usually already loaded by the time this file runs, so the
 -- autocmd alone would not fire on startup.
 apply_transparency()
+
+-- MOD 16 -- no spell checking, in any filetype.
+--
+-- LazyVim turns `spell` on for text, plaintex, typst, gitcommit, and markdown (its own autocmds.lua, group `lazyvim_wrap_spell`). Nothing in the neovim runtime does, so that one autocmd is the whole story, and re-creating its group with `clear = true` from here replaces it: LazyVim loads its autocmds before this file, so the group is already in place to take over.
+--
+-- The `wrap = true` half of that autocmd is worth keeping. Prose in this repo is one logical line per paragraph, so without soft wrap a paragraph runs off the right edge as a single line.
+--
+-- `<leader>us` still toggles spell per window if you ever want it back for one buffer.
+vim.api.nvim_create_autocmd("FileType", {
+  group = vim.api.nvim_create_augroup("lazyvim_wrap_spell", { clear = true }),
+  pattern = { "text", "plaintex", "typst", "gitcommit", "markdown" },
+  callback = function()
+    vim.opt_local.wrap = true
+  end,
+})

@@ -31,7 +31,11 @@ return {
         },
         exclude_buftypes = { "nofile", "nowrite", "quickfix", "terminal", "prompt" },
         git = { enabled = true },       -- git signs in the minimap gutter
-        diagnostic = { enabled = true },
+        -- Only errors reach the minimap. neominimap's default annotation mode is
+        -- "line", which paints the whole minimap row in the diagnostic's colour, so
+        -- warnings turned the map into a yellow bar in any file a linter dislikes.
+        -- A bare severity value means exactly that level, not that level and above.
+        diagnostic = { enabled = true, severity = vim.diagnostic.severity.ERROR },
         search = { enabled = true },    -- show matches from / in the minimap
         treesitter = { enabled = true },
       }

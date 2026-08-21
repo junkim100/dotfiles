@@ -72,3 +72,33 @@ vim.filetype.add({
 -- each picker stay available regardless: <leader>E explorer, <leader>fF files,
 -- <leader>sG grep.
 vim.g.root_spec = { "cwd" }
+
+-- MOD 17 -- absolute line numbers, not relative.
+--
+-- LazyVim sets both `number` and `relativenumber`, which gives the hybrid gutter: the cursor line shows its real number and every other line shows its distance from the cursor. That makes counted motions easy to type (`8k` for the line labelled 8), at the cost of the whole gutter renumbering on every cursor move.
+--
+-- `number` stays on, which is already LazyVim's default, so the gutter now shows plain file line numbers. `<leader>uL` toggles relative back on for a session.
+vim.opt.relativenumber = false
+
+-- MOD 19 -- a clipboard that reaches the machine you are actually sitting at.
+--
+-- LazyVim sets `clipboard = vim.env.SSH_CONNECTION and "" or "unnamedplus"`. Inside this tmux SSH_CONNECTION is always set, so the clipboard was empty and `y` never left nvim. Turning it back on alone is not enough either: neovim's provider search finds pbcopy first and pbcopy sets the clipboard of the host nvim runs on, which over SSH is the wrong machine.
+--
+-- OSC 52 is the escape-sequence protocol that carries a copy out through the terminal instead, so the clipboard that ends up filled is the one in front of you. tmux forwards it already (`set-clipboard external`); no passthrough needed, since tmux handles OSC 52 itself.
+--
+-- Only when remote. Locally, neovim's own pbcopy path is faster and has no size ceiling, whereas OSC 52 is capped by what tmux and the terminal will accept in one sequence, so a yank of a very large file can be truncated or dropped.
+--
+-- Paste is deliberately NOT OSC 52. Reading the clipboard that way requires the terminal to answer a query, which tmux does not pass back, so it would hang or return nothing. `p` returns nvim's own last yank instead, and pasting from the outside machine is done with the terminal's paste (Cmd-V), which types the text in and is handled correctly by bracketed paste.
+vim.opt.clipboard = "unnamedplus"
+
+if vim.env.SSH_CONNECTION or vim.env.SSH_TTY then
+  local osc52 = require("vim.ui.clipboard.osc52")
+  local function from_unnamed()
+    return { vim.fn.getreg('"', 1, true), vim.fn.getregtype('"') }
+  end
+  vim.g.clipboard = {
+    name = "OSC 52",
+    copy = { ["+"] = osc52.copy("+"), ["*"] = osc52.copy("*") },
+    paste = { ["+"] = from_unnamed, ["*"] = from_unnamed },
+  }
+end
