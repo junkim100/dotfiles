@@ -47,6 +47,10 @@ else
   echo "WARNING: nvim not on PATH after brew bundle; skipped plugin and server install."
 fi
 
+# Suppress the "Last login: ..." banner login(1) prints for every new login shell,
+# which ghostty starts for every window and tab. The file only has to exist.
+touch ~/.hushlogin
+
 # bat
 mkdir -p ~/.config/bat
 ln -sf ~/dotfiles/bat-config ~/.config/bat/config

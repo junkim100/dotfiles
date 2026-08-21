@@ -7,8 +7,8 @@
         {
           "background": "#E5E9F0",
           "foreground": "#4C566A",
-          "leading_diamond": "╭─",
-          "style": "diamond",
+          "powerline_symbol": "",
+          "style": "powerline",
           "template": "{{ if .SSHSession }} {{ end }}{{ .UserName }}@{{ .HostName }} ",
           "type": "session"
         },
@@ -41,35 +41,17 @@
           "style": "powerline",
           "template": " {{ .UpstreamIcon }}{{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}  {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }}  {{ .Staging.String }}{{ end }}{{ if gt .StashCount 0 }}  {{ .StashCount }}{{ end }} ",
           "type": "git"
-        }
-      ],
-      "type": "prompt"
-    },
-    {
-      "alignment": "right",
-      "segments": [],
-      "type": "prompt"
-    },
-    {
-      "alignment": "left",
-      "newline": true,
-      "segments": [
-        {
-          "foreground": "#ECEFF4",
-          "style": "plain",
-          "template": "╰─",
-          "type": "text"
         },
         {
           "foreground": "#8FBCBB",
           "foreground_templates": [
-            "{{ if gt .Code 0 }}#ef5350{{ end }}"
+            "{{ if gt .Code 0 }}#BF616A{{ end }}"
           ],
           "properties": {
             "always_enabled": true
           },
           "style": "plain",
-          "template": "> ",
+          "template": " $ ",
           "type": "status"
         }
       ],
@@ -78,4 +60,3 @@
   ],
   "version": 1
 }
-
