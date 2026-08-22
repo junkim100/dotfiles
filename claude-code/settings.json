@@ -7,14 +7,12 @@
     "command": "bash $HOME/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
-    "commit-commands@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": false,
     "autoresearch@autoresearch": true,
     "slack@claude-plugins-official": true,
-    "codex@openai-codex": true,
     "understand-anything@understand-anything": true,
     "gavel@gavel": true,
     "frontend-design@claude-plugins-official": true
@@ -30,12 +28,6 @@
       "source": {
         "source": "github",
         "repo": "uditgoenka/autoresearch"
-      }
-    },
-    "openai-codex": {
-      "source": {
-        "source": "github",
-        "repo": "openai/codex-plugin-cc"
       }
     },
     "understand-anything": {

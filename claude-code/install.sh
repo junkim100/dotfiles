@@ -34,7 +34,6 @@ curl -fsSL https://claude.ai/install.sh | bash -s -- latest
 
 # Add third-party marketplaces (built-in ones don't need this)
 "$HOME/.local/bin/claude" plugin marketplace add uditgoenka/autoresearch
-"$HOME/.local/bin/claude" plugin marketplace add openai/codex-plugin-cc
 "$HOME/.local/bin/claude" plugin marketplace add Lum1104/Understand-Anything
 "$HOME/.local/bin/claude" plugin marketplace add junkim100/gavel
 
@@ -43,7 +42,6 @@ curl -fsSL https://claude.ai/install.sh | bash -s -- latest
 # best-effort (|| true) so "already latest" doesn't abort the script under `set -e`.
 PLUGINS=(
   autoresearch@autoresearch
-  codex@openai-codex
   understand-anything@understand-anything
   gavel@gavel
 )
