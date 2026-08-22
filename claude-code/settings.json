@@ -10,7 +10,6 @@
     "context7@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": false,
     "autoresearch@autoresearch": true,
     "slack@claude-plugins-official": true,
     "understand-anything@understand-anything": true,
