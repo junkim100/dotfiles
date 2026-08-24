@@ -1,0 +1,57 @@
+providers: 
+  webSearchOrder: 
+    - codex
+    - perplexity
+    - gemini
+    - anthropic
+    - xai
+    - zai
+    - exa
+    - tinyfish
+    - jina
+    - kagi
+    - tavily
+    - firecrawl
+    - brave
+    - kimi
+    - parallel
+    - synthetic
+    - searxng
+    - startpage
+    - duckduckgo
+    - ecosia
+    - google
+    - mojeek
+    - public
+modelRoles: 
+  default: openai-codex/gpt-5.6-sol
+symbolPreset: nerd
+composer: 
+  shape: box
+theme: 
+  dark: titanium
+  light: light
+setupVersion: 2
+statusLine: 
+  sessionAccent: true
+  transparent: false
+  compactThinkingLevel: false
+  showHookStatus: true
+terminal: 
+  showProgress: false
+tui: 
+  textSizing: false
+  imeSafeCursor: false
+  resizeScrollback: rebuild
+display: 
+  showTokenUsage: false
+  cacheMissMarker: false
+showHardwareCursor: true
+defaultThinkingLevel: max
+hideThinkingBlock: true
+advisor: 
+  enabled: false
+dev: 
+  autoqaConsent: granted
+tier: 
+  openai: priority

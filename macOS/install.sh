@@ -9,6 +9,8 @@ fi
  
 # Install everything from Brewfile
 brew bundle install --file=~/dotfiles/macOS/Brewfile
+# OMP config and CLI. macOS installs OMP with Homebrew.
+bash ~/dotfiles/omp/install.sh
  
 # Symlink dotfiles
 ln -sf ~/dotfiles/.gitconfig ~/.gitconfig

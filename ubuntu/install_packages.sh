@@ -7,6 +7,8 @@ packages=(
   jq
   ranger
   btop
+  curl
+  unzip
 )
 
 # Function to check if a package is installed.

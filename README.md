@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal dotfiles and configuration scripts for macOS, Ubuntu, and Claude Code.
+Personal dotfiles and configuration scripts for macOS, Ubuntu, Claude Code, and OMP.
 
 ## Setup
 
@@ -22,3 +22,10 @@ bash ~/dotfiles/ubuntu/install.sh
 ```bash
 bash ~/dotfiles/claude-code/install.sh
 ```
+
+**OMP:**
+```bash
+bash ~/dotfiles/omp/install.sh
+```
+
+The OMP installer uses Homebrew on macOS and Bun on Linux.

@@ -2,7 +2,8 @@
 # Needed for SSH-invoked commands from agent tools like Hermes.
 
 # PATH additions
-export PATH="$HOME/.local/bin:$PATH"
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$HOME/.local/bin:$PATH"
 
 # Editor. Without this, `git commit` with no -m and `git rebase -i` get plain vim
 # rather than the neovim setup this repo installs into ~/.local/bin.
