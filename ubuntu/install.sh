@@ -36,7 +36,7 @@ ln -sf "$DOTFILES_DIR/bat-config" ~/.config/bat/config
 
 # Ranger config
 mkdir -p ~/.config/ranger
-ln -sf "$SCRIPT_DIR/ranger/rc.conf" ~/.config/ranger/rc.conf
+ln -sf "$DOTFILES_DIR/ranger/rc.conf" ~/.config/ranger/rc.conf
 
 # Check if conda is installed and run setup_conda.sh if it's not
 if ! command -v conda &> /dev/null; then

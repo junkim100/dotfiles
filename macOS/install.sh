@@ -57,6 +57,10 @@ touch ~/.hushlogin
 mkdir -p ~/.config/bat
 ln -sf ~/dotfiles/bat-config ~/.config/bat/config
 
+# Ranger
+mkdir -p ~/.config/ranger
+ln -sf ~/dotfiles/ranger/rc.conf ~/.config/ranger/rc.conf
+
 # Zed
 mkdir -p ~/.config/zed/themes
 ln -sf ~/dotfiles/macOS/zed-settings.json ~/.config/zed/settings.json
