@@ -3,6 +3,6 @@ theme = glassy-nord
 mouse-hide-while-typing = true
 font-family = "MesloLGM Nerd Font"
 keybind = shift+enter=text:\x1b\r
-background-opacity = 0.7
+background-opacity = 0.9
 background-blur = 30
 macos-option-as-alt = true
