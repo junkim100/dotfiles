@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal dotfiles and configuration scripts for macOS, Ubuntu, LazyVim, Claude Code, and OMP.
+Personal dotfiles and configuration scripts for macOS, Ubuntu, Omarchy, LazyVim, Claude Code, and OMP.
 
 ## Setup
 
@@ -17,6 +17,27 @@ bash ~/dotfiles/macOS/install.sh
 ```bash
 bash ~/dotfiles/ubuntu/install.sh
 ```
+
+**Omarchy:**
+```bash
+bash ~/dotfiles/omarchy/install.sh
+```
+
+The Omarchy installer restores the selected applications, removes unwanted stock applications and web apps, links the tracked Hyprland and application configuration, and reapplies the current defaults and theme. Existing configuration files are backed up once with a `.pre-omarchy-dotfiles` suffix.
+
+The MacBook-specific monitor layout is intentionally skipped on other hardware. Include it explicitly when restoring the same display setup:
+
+```bash
+bash ~/dotfiles/omarchy/install.sh --include-hardware
+```
+
+Preview the complete operation without changing the machine:
+
+```bash
+bash ~/dotfiles/omarchy/install.sh --dry-run
+```
+
+The shared SSH private key and authenticated application state are not stored in Git and must be restored separately through a secure channel.
 
 **LazyVim:**
 ```bash

@@ -9,8 +9,6 @@ fi
  
 # Install everything from Brewfile
 brew bundle install --file=~/dotfiles/macOS/Brewfile
-# OMP config and CLI. macOS installs OMP with Homebrew.
-bash ~/dotfiles/omp/install.sh
  
 # Symlink dotfiles
 ln -sf ~/dotfiles/.gitconfig ~/.gitconfig
@@ -41,7 +39,7 @@ ln -sf ~/dotfiles/bat-config ~/.config/bat/config
 
 # Ranger
 mkdir -p ~/.config/ranger
-ln -sf ~/dotfiles/ranger/rc.conf ~/.config/ranger/rc.conf
+ln -sf ~/dotfiles/macOS/ranger/rc.conf ~/.config/ranger/rc.conf
 
 # Zed
 mkdir -p ~/.config/zed/themes

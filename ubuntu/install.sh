@@ -36,7 +36,7 @@ ln -sf "$DOTFILES_DIR/bat-config" ~/.config/bat/config
 
 # Ranger config
 mkdir -p ~/.config/ranger
-ln -sf "$DOTFILES_DIR/ranger/rc.conf" ~/.config/ranger/rc.conf
+ln -sf "$DOTFILES_DIR/ubuntu/ranger/rc.conf" ~/.config/ranger/rc.conf
 
 # Check if conda is installed and run setup_conda.sh if it's not
 if ! command -v conda &> /dev/null; then
@@ -46,8 +46,6 @@ fi
 
 # Install apt packages
 bash "$SCRIPT_DIR/install_packages.sh"
-# OMP config and CLI. Linux installs OMP with Bun.
-bash "$DOTFILES_DIR/omp/install.sh"
 
 # Install the pinned Neovim binary and restore the exact LazyVim plugin revisions after system dependencies are available.
 git -C "$DOTFILES_DIR" submodule update --init --recursive lazyvim
