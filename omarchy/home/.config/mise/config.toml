@@ -1,0 +1,6 @@
+[tools]
+codex = "latest"
+gh = "latest"
+"github:can1357/oh-my-pi" = "latest"
+node = "latest"
+pi = "latest"

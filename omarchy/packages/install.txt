@@ -1,0 +1,2 @@
+# Extra native packages not provided by a fresh Omarchy install.
+widevine

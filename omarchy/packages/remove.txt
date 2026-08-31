@@ -1,0 +1,17 @@
+# Stock packages intentionally absent on this machine.
+chromium
+cliamp
+cmake
+eza
+foot
+herdr
+kdenlive
+libreoffice-fresh
+moonlight-qt
+omacalc
+omacut
+omawrite
+obsidian-appimage
+signal-desktop
+xournalpp
+zoxide

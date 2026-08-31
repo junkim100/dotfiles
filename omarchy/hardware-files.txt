@@ -1,0 +1,2 @@
+# MacBook display layout; install only with --include-hardware.
+.config/hypr/monitors.lua

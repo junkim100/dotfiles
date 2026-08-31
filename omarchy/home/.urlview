@@ -1,0 +1,2 @@
+# Open the selected URL with the desktop's default handler.
+COMMAND url_handler.sh
