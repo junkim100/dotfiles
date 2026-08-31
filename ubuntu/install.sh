@@ -50,4 +50,5 @@ bash "$SCRIPT_DIR/install_packages.sh"
 bash "$DOTFILES_DIR/omp/install.sh"
 
 # Install the pinned Neovim binary and restore the exact LazyVim plugin revisions after system dependencies are available.
+git -C "$DOTFILES_DIR" submodule update --init --recursive lazyvim
 bash "$DOTFILES_DIR/lazyvim/install.sh"

@@ -5,7 +5,7 @@ Personal dotfiles and configuration scripts for macOS, Ubuntu, LazyVim, Claude C
 ## Setup
 
 ```bash
-git clone https://github.com/junkim100/dotfiles.git ~/dotfiles
+git clone --recurse-submodules https://github.com/junkim100/dotfiles.git ~/dotfiles
 ```
 
 **macOS:**
@@ -20,10 +20,11 @@ bash ~/dotfiles/ubuntu/install.sh
 
 **LazyVim:**
 ```bash
+git -C ~/dotfiles submodule update --init --recursive lazyvim
 bash ~/dotfiles/lazyvim/install.sh
 ```
 
-The dedicated installer links `lazyvim/` to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
+The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/lazyvim) and is pinned here as a Git submodule. Its installer links the checkout to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
 
 **Claude Code:**
 ```bash

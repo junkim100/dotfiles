@@ -28,6 +28,7 @@ mkdir -p ~/Library/Application\ Support/com.mitchellh.ghostty
 ln -sf ~/dotfiles/macOS/ghostty-config ~/Library/Application\ Support/com.mitchellh.ghostty/config
 
 # Install the pinned Neovim binary and restore the exact LazyVim plugin revisions.
+git -C ~/dotfiles submodule update --init --recursive lazyvim
 bash ~/dotfiles/lazyvim/install.sh
 
 # Suppress the "Last login: ..." banner login(1) prints for every new login shell,
