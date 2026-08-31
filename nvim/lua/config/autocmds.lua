@@ -26,13 +26,9 @@ vim.api.nvim_create_autocmd("FileChangedShellPost", {
 
 -- MOD 8 -- carry the terminal's transparency into floating windows and pickers.
 --
--- nord.nvim's `transparent` option only clears Normal/NormalNC, so the buffer goes
--- see-through but the explorer, pickers, and hover windows stay solid. Those draw
--- through their own groups (SnacksNormal, SnacksPicker*), which snacks leaves for the
--- colorscheme to define and nord does not, so they fall back to an opaque background.
+-- everforest-nvim clears its core highlights, but Snacks pickers, explorer windows, and hover windows use plugin-specific groups that can retain opaque backgrounds.
 --
--- Attributes are read and merged rather than replaced: passing { bg = "none" } to
--- nvim_set_hl overwrites the whole definition and would drop the foreground colors.
+-- Attributes are read and merged rather than replaced: passing `{ bg = "none" }` to `nvim_set_hl` overwrites the whole definition and would drop foreground colors.
 local function clear_bg(group)
   local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
   if vim.tbl_isempty(hl) then
@@ -43,13 +39,30 @@ local function clear_bg(group)
 end
 
 local transparent_groups = {
-  "NormalFloat", "FloatBorder", "FloatTitle", "FloatFooter",
-  "SnacksNormal", "SnacksNormalNC", "SnacksWinBar", "SnacksWinBarNC",
-  "SnacksPicker", "SnacksPickerList", "SnacksPickerInput",
-  "SnacksPickerBox", "SnacksPickerPreview", "SnacksPickerBorder",
-  "SnacksPickerListBorder", "SnacksPickerInputBorder", "SnacksPickerPreviewBorder",
-  "SnacksPickerTitle", "SnacksDashboardNormal", "SnacksNotifierHistory",
-  "TelescopeNormal", "TelescopeBorder", "WhichKeyNormal", "TroubleNormal",
+  "NormalFloat",
+  "FloatBorder",
+  "FloatTitle",
+  "FloatFooter",
+  "SnacksNormal",
+  "SnacksNormalNC",
+  "SnacksWinBar",
+  "SnacksWinBarNC",
+  "SnacksPicker",
+  "SnacksPickerList",
+  "SnacksPickerInput",
+  "SnacksPickerBox",
+  "SnacksPickerPreview",
+  "SnacksPickerBorder",
+  "SnacksPickerListBorder",
+  "SnacksPickerInputBorder",
+  "SnacksPickerPreviewBorder",
+  "SnacksPickerTitle",
+  "SnacksDashboardNormal",
+  "SnacksNotifierHistory",
+  "TelescopeNormal",
+  "TelescopeBorder",
+  "WhichKeyNormal",
+  "TroubleNormal",
 }
 
 local function apply_transparency()

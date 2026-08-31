@@ -36,5 +36,7 @@ case "$(uname -s)" in
 esac
 
 mkdir -p "$AGENT_DIR"
+mkdir -p "$AGENT_DIR/themes"
 ln -sf "$OMP_DIR/config.yml" "$AGENT_DIR/config.yml"
 ln -sf "$OMP_DIR/AGENTS.md" "$AGENT_DIR/AGENTS.md"
+ln -sf "$OMP_DIR/themes/everforest.json" "$AGENT_DIR/themes/everforest.json"

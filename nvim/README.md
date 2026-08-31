@@ -21,11 +21,11 @@ Plugin versions only change when you run `:Lazy update` and commit the new lockf
 | 1 | Providers off | Opening a `.py` file made neovim shell out probing for a python3 provider. Measured 104ms startup with them on, 46ms with them off. |
 | 2 | Auto-reload on `CursorHold` | LazyVim covers `FocusGained` and `autoread` covers buffer switches, but neither catches a file rewritten while you sit still on it. `swapfile` stays at its default (on): swap conflicts come from a crashed session or two nvim instances on one file, not from a file changing on disk. |
 | 3 | *(removed)* | Formerly filtered `stylua`/`shfmt` out of mason. The reasoning went stale once the config moved into dotfiles: stylua formats this config and shfmt formats the install scripts, both hand-edited. |
-| 4 | nord, transparent | Matches ghostty and tmux. `transparent = true` so ghostty's `background-opacity 0.7` shows through. |
+| 4 | everforest, transparent | Matches Ghostty and OMP. Dark Medium keeps the shared palette, and transparency level 2 lets Ghostty's background opacity show through. |
 | 5 | *(removed)* | Formerly trimmed the web stack out of treesitter's `ensure_installed`, on the claim that it appears nowhere in solar-system. It does: 23 html, 29 js, 28 css, 2 ts, and 3 tsx files, several inside the vendored trees `/pr` exists to review. Removed in ff87844; those files highlight again. |
 | 6 | Dotfiles visible in pickers | snacks hides them by default, which makes the explorer useless in a dotfiles repo. `ignored` stays false so `.venv` and `__pycache__` do not flood results. |
 | 7 | basedpyright, not pyright | Matches the Zed setup this replaced. |
-| 8 | Transparent floats | nord's `transparent` only clears `Normal`. Pickers and hover windows draw through `SnacksNormal`/`SnacksPicker*`, which snacks leaves for the colorscheme and nord does not define. |
+| 8 | Transparent floats | Everforest clears its core highlights, but pickers and hover windows draw through plugin-specific groups. Those backgrounds are cleared while preserving their existing foreground and style attributes. |
 | 9 | neominimap | Replaces Zed's `"minimap": { "show": "always" }`. `<leader>mm` toggles. `diagnostic.severity` is filtered to errors: the default annotation mode paints the whole minimap row in the diagnostic's colour, so warnings turned the map into a yellow bar. |
 | 10 | Mouse | `mousescroll=ver:2,hor:4`, and `mousemoveevent` on locally but off over SSH where per-movement events read as lag. |
 | 11 | BUILD and Jinja filetypes | 240 pants BUILD files in wbl-eval are Python but carry no extension, so they rendered as plain text. |

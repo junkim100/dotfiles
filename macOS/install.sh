@@ -22,6 +22,7 @@ ln -sf ~/dotfiles/macOS/.tmux.conf ~/.tmux.conf
 mkdir -p ~/.config/ghostty/themes
 ln -sf ~/dotfiles/macOS/ghostty-config ~/.config/ghostty/config
 ln -sf ~/dotfiles/macOS/ghostty-theme-glassy-nord ~/.config/ghostty/themes/glassy-nord
+ln -sf ~/dotfiles/macOS/ghostty-theme-everforest-dark ~/.config/ghostty/themes/everforest-dark.txt
 # macOS also reads (and "Open Config"/Cmd+, edits) the Application Support path
 mkdir -p ~/Library/Application\ Support/com.mitchellh.ghostty
 ln -sf ~/dotfiles/macOS/ghostty-config ~/Library/Application\ Support/com.mitchellh.ghostty/config

@@ -29,7 +29,7 @@ symbolPreset: nerd
 composer: 
   shape: box
 theme: 
-  dark: titanium
+  dark: everforest
   light: light
 setupVersion: 2
 statusLine: 
