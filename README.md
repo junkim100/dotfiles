@@ -18,9 +18,12 @@ bash ~/dotfiles/macOS/install.sh
 bash ~/dotfiles/ubuntu/install.sh
 ```
 
-**Neovim (LazyVim):**
+**LazyVim:**
+```bash
+bash ~/dotfiles/lazyvim/install.sh
+```
 
-The shared LazyVim configuration lives in `nvim/` and is linked to `~/.config/nvim` by both platform installers. It stays separate from platform-specific files, like `claude-code/` and `omp/`.
+The dedicated installer links `lazyvim/` to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
 
 **Claude Code:**
 ```bash
@@ -32,4 +35,4 @@ bash ~/dotfiles/claude-code/install.sh
 bash ~/dotfiles/omp/install.sh
 ```
 
-The OMP installer uses Homebrew on macOS and Bun on Linux, then links the tracked configuration and custom themes from `omp/`.
+The OMP installer installs the CLI and links the shared `AGENTS.md`. OMP settings and themes remain local under `~/.omp/agent`.

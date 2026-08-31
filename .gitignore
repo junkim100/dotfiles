@@ -3,6 +3,3 @@
 
 # Claude Code hook logs
 **/.claude/hooks/.logs/
-
-# OMP settings writer lock
-omp/config.yml.lock

@@ -1,18 +1,19 @@
-# nvim
+# LazyVim
 
 LazyVim, set up as a code reader rather than an IDE: Claude Code does the editing, this navigates and reviews.
 
-Symlinked to `~/.config/nvim` by both `macOS/install.sh` and `ubuntu/install.sh`.
+Installed independently with `lazyvim/install.sh`, which links this directory to `~/.config/nvim`.
 
 ## Reproducibility
 
-Three files pin the setup, so a fresh machine gets the same editor rather than the same starting point:
+The dedicated installer reproduces the editor core rather than merely cloning its starting configuration:
 
-- `lazy-lock.json` pins all 42 plugins to exact commits. `Lazy! restore` installs those commits; `Lazy! sync` would take latest instead, so the install scripts use `restore`.
-- `lazyvim.json` pins which LazyVim extras are enabled.
-- `ubuntu/setup_nvim.sh` pins the neovim version itself. apt is not used: Ubuntu ships 0.6 on 22.04 and 0.9.5 on 24.04, and this config needs 0.10+.
+- `install.sh` pins Neovim `v0.12.4` and verifies the official release checksum on macOS arm64, macOS x86_64, Linux arm64, and Linux x86_64.
+- `lazy-lock.json` pins all 42 plugins, including LazyVim itself, to exact commits. `install.sh` runs `Lazy! restore`, while `Lazy! sync` would update those revisions.
+- `lazyvim.json` pins the enabled LazyVim extras.
+- Every setting is stored in this directory and used through the `~/.config/nvim` symlink, so installation does not copy or regenerate configuration.
 
-Plugin versions only change when you run `:Lazy update` and commit the new lockfile.
+Plugin versions only change when you run `:Lazy update` and commit the updated lockfile. Mason-managed language servers and formatters are installed by package name from the current registry and are not version-pinned by `lazy-lock.json`.
 
 ## Modifications to stock LazyVim
 
@@ -66,7 +67,7 @@ The same applies to `formatters_by_ft` in `lua/plugins/format.lua`: LazyVim has 
 
 Required: `git`, a C compiler (treesitter parsers build from source).
 
-`ripgrep` is also required, not optional: snacks hardcodes `rg` for its grep source with no fallback, so `<leader>/` does nothing without it. On Ubuntu, `setup_nvim.sh` installs neovim, lazygit, ripgrep, and fd as static binaries into `~/.local`, so none of them need root or apt.
+`ripgrep` is required because Snacks uses `rg` for project grep without a fallback. On Linux, `install.sh` installs Neovim, lazygit, ripgrep, and fd into `~/.local` without root; on macOS, it installs missing supporting tools with Homebrew.
 
 Optional: `fd` for faster file finding (it degrades to `ripgrep`, then `find`).
 
@@ -78,6 +79,6 @@ Language servers come from three ecosystems, and `bootstrap-mason.lua` reads whi
 | pypi | `python3` | basedpyright |
 | npm | `node` | yaml-language-server, json-lsp, dockerfile-language-server, docker-compose-language-service, bash-language-server, markdownlint-cli2, markdown-toc |
 
-The split matters on the GPU boxes. `python3` is a safe bet there and `node` is not, and basedpyright is a pypi package, so **Python keeps full go-to-definition on a machine with no node at all** — seven of the fourteen install. An earlier version gated the whole run on `node` and got zero.
+The split matters on the GPU boxes. `python3` is a safe bet there and `node` is not, and basedpyright is a pypi package, so **Python keeps full go-to-definition on a machine with no node at all**: seven of the fourteen install. An earlier version gated the whole run on `node` and got zero.
 
-`ubuntu/setup_nvim.sh` reports what is missing rather than failing partway through.
+`install.sh` reports missing optional toolchains rather than silently leaving features unavailable.

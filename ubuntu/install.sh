@@ -49,7 +49,5 @@ bash "$SCRIPT_DIR/install_packages.sh"
 # OMP config and CLI. Linux installs OMP with Bun.
 bash "$DOTFILES_DIR/omp/install.sh"
 
-# Neovim (LazyVim). Installs neovim into ~/.local with no sudo, since apt's
-# version is too old, then symlinks the config and restores pinned plugins.
-# Runs last so anything install_packages.sh provides is already in place.
-DOTFILES_DIR="$DOTFILES_DIR" bash "$SCRIPT_DIR/setup_nvim.sh"
+# Install the pinned Neovim binary and restore the exact LazyVim plugin revisions after system dependencies are available.
+bash "$DOTFILES_DIR/lazyvim/install.sh"
