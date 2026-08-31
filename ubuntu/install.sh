@@ -32,7 +32,7 @@ bash "$SCRIPT_DIR/setup_tmux.sh"
 
 # bat config
 mkdir -p ~/.config/bat
-ln -sf "$DOTFILES_DIR/bat-config" ~/.config/bat/config
+ln -sf "$DOTFILES_DIR/ubuntu/bat/config" ~/.config/bat/config
 
 # Ranger config
 mkdir -p ~/.config/ranger

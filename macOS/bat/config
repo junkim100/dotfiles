@@ -1,5 +1,4 @@
-# bat config. Shared by macOS and Ubuntu; symlinked to ~/.config/bat/config.
-# Run `bat --list-themes` / `bat --list-languages` to see what else is available.
+# Bat configuration installed by the platform-specific dotfiles installer. Run `bat --list-themes` or `bat --list-languages` to inspect available values.
 
 # Pager. less already has vim's core motions (j/k, ctrl-d/ctrl-u, ctrl-f/ctrl-b,
 # g/G, /, ?, n/N, q). These flags add what it is missing:

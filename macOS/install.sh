@@ -35,7 +35,7 @@ touch ~/.hushlogin
 
 # bat
 mkdir -p ~/.config/bat
-ln -sf ~/dotfiles/bat-config ~/.config/bat/config
+ln -sf ~/dotfiles/macOS/bat/config ~/.config/bat/config
 
 # Ranger
 mkdir -p ~/.config/ranger
