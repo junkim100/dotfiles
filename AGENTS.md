@@ -9,7 +9,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - `macOS/` owns macOS-specific configuration and installation.
 - `ubuntu/` owns Ubuntu-specific configuration and installation.
 - `omarchy/` owns fresh-Omarchy application setup, package and web-app removals, keybindings, themes, and user configuration. It must not contain Omarchy source changes, operating-system internals, authenticated state, or private keys.
-- Bat and Ranger intentionally have platform-specific copies under `macOS/` and `ubuntu/`. Omarchy reuses the Ubuntu copies because they are the shared Linux configuration. Do not move them back to shared top-level paths or duplicate them under `omarchy/`.
+- `common/` owns canonical configuration used by two or more platforms. Platform paths may remain as compatibility symlinks when deployed home-directory links still target them.
 - `claude-code/` owns Claude Code configuration and installation.
 - `lazyvim/` is a Git submodule backed by `junkim100/lazyvim`.
 - OMP settings, themes, credentials, and runtime state intentionally remain local under `~/.omp/agent` and must not be added to this repository. Omarchy may declare the OMP executable through its tracked Mise configuration.
@@ -27,8 +27,8 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 ## Changes
 
 - Keep platform-specific paths self-contained under their platform directory.
-- When macOS and Ubuntu intentionally use identical configuration, update both copies and verify they remain byte-identical.
-- Keep Omarchy references to the Linux Bat and Ranger sources under `ubuntu/` synchronized with any future layout changes.
+- When multiple platforms intentionally use identical configuration, keep one canonical file under `common/` and point installers and compatibility symlinks to it.
+- Keep Omarchy references to shared Bat and Ranger configuration under `common/` synchronized with any future layout changes.
 - Update every installer callsite and README path when moving configuration.
 - Remove obsolete files, paths, symlinks, and documentation after a clean migration.
 - Treat `lazyvim/` as a separate repository. Commit and push changes in `junkim100/lazyvim` first, then update and commit the submodule pointer in this repository.
@@ -44,7 +44,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Use `cmp` when platform copies are expected to be identical.
 - Validate Bat changes with `bat --config-file <path> --diagnostic`.
 - Validate Omarchy changes with `bash omarchy/install.sh --dry-run`, then run the installer twice against an isolated temporary home to verify backups, symlink targets, and idempotency.
-- Verify Omarchy's shared Bat and Ranger links resolve to `ubuntu/bat/config` and `ubuntu/ranger/rc.conf`.
+- Verify shared platform aliases and Omarchy's Bat and Ranger links resolve to their canonical files under `common/`.
 - Check LazyVim integration with `git submodule status --recursive`.
 - For LazyVim changes, run its dedicated installer and confirm Neovim starts with the expected configuration.
 - Verify that no tracked installer or README still references a removed path.

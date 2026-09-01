@@ -24,10 +24,10 @@ fi
 # 1. Symlink dotfiles
 ln -sf "$DOTFILES_DIR/ubuntu_backend_ai/.bashrc" ~/.bashrc
 ln -sf "$DOTFILES_DIR/ubuntu/.vimrc" ~/.vimrc
-ln -sf "$DOTFILES_DIR/ubuntu/.tmux.conf" ~/.tmux.conf
+ln -sf "$DOTFILES_DIR/common/tmux/tmux.conf" ~/.tmux.conf
 ln -sf "$DOTFILES_DIR/.gitconfig" ~/.gitconfig
 mkdir -p ~/.config/ranger
-ln -sf "$DOTFILES_DIR/ubuntu/ranger/rc.conf" ~/.config/ranger/rc.conf
+ln -sf "$DOTFILES_DIR/common/ranger/rc.conf" ~/.config/ranger/rc.conf
 bash "$DOTFILES_DIR/claude-code/install.sh"
 
 # 2. Install miniconda if missing

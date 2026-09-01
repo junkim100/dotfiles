@@ -32,11 +32,11 @@ bash "$SCRIPT_DIR/setup_tmux.sh"
 
 # bat config
 mkdir -p ~/.config/bat
-ln -sf "$DOTFILES_DIR/ubuntu/bat/config" ~/.config/bat/config
+ln -sf "$DOTFILES_DIR/common/bat/config" ~/.config/bat/config
 
 # Ranger config
 mkdir -p ~/.config/ranger
-ln -sf "$DOTFILES_DIR/ubuntu/ranger/rc.conf" ~/.config/ranger/rc.conf
+ln -sf "$DOTFILES_DIR/common/ranger/rc.conf" ~/.config/ranger/rc.conf
 
 # Check if conda is installed and run setup_conda.sh if it's not
 if ! command -v conda &> /dev/null; then

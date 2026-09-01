@@ -25,7 +25,7 @@ bash ~/dotfiles/omarchy/install.sh
 
 The Omarchy installer is intended for a fresh Omarchy installation. It restores the selected applications, removes unwanted stock applications and web apps, links the tracked Hyprland and application configuration, and reapplies the current defaults and theme. Existing configuration files are backed up once with a `.pre-omarchy-dotfiles` suffix.
 
-Omarchy reuses the repository's Linux Bat and Ranger configuration from `ubuntu/bat/` and `ubuntu/ranger/`; there are no stale references to the removed root-level config paths. See [`omarchy/README.md`](omarchy/README.md) for the complete restored state and external authentication requirements.
+Configuration shared by two or more platforms lives under `common/`. This currently includes tmux, Bat, Ranger, and the Everforest Ghostty theme. Compatibility symlinks at the old platform paths keep existing installations working.
 
 The MacBook-specific monitor layout is intentionally skipped on other hardware. Include it explicitly when restoring the same display setup:
 

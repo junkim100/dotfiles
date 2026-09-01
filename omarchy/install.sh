@@ -162,11 +162,11 @@ install_configs() {
     echo "  - skipped MacBook-specific monitor config (use --include-hardware)"
   fi
 
-  if [[ -f "$DOTFILES_DIR/ubuntu/bat/config" ]]; then
-    link_file "$DOTFILES_DIR/ubuntu/bat/config" "$HOME/.config/bat/config"
+  if [[ -f "$DOTFILES_DIR/common/bat/config" ]]; then
+    link_file "$DOTFILES_DIR/common/bat/config" "$HOME/.config/bat/config"
   fi
-  if [[ -f "$DOTFILES_DIR/ubuntu/ranger/rc.conf" ]]; then
-    link_file "$DOTFILES_DIR/ubuntu/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
+  if [[ -f "$DOTFILES_DIR/common/ranger/rc.conf" ]]; then
+    link_file "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
   fi
 }
 

@@ -36,13 +36,13 @@ The installer:
 - Restores the Everforest theme and JetBrainsMono Nerd Font.
 - Removes the stock packages and web apps listed under `packages/`.
 - Links the tracked Hyprland, Omarchy, Ghostty, Fcitx, Git, Mise, Voxtype, SSH, and desktop-launcher configuration into `$HOME`.
-- Reuses the shared Linux Bat and Ranger configuration from `../ubuntu/bat/config` and `../ubuntu/ranger/rc.conf`.
+- Reuses the shared Bat and Ranger configuration from `../common/bat/config` and `../common/ranger/rc.conf`.
 - Runs `mise install` to restore the tools declared in the tracked Mise configuration, including OMP.
 - Initializes a new Zen profile when needed so the Omarchy theme hook can generate Zen CSS.
 
 Existing destination files are backed up once with a `.pre-omarchy-dotfiles` suffix before repository symlinks replace them. The installer is safe to rerun.
 
-The Bat and Ranger files deliberately remain owned by the Ubuntu/Linux folder instead of being duplicated under `omarchy/home`. Changes to those shared files therefore apply to both Ubuntu and Omarchy installers.
+The Bat and Ranger files are canonical under `../common/` and shared by the Ubuntu, macOS, and Omarchy installers.
 
 ## Files
 
