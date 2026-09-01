@@ -1,42 +1,33 @@
 #!/usr/bin/env bash
-# bash, not sh: this script uses `&>`. Without a shell and errexit, a failed symlink
-# or a failed setup_conda.sh let the install carry on and report success.
-set -eu
+set -euo pipefail
 
-DOTFILES_DIR="$HOME/dotfiles"
-SCRIPT_DIR="$DOTFILES_DIR/ubuntu"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LINK_FILE="$DOTFILES_DIR/scripts/link-file"
 
-chmod -R +x "$SCRIPT_DIR"
+"$LINK_FILE" "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
 
 # `|| true` because clear exits non-zero with no TERM, which under errexit would
 # abort the install when it is piped or run from a provisioning script.
 clear || true
 
-# Symlink .gitconfig
-ln -sf "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
+# Layer platform Git configuration over the shared defaults.
+"$LINK_FILE" "$DOTFILES_DIR/common/git/config" "$HOME/.config/git/common"
+"$LINK_FILE" "$SCRIPT_DIR/git/config" "$HOME/.gitconfig"
 
 # Create symbolic links for .bashrc and .vimrc
-if ln -sf "$SCRIPT_DIR/.bashrc" "$HOME/.bashrc"; then
-    echo "Successfully linked .bashrc"
-else
-    echo "Failed to link .bashrc"
-fi
-
-if ln -sf "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"; then
-    echo "Successfully linked .vimrc"
-else
-    echo "Failed to link .vimrc"
-fi
+"$LINK_FILE" "$SCRIPT_DIR/.bashrc" "$HOME/.bashrc"
+"$LINK_FILE" "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"
 
 bash "$SCRIPT_DIR/setup_tmux.sh"
 
 # bat config
 mkdir -p ~/.config/bat
-ln -sf "$DOTFILES_DIR/common/bat/config" ~/.config/bat/config
+"$LINK_FILE" "$DOTFILES_DIR/common/bat/config" "$HOME/.config/bat/config"
 
 # Ranger config
 mkdir -p ~/.config/ranger
-ln -sf "$DOTFILES_DIR/common/ranger/rc.conf" ~/.config/ranger/rc.conf
+"$LINK_FILE" "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
 # Check if conda is installed and run setup_conda.sh if it's not
 if ! command -v conda &> /dev/null; then

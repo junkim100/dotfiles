@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LINK_FILE="$SCRIPT_DIR/link-file"
+TEMP_DIR=$(mktemp -d)
+TMUX_SOCKET="dotfiles-check-$$"
+
+cleanup() {
+  if command -v tmux >/dev/null 2>&1; then
+    tmux -L "$TMUX_SOCKET" kill-server 2>/dev/null || true
+  fi
+  rm -rf "$TEMP_DIR"
+}
+trap cleanup EXIT
+
+fail() {
+  echo "check failed: $*" >&2
+  exit 1
+}
+
+check_alias() {
+  local path="$DOTFILES_DIR/$1"
+  local expected=$2
+  [[ -L $path ]] || fail "$1 is not a symlink"
+  [[ $(readlink "$path") == "$expected" ]] || fail "$1 points to $(readlink "$path"), expected $expected"
+}
+
+check_manifest() {
+  local manifest=$1
+  local path
+  while IFS= read -r path || [[ -n $path ]]; do
+    [[ -z $path || $path == \#* ]] && continue
+    [[ -e "$DOTFILES_DIR/omarchy/home/$path" ]] || fail "$manifest references missing $path"
+  done < "$DOTFILES_DIR/omarchy/$manifest"
+}
+
+check_alias .gitconfig common/git/config
+check_alias macOS/.tmux.conf ../common/tmux/tmux.conf
+check_alias ubuntu/.tmux.conf ../common/tmux/tmux.conf
+check_alias omarchy/home/.tmux.conf ../../common/tmux/tmux.conf
+check_alias macOS/bat/config ../../common/bat/config
+check_alias ubuntu/bat/config ../../common/bat/config
+check_alias macOS/ranger/rc.conf ../../common/ranger/rc.conf
+check_alias ubuntu/ranger/rc.conf ../../common/ranger/rc.conf
+check_alias macOS/ghostty-theme-everforest-dark ../common/ghostty/themes/everforest-dark.txt
+check_alias omarchy/home/.config/ghostty/themes/everforest-dark.txt ../../../../../common/ghostty/themes/everforest-dark.txt
+check_alias omarchy/home/.config/git/common ../../../../common/git/config
+
+check_manifest config-files.txt
+check_manifest hardware-files.txt
+
+while IFS= read -r script; do
+  case "$(sed -n '1p' "$script")" in
+    *bash*) bash -n "$script" ;;
+    '#!/bin/sh') sh -n "$script" ;;
+  esac
+done < <(find "$DOTFILES_DIR" -path "$DOTFILES_DIR/.git" -prune -o -type f -print)
+
+bash -n "$DOTFILES_DIR/ubuntu/.bashrc"
+if command -v zsh >/dev/null 2>&1; then
+  zsh -n "$DOTFILES_DIR/macOS/.zshrc"
+fi
+bash -n "$DOTFILES_DIR/profiles/backend-ai/.bashrc"
+
+while IFS= read -r installer; do
+  if grep -Eq '\$HOME/dotfiles|~/dotfiles|data00/private/junkim/dotfiles|ubuntu_backend_ai' "$installer"; then
+    fail "$installer contains a fixed repository path"
+  fi
+  if grep -Eq '(^|[[:space:]])ln[[:space:]]+-s' "$installer"; then
+    fail "$installer bypasses scripts/link-file"
+  fi
+done < <(find "$DOTFILES_DIR" -path "$DOTFILES_DIR/.git" -prune -o -type f \( -name 'install.sh' -o -name 'setup*.sh' \) -print)
+
+printf 'old config\n' > "$TEMP_DIR/config"
+"$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$TEMP_DIR/config" >/dev/null
+[[ -L $TEMP_DIR/config ]] || fail "link helper did not replace an existing file"
+[[ ! -e $TEMP_DIR/config.pre-omarchy-dotfiles ]] || fail "link helper created a backup"
+"$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$TEMP_DIR/config" >/dev/null
+mkdir "$TEMP_DIR/real-directory"
+if "$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$TEMP_DIR/real-directory" >/dev/null 2>&1; then
+  fail "link helper replaced a real directory"
+fi
+
+"$LINK_FILE" "$DOTFILES_DIR/common/git/config" "$TEMP_DIR/home/.config/git/common" >/dev/null
+"$LINK_FILE" "$DOTFILES_DIR/ubuntu/git/config" "$TEMP_DIR/home/.gitconfig" >/dev/null
+[[ $(HOME="$TEMP_DIR/home" GIT_CONFIG_NOSYSTEM=1 git config --global --includes --get user.email) == junkim100@gmail.com ]] || fail "shared Git identity is not included"
+[[ $(HOME="$TEMP_DIR/home" GIT_CONFIG_NOSYSTEM=1 git config --global --includes --get alias.co) == checkout ]] || fail "shared Git aliases are not included"
+
+if command -v bat >/dev/null 2>&1; then
+  bat --config-file "$DOTFILES_DIR/common/bat/config" --diagnostic >/dev/null
+fi
+
+if command -v tmux >/dev/null 2>&1; then
+  tmux -L "$TMUX_SOCKET" -f "$DOTFILES_DIR/common/tmux/tmux.conf" new-session -d -s verify
+  [[ $(tmux -L "$TMUX_SOCKET" show-options -gv prefix) == C-Space ]] || fail "shared tmux prefix is incorrect"
+  tmux -L "$TMUX_SOCKET" kill-server
+fi
+
+git -C "$DOTFILES_DIR" diff --check
+
+echo "dotfiles check passed"

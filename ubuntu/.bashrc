@@ -261,7 +261,15 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 ##### dotfiles auto-update #####
-# Pulls ~/dotfiles in the background when a shell starts, since these files get
+if [ -z "${DOTFILES_DIR:-}" ]; then
+  if [ -d "$HOME/.config/dotfiles/repo/.git" ]; then
+    export DOTFILES_DIR="$HOME/.config/dotfiles/repo"
+  else
+    export DOTFILES_DIR="$HOME/dotfiles"
+  fi
+fi
+
+# Pulls the installed dotfiles checkout in the background when a shell starts.
 # edited from several machines. Deliberately timid, because this runs on every new
 # terminal and tmux pane:
 #
@@ -277,8 +285,7 @@ export NVM_DIR="$HOME/.nvm"
 # It updates the files on disk, not the shell you are sitting in: this rc file has
 # already been read by the time the pull lands, so changes take effect next shell.
 _dotfiles_autopull() {
-  # DOTFILES_DIR so the backend.ai box, which keeps the repo off $HOME, can point at it
-  local repo="${DOTFILES_DIR:-$HOME/dotfiles}"
+  local repo="$DOTFILES_DIR"
   local stamp="$HOME/.cache/dotfiles-pull"
   local interval="${DOTFILES_PULL_INTERVAL:-3600}"
   [ -d "$repo/.git" ] || return 0

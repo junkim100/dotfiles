@@ -7,6 +7,7 @@
 .config/fcitx5/profile
 .config/ghostty/config
 .config/ghostty/themes/everforest-dark.txt
+.config/git/common
 .config/git/config
 .config/hypr/autostart.lua
 .config/hypr/bindings.lua

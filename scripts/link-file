@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: scripts/link-file [--dry-run] SOURCE TARGET" >&2
+  exit 2
+}
+
+dry_run=false
+if [[ ${1:-} == "--dry-run" ]]; then
+  dry_run=true
+  shift
+fi
+[[ $# -eq 2 ]] || usage
+
+source=$1
+target=$2
+
+if [[ ! -e $source ]]; then
+  echo "Missing link source: $source" >&2
+  exit 1
+fi
+
+source_dir=$(cd "$(dirname "$source")" && pwd)
+source="$source_dir/$(basename "$source")"
+
+if [[ -L $target && $(readlink "$target") == "$source" ]]; then
+  echo "  = $target"
+  exit 0
+fi
+
+if [[ -d $target && ! -L $target ]]; then
+  echo "Refusing to replace directory with symlink: $target" >&2
+  exit 1
+fi
+
+if $dry_run; then
+  printf '  + link %s -> %s\n' "$target" "$source"
+  exit 0
+fi
+
+mkdir -p "$(dirname "$target")"
+if [[ -e $target || -L $target ]]; then
+  rm -f -- "$target"
+fi
+ln -s -- "$source" "$target"
+echo "  linked $target"

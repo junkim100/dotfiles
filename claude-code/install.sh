@@ -1,7 +1,9 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LINK_FILE="$DOTFILES_DIR/scripts/link-file"
 
 mkdir -p ~/.claude
 
@@ -18,15 +20,15 @@ if ! command -v jq > /dev/null; then
 fi
 
 # Claude Code config
-ln -sf "$DOTFILES_DIR/CLAUDE.md" ~/.claude/CLAUDE.md
-ln -sf "$DOTFILES_DIR/settings.json" ~/.claude/settings.json
-ln -sf "$DOTFILES_DIR/statusline-command.sh" ~/.claude/statusline-command.sh
+"$LINK_FILE" "$SCRIPT_DIR/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+"$LINK_FILE" "$SCRIPT_DIR/settings.json" "$HOME/.claude/settings.json"
+"$LINK_FILE" "$SCRIPT_DIR/statusline-command.sh" "$HOME/.claude/statusline-command.sh"
 
 # Symlink individual skills (not the whole dir) so machine-local skills in
 # ~/.claude/skills are left in place.
 mkdir -p ~/.claude/skills
-for skill in "$DOTFILES_DIR"/skills/*/; do
-  ln -sfn "${skill%/}" ~/.claude/skills/"$(basename "$skill")"
+for skill in "$SCRIPT_DIR"/skills/*/; do
+  "$LINK_FILE" "${skill%/}" "$HOME/.claude/skills/$(basename "$skill")"
 done
 
 # Install or update claude-code via native installer (auto-updates in background)

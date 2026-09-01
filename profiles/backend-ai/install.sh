@@ -1,33 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LINK_FILE="$DOTFILES_DIR/scripts/link-file"
 MINICONDA_DIR="$HOME/miniconda3"
-DOTFILES_DIR="$HOME/data00/private/junkim/dotfiles"
 CACHE_DIR="$HOME/data00/private/junkim/.cache"
+
+"$LINK_FILE" "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
 
 # 0. Symlink ~/.cache to data00 (avoid filling up small home partition)
 mkdir -p "$CACHE_DIR"
-if [ -L "$HOME/.cache" ]; then
-  # Already a symlink — update if pointing elsewhere
-  if [ "$(readlink "$HOME/.cache")" != "$CACHE_DIR" ]; then
-    ln -sfn "$CACHE_DIR" "$HOME/.cache"
-  fi
-elif [ -d "$HOME/.cache" ]; then
-  # Existing directory — move contents then replace with symlink
+if [[ -L "$HOME/.cache" ]]; then
+  "$LINK_FILE" "$CACHE_DIR" "$HOME/.cache"
+elif [[ -d "$HOME/.cache" ]]; then
+  # Preserve cache contents while relocating the directory to data00.
   cp -a "$HOME/.cache/." "$CACHE_DIR/" 2>/dev/null || true
   rm -rf "$HOME/.cache"
-  ln -s "$CACHE_DIR" "$HOME/.cache"
+  "$LINK_FILE" "$CACHE_DIR" "$HOME/.cache"
 else
-  ln -s "$CACHE_DIR" "$HOME/.cache"
+  "$LINK_FILE" "$CACHE_DIR" "$HOME/.cache"
 fi
 
 # 1. Symlink dotfiles
-ln -sf "$DOTFILES_DIR/ubuntu_backend_ai/.bashrc" ~/.bashrc
-ln -sf "$DOTFILES_DIR/ubuntu/.vimrc" ~/.vimrc
-ln -sf "$DOTFILES_DIR/common/tmux/tmux.conf" ~/.tmux.conf
-ln -sf "$DOTFILES_DIR/.gitconfig" ~/.gitconfig
-mkdir -p ~/.config/ranger
-ln -sf "$DOTFILES_DIR/common/ranger/rc.conf" ~/.config/ranger/rc.conf
+"$LINK_FILE" "$SCRIPT_DIR/.bashrc" "$HOME/.bashrc"
+"$LINK_FILE" "$DOTFILES_DIR/ubuntu/.vimrc" "$HOME/.vimrc"
+"$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$HOME/.tmux.conf"
+"$LINK_FILE" "$DOTFILES_DIR/common/git/config" "$HOME/.config/git/common"
+"$LINK_FILE" "$DOTFILES_DIR/ubuntu/git/config" "$HOME/.gitconfig"
+"$LINK_FILE" "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 bash "$DOTFILES_DIR/claude-code/install.sh"
 
 # 2. Install miniconda if missing
@@ -46,15 +47,8 @@ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 
 
 # 4. Install packages (skip if already present)
 command -v tmux &>/dev/null || conda install -y -c conda-forge 'tmux=3.5a' ncurses
-# Symlink tmux into ~/.local/bin so it's available without activating conda base
-mkdir -p ~/.local/bin
-ln -sf "$MINICONDA_DIR/bin/tmux" ~/.local/bin/tmux
-
-# Install TPM (tmux plugin manager) and plugins
-if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
-  git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-fi
-~/.tmux/plugins/tpm/scripts/install_plugins.sh
+# Symlink tmux into ~/.local/bin so it is available without activating conda base.
+"$LINK_FILE" "$MINICONDA_DIR/bin/tmux" "$HOME/.local/bin/tmux"
 
 # 5. Install GitHub CLI (gh)
 if ! command -v gh &>/dev/null || [[ "$(gh --version 2>&1)" != *"gh version"* ]]; then

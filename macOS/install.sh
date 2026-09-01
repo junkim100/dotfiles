@@ -1,5 +1,11 @@
 #!/bin/sh
 set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+DOTFILES_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+LINK_FILE="$DOTFILES_DIR/scripts/link-file"
+
+"$LINK_FILE" "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
  
 # Install Homebrew if missing
 if ! command -v brew > /dev/null 2>&1; then
@@ -8,26 +14,27 @@ if ! command -v brew > /dev/null 2>&1; then
 fi
  
 # Install everything from Brewfile
-brew bundle install --file=~/dotfiles/macOS/Brewfile
+brew bundle install --file="$SCRIPT_DIR/Brewfile"
  
-# Symlink dotfiles
-ln -sf ~/dotfiles/.gitconfig ~/.gitconfig
-ln -sf ~/dotfiles/macOS/.zshrc ~/.zshrc
-ln -sf ~/dotfiles/macOS/.vimrc ~/.vimrc
-ln -sf ~/dotfiles/common/tmux/tmux.conf ~/.tmux.conf
+# Layer platform Git configuration over the shared defaults.
+"$LINK_FILE" "$DOTFILES_DIR/common/git/config" "$HOME/.config/git/common"
+"$LINK_FILE" "$SCRIPT_DIR/git/config" "$HOME/.gitconfig"
+"$LINK_FILE" "$SCRIPT_DIR/.zshrc" "$HOME/.zshrc"
+"$LINK_FILE" "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"
+"$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$HOME/.tmux.conf"
  
 # Ghostty
 mkdir -p ~/.config/ghostty/themes
-ln -sf ~/dotfiles/macOS/ghostty-config ~/.config/ghostty/config
-ln -sf ~/dotfiles/macOS/ghostty-theme-glassy-nord ~/.config/ghostty/themes/glassy-nord
-ln -sf ~/dotfiles/common/ghostty/themes/everforest-dark.txt ~/.config/ghostty/themes/everforest-dark.txt
+"$LINK_FILE" "$SCRIPT_DIR/ghostty-config" "$HOME/.config/ghostty/config"
+"$LINK_FILE" "$SCRIPT_DIR/ghostty-theme-glassy-nord" "$HOME/.config/ghostty/themes/glassy-nord"
+"$LINK_FILE" "$DOTFILES_DIR/common/ghostty/themes/everforest-dark.txt" "$HOME/.config/ghostty/themes/everforest-dark.txt"
 # macOS also reads (and "Open Config"/Cmd+, edits) the Application Support path
 mkdir -p ~/Library/Application\ Support/com.mitchellh.ghostty
-ln -sf ~/dotfiles/macOS/ghostty-config ~/Library/Application\ Support/com.mitchellh.ghostty/config
+"$LINK_FILE" "$SCRIPT_DIR/ghostty-config" "$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 
 # Install the pinned Neovim binary and restore the exact LazyVim plugin revisions.
-git -C ~/dotfiles submodule update --init --recursive lazyvim
-bash ~/dotfiles/lazyvim/install.sh
+git -C "$DOTFILES_DIR" submodule update --init --recursive lazyvim
+bash "$DOTFILES_DIR/lazyvim/install.sh"
 
 # Suppress the "Last login: ..." banner login(1) prints for every new login shell,
 # which ghostty starts for every window and tab. The file only has to exist.
@@ -35,14 +42,14 @@ touch ~/.hushlogin
 
 # bat
 mkdir -p ~/.config/bat
-ln -sf ~/dotfiles/common/bat/config ~/.config/bat/config
+"$LINK_FILE" "$DOTFILES_DIR/common/bat/config" "$HOME/.config/bat/config"
 
 # Ranger
 mkdir -p ~/.config/ranger
-ln -sf ~/dotfiles/common/ranger/rc.conf ~/.config/ranger/rc.conf
+"$LINK_FILE" "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
 # Zed
 mkdir -p ~/.config/zed/themes
-ln -sf ~/dotfiles/macOS/zed-settings.json ~/.config/zed/settings.json
-ln -sf ~/dotfiles/macOS/zed-keymap.json ~/.config/zed/keymap.json
-ln -sf ~/dotfiles/macOS/zed-theme-glassy-nord.json ~/.config/zed/themes/glassy_nord.json
+"$LINK_FILE" "$SCRIPT_DIR/zed-settings.json" "$HOME/.config/zed/settings.json"
+"$LINK_FILE" "$SCRIPT_DIR/zed-keymap.json" "$HOME/.config/zed/keymap.json"
+"$LINK_FILE" "$SCRIPT_DIR/zed-theme-glassy-nord.json" "$HOME/.config/zed/themes/glassy_nord.json"

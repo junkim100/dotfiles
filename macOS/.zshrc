@@ -80,7 +80,15 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 ##### dotfiles auto-update #####
-# Pulls ~/dotfiles in the background when a shell starts, since these files get
+if [ -z "${DOTFILES_DIR:-}" ]; then
+  if [ -d "$HOME/.config/dotfiles/repo/.git" ]; then
+    export DOTFILES_DIR="$HOME/.config/dotfiles/repo"
+  else
+    export DOTFILES_DIR="$HOME/dotfiles"
+  fi
+fi
+
+# Pulls the installed dotfiles checkout in the background when a shell starts.
 # edited from several machines. Deliberately timid, because this runs on every new
 # terminal and tmux pane:
 #
@@ -96,8 +104,7 @@ export PATH="$HOME/.local/bin:$PATH"
 # It updates the files on disk, not the shell you are sitting in: this rc file has
 # already been read by the time the pull lands, so changes take effect next shell.
 _dotfiles_autopull() {
-  # DOTFILES_DIR so the backend.ai box, which keeps the repo off $HOME, can point at it
-  local repo="${DOTFILES_DIR:-$HOME/dotfiles}"
+  local repo="$DOTFILES_DIR"
   local stamp="$HOME/.cache/dotfiles-pull"
   local interval="${DOTFILES_PULL_INTERVAL:-3600}"
   [ -d "$repo/.git" ] || return 0
@@ -123,4 +130,4 @@ _dotfiles_autopull() {
 # over the network meant every shell used whatever was on main rather than the commit
 # this machine has, so editing the theme locally did nothing until it was pushed, and a
 # shell with no network paid 0.3s waiting for it.
-eval "$(oh-my-posh init zsh --config "$HOME/dotfiles/macOS/.ohmyposh-nord-theme.json")"
+eval "$(oh-my-posh init zsh --config "$DOTFILES_DIR/macOS/.ohmyposh-nord-theme.json")"

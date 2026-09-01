@@ -3,12 +3,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LINK_FILE="$DOTFILES_DIR/scripts/link-file"
 DRY_RUN=false
 INCLUDE_HARDWARE=false
 
 usage() {
   cat <<'USAGE'
-Usage: bash ~/dotfiles/omarchy/install.sh [--dry-run] [--include-hardware]
+Usage: omarchy/install.sh [--dry-run] [--include-hardware]
 
 Reproduce this machine's applications, removals, keybindings, and user config
 on a fresh Omarchy install. Existing config files are replaced by repository
@@ -59,30 +60,11 @@ read_manifest() {
 }
 
 link_file() {
-  local source="$1"
-  local target="$2"
-
-  if [[ ! -f "$source" ]]; then
-    echo "Missing tracked config: $source" >&2
-    exit 1
-  fi
-
-  if [[ -L "$target" && "$(readlink "$target")" == "$source" ]]; then
-    echo "  = $target"
-    return
-  fi
-
   if $DRY_RUN; then
-    printf '  + link %s -> %s\n' "$target" "$source"
-    return
+    "$LINK_FILE" --dry-run "$@"
+  else
+    "$LINK_FILE" "$@"
   fi
-
-  mkdir -p "$(dirname "$target")"
-  if [[ -e "$target" || -L "$target" ]]; then
-    rm -f "$target"
-  fi
-  ln -s "$source" "$target"
-  echo "  linked $target"
 }
 
 install_optional_apps() {
@@ -162,6 +144,7 @@ install_configs() {
   if [[ -f "$DOTFILES_DIR/common/ranger/rc.conf" ]]; then
     link_file "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
   fi
+  link_file "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
 }
 
 initialize_zen_profile() {
