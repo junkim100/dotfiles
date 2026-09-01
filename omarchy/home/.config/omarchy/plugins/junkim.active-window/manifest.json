@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "junkim.active-window",
+  "name": "Focused application",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Name of the focused application",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "ActiveWindow.qml"
+  },
+  "barWidget": {
+    "displayName": "Focused application",
+    "description": "Name of the focused application",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "left"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.active-window"
+  }
+}

@@ -4,6 +4,8 @@
 hl.config({
   input = {
     natural_scroll = true,
+    -- Caps toggles Korean input; Shift + Caps remains the real Caps Lock.
+    kb_options = "caps:escape_shifted_capslock",
   },
 })
 
@@ -52,6 +54,14 @@ hl.config({
 --     },
 --   },
 -- })
+
+-- Keep keyboard focus on the selected window until another window is clicked
+-- or focused with a keybinding. Pointer movement alone must not change focus.
+hl.config({
+  input = {
+    follow_mouse = 0,
+  },
+})
 
 -- App-specific touchpad scroll speeds.
 -- o.window("(Alacritty|kitty|foot)", { scroll_touchpad = 1.5 })

@@ -168,7 +168,6 @@ initialize_zen_profile() {
 apply_defaults() {
   echo "Applying Omarchy defaults..."
   run omarchy default terminal ghostty
-  run omarchy default browser zen
   run omarchy font set "JetBrainsMono Nerd Font"
 
   initialize_zen_profile

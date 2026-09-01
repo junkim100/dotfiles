@@ -32,7 +32,7 @@ bash ~/dotfiles/omarchy/install.sh --include-hardware
 The installer:
 
 - Installs Ghostty, Zen Browser, Tailscale, Voxtype, and Widevine.
-- Sets Ghostty as the default terminal and Zen as the default browser.
+- Sets Ghostty as the default terminal and restores the tracked Zen Twilight browser associations.
 - Restores the Everforest theme and JetBrainsMono Nerd Font.
 - Removes the stock packages and web apps listed under `packages/`.
 - Links the tracked Hyprland, Omarchy, Ghostty, Fcitx, Git, Mise, Voxtype, SSH, and desktop-launcher configuration into `$HOME`.

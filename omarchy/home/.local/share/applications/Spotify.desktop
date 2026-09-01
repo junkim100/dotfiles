@@ -2,7 +2,7 @@
 Version=1.0
 Name=Spotify
 Comment=Spotify
-Exec=/usr/bin/zen-browser https://open.spotify.com
+Exec=zen-browser-twilight https://open.spotify.com
 Terminal=false
 Type=Application
 Icon=spotify

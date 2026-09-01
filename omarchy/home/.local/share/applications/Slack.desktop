@@ -2,7 +2,7 @@
 Version=1.0
 Name=Slack
 Comment=Slack
-Exec=/usr/bin/zen-browser https://app.slack.com/client
+Exec=zen-browser-twilight https://app.slack.com/client/T017MTC9004/C017102L4S3
 Terminal=false
 Type=Application
 Icon=slack

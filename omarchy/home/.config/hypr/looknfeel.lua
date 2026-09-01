@@ -26,6 +26,9 @@
 -- })
 
 hl.config({
+  general = {
+    border_size = 4,
+  },
   decoration = {
     blur = {
       enabled = true,

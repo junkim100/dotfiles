@@ -23,6 +23,10 @@
 -- Disable a default binding without replacing it.
 -- hl.unbind("SUPER + SHIFT + B")
 
+-- Bind the physical Caps Lock key. The XKB mapping in input.lua keeps
+-- Shift + Caps Lock available for normal capitalization.
+o.bind("code:66", "Toggle Korean input", "fcitx5-remote -t")
+
 -- Removed applications.
 hl.unbind("SUPER + SHIFT + SLASH") -- 1Password
 hl.unbind("SUPER + SHIFT + ALT + M") -- cliamp
@@ -42,36 +46,41 @@ hl.unbind("SUPER + CTRL + K") -- Herdr keybindings
 hl.unbind("SUPER + SHIFT + O") -- Obsidian
 
 -- Installed applications.
-o.bind("SUPER + SHIFT + S", "Slack", { launch = "zen-browser https://app.slack.com/client" })
-hl.unbind("SUPER + SHIFT + M") -- Packaged Spotify launcher
-o.bind("SUPER + SHIFT + M", "Spotify", { launch = "zen-browser https://open.spotify.com" })
-o.bind("SUPER + CTRL + RETURN", "Hermes Desktop", { launch = "gtk-launch hermes" })
+-- Swap the default terminal launchers.
+hl.unbind("SUPER + RETURN") -- Previously: Terminal
+hl.unbind("SUPER + ALT + RETURN") -- Previously: Tmux
+o.bind("SUPER + RETURN", "Tmux", { omarchy = "terminal-tmux" })
+o.bind("SUPER + ALT + RETURN", "Terminal", { omarchy = "terminal" })
 
--- Route Omarchy's remaining web shortcuts through Zen instead of Chromium app mode.
+o.bind("SUPER + SHIFT + S", "Slack", { launch = "zen-browser-twilight https://app.slack.com/client/T017MTC9004/C017102L4S3" })
+hl.unbind("SUPER + SHIFT + M") -- Packaged Spotify launcher
+o.bind("SUPER + SHIFT + M", "Spotify", { launch = "zen-browser-twilight https://open.spotify.com" })
+o.bind("SUPER + CTRL + RETURN", "Hermes Desktop", { launch = "gtk-launch hermes" })
+o.bind("SUPER + SHIFT + H", "Hermes Desktop", { launch = "gtk-launch hermes" })
+
+-- Route selected web shortcuts through Zen instead of Chromium app mode.
 hl.unbind("SUPER + SHIFT + A") -- ChatGPT
-o.bind("SUPER + SHIFT + A", "ChatGPT", { launch = "zen-browser https://chatgpt.com" })
+o.bind("SUPER + SHIFT + A", "ChatGPT", { launch = "zen-browser-twilight https://chatgpt.com" })
 hl.unbind("SUPER + SHIFT + ALT + A") -- Grok
-o.bind("SUPER + SHIFT + ALT + A", "Grok", { launch = "zen-browser https://grok.com" })
+o.bind("SUPER + SHIFT + ALT + A", "Grok", { launch = "zen-browser-twilight https://grok.com" })
+
+-- Disabled web shortcuts.
 hl.unbind("SUPER + SHIFT + Y") -- YouTube
-o.bind("SUPER + SHIFT + Y", "YouTube", { launch = "zen-browser https://youtube.com/" })
 hl.unbind("SUPER + SHIFT + X") -- X
-o.bind("SUPER + SHIFT + X", "X", { launch = "zen-browser https://x.com/" })
 hl.unbind("SUPER + SHIFT + ALT + X") -- X Post
-o.bind("SUPER + SHIFT + ALT + X", "X Post", { launch = "zen-browser https://x.com/compose/post" })
 
 -- macOS-style application shortcuts. Send explicit synthetic modifiers so the
 -- physically held SUPER key is not forwarded to the focused application.
 local function send_shortcut_once(mods, key)
   return function()
-    local down = { mods = mods or "", key = key, state = "down" }
-    local up = { mods = mods or "", key = key, state = "up" }
-
-    hl.dispatch(hl.dsp.send_key_state(down))
-    hl.timer(function()
-      hl.dispatch(hl.dsp.send_key_state(up))
-    end, { timeout = 50, type = "oneshot" })
+    hl.dispatch(hl.dsp.send_key_state({ mods = mods or "", key = key, state = "down" }))
+    hl.dispatch(hl.dsp.send_key_state({ mods = mods or "", key = key, state = "up" }))
   end
 end
+
+-- macOS Option+Arrow word navigation. Linux applications use Ctrl+Arrow.
+o.bind("ALT + LEFT", "Previous word", send_shortcut_once("CTRL", "LEFT"), { repeating = true })
+o.bind("ALT + RIGHT", "Next word", send_shortcut_once("CTRL", "RIGHT"), { repeating = true })
 
 local function active_window_has_tag(name)
   local window = hl.get_active_window()
@@ -98,6 +107,13 @@ local function active_window_is_browser()
   return active_window_has_tag("firefox-based-browser")
     or active_window_has_tag("chromium-based-browser")
     or class == "zen"
+    or class == "zen-twilight"
+end
+
+local function active_window_is_zen_web_app()
+  local window = hl.get_active_window()
+  local class = window and (window.class or ""):lower() or ""
+  return class:match("^zen%.webapp%-") ~= nil
 end
 
 local function application_shortcut(default_mods, default_key, terminal_mods, terminal_key)
@@ -109,6 +125,35 @@ local function application_shortcut(default_mods, default_key, terminal_mods, te
     end
   end
 end
+
+local function close_tab_or_window()
+  if active_window_is_zen_web_app() then
+    hl.dispatch(hl.dsp.window.close())
+  elseif active_window_is_terminal() then
+    send_shortcut_once("CTRL SHIFT", "W")()
+  else
+    send_shortcut_once("CTRL", "W")()
+  end
+end
+
+-- macOS Command+Backspace: delete from the caret to the beginning of the
+-- current line. Terminals use readline's equivalent; GUI editors select to
+-- Home first, then delete that selection after the synthetic Shift is released.
+local function delete_to_line_start()
+  if active_window_is_terminal() then
+    send_shortcut_once("CTRL", "U")()
+    return
+  end
+
+  send_shortcut_once("SHIFT", "HOME")()
+  hl.timer(function()
+    send_shortcut_once(nil, "BACKSPACE")()
+  end, { timeout = 90, type = "oneshot" })
+end
+
+hl.unbind("SUPER + BACKSPACE") -- Previously: toggle window transparency
+o.bind("SUPER + BACKSPACE", "Delete to beginning of line", delete_to_line_start)
+o.bind("SUPER + ALT + BACKSPACE", "Toggle window transparency", "omarchy-hyprland-window-transparency-toggle")
 
 -- Move Hyprland navigation away from SUPER so applications can use it.
 hl.unbind("SUPER + LEFT") -- Previously: focus left window
@@ -176,6 +221,8 @@ o.bind("SUPER + SHIFT + DOWN", "Select to end of document", send_shortcut_once("
 
 -- Common Command-key equivalents. Ghostty needs its terminal-specific
 -- Ctrl+Shift tab/window chords; normal applications use the Linux Ctrl chord.
+hl.unbind("SUPER + COMMA") -- Previously: dismiss last notification
+o.bind("SUPER + COMMA", "Settings", send_shortcut_once("CTRL", "COMMA"))
 o.bind("SUPER + A", "Select all", send_shortcut_once("CTRL", "A"))
 o.bind("SUPER + F", "Find", send_shortcut_once("CTRL", "F"))
 o.bind("SUPER + G", "Find next", send_shortcut_once("CTRL", "G"))
@@ -188,8 +235,7 @@ o.bind("SUPER + R", "Reload", send_shortcut_once("CTRL", "R"))
 o.bind("SUPER + SHIFT + R", "Hard reload", send_shortcut_once("CTRL SHIFT", "R"))
 o.bind("SUPER + S", "Save", send_shortcut_once("CTRL", "S"))
 o.bind("SUPER + T", "New tab", application_shortcut("CTRL", "T", "CTRL SHIFT", "T"))
-o.bind("SUPER + SHIFT + T", "Reopen closed tab", send_shortcut_once("CTRL SHIFT", "T"))
-o.bind("SUPER + W", "Close tab or window", application_shortcut("CTRL", "W", "CTRL SHIFT", "W"))
+o.bind("SUPER + W", "Close tab or Web App", close_tab_or_window)
 o.bind("SUPER + SHIFT + W", "Close application window", send_shortcut_once("CTRL SHIFT", "W"))
 o.bind("SUPER + Q", "Quit application", application_shortcut("CTRL", "Q", "CTRL SHIFT", "Q"))
 o.bind("SUPER + Z", "Undo", send_shortcut_once("CTRL", "Z"))

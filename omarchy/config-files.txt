@@ -2,6 +2,7 @@
 .urlview
 .tmux.conf
 .config/fcitx5/conf/clipboard.conf
+.config/fcitx5/conf/hangul.conf
 .config/fcitx5/conf/notifications.conf
 .config/fcitx5/conf/xcb.conf
 .config/fcitx5/profile
@@ -24,6 +25,8 @@
 .config/omarchy/defaults/agent
 .config/omarchy/extensions/omarchy-menu.jsonc
 .config/omarchy/hooks/theme-set.d/zen-browser
+.config/omarchy/plugins/junkim.active-window/ActiveWindow.qml
+.config/omarchy/plugins/junkim.active-window/manifest.json
 .config/omarchy/shell.json
 .config/voxtype/config.toml
 .local/share/applications/Slack.desktop
