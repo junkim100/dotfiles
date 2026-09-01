@@ -1,5 +1,6 @@
 .XCompose
 .urlview
+.tmux.conf
 .config/fcitx5/conf/clipboard.conf
 .config/fcitx5/conf/notifications.conf
 .config/fcitx5/conf/xcb.conf

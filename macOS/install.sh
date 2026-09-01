@@ -46,12 +46,3 @@ mkdir -p ~/.config/zed/themes
 ln -sf ~/dotfiles/macOS/zed-settings.json ~/.config/zed/settings.json
 ln -sf ~/dotfiles/macOS/zed-keymap.json ~/.config/zed/keymap.json
 ln -sf ~/dotfiles/macOS/zed-theme-glassy-nord.json ~/.config/zed/themes/glassy_nord.json
- 
-# Install TPM if missing
-if [ ! -f "$HOME/.tmux/plugins/tpm/tpm" ]; then
-  mkdir -p "$HOME/.tmux/plugins"
-  git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
-fi
- 
-# Install plugins listed in ~/.tmux.conf
-"$HOME/.tmux/plugins/tpm/scripts/install_plugins.sh"
