@@ -23,7 +23,7 @@ bash ~/dotfiles/ubuntu/install.sh
 bash ~/dotfiles/omarchy/install.sh
 ```
 
-The Omarchy installer is intended for a fresh Omarchy installation. It restores the selected applications, removes unwanted stock applications and web apps, links the tracked Hyprland and application configuration, and reapplies the current defaults and theme. Existing configuration files are backed up once with a `.pre-omarchy-dotfiles` suffix.
+The Omarchy installer is intended for a fresh Omarchy installation. It restores the selected applications, removes unwanted stock applications and web apps, replaces existing configuration files with links to the tracked configuration, and reapplies the current defaults and theme.
 
 Configuration shared by two or more platforms lives under `common/`. This currently includes tmux, Bat, Ranger, and the Everforest Ghostty theme. Compatibility symlinks at the old platform paths keep existing installations working.
 

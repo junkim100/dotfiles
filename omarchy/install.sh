@@ -11,8 +11,8 @@ usage() {
 Usage: bash ~/dotfiles/omarchy/install.sh [--dry-run] [--include-hardware]
 
 Reproduce this machine's applications, removals, keybindings, and user config
-on a fresh Omarchy install. Existing config files are backed up once with a
-.pre-omarchy-dotfiles suffix before they are replaced by repository symlinks.
+on a fresh Omarchy install. Existing config files are replaced by repository
+symlinks without creating backup copies.
 
 Options:
   --dry-run           Print intended changes without modifying the machine.
@@ -61,7 +61,6 @@ read_manifest() {
 link_file() {
   local source="$1"
   local target="$2"
-  local backup="${target}.pre-omarchy-dotfiles"
 
   if [[ ! -f "$source" ]]; then
     echo "Missing tracked config: $source" >&2
@@ -80,12 +79,7 @@ link_file() {
 
   mkdir -p "$(dirname "$target")"
   if [[ -e "$target" || -L "$target" ]]; then
-    if [[ ! -e "$backup" && ! -L "$backup" ]]; then
-      mv "$target" "$backup"
-      echo "  backed up $target -> $backup"
-    else
-      rm -f "$target"
-    fi
+    rm -f "$target"
   fi
   ln -s "$source" "$target"
   echo "  linked $target"

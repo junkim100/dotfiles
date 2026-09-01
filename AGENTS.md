@@ -20,7 +20,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Preserve unrelated tracked modifications and untracked files. Never stage them as part of another task.
 - Do not use broad staging commands such as `git add -A` from the repository root when unrelated work exists. Stage explicit paths.
 - Do not commit or push unless the user explicitly requests it.
-- Never overwrite a real configuration directory with a symlink without first preserving it as a timestamped backup.
+- Never replace a real configuration directory with a file symlink; fail instead.
 - Edit the tracked source rather than the live file under `~/.config` when a managed symlink exists.
 - Do not run the full macOS, Ubuntu, or Omarchy installer merely for validation because those scripts install packages and alter live configuration. Validate Omarchy with `--dry-run` and an isolated temporary home with stubbed external commands.
 
@@ -43,7 +43,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Use `realpath` to verify changed live symlink targets.
 - Use `cmp` when platform copies are expected to be identical.
 - Validate Bat changes with `bat --config-file <path> --diagnostic`.
-- Validate Omarchy changes with `bash omarchy/install.sh --dry-run`, then run the installer twice against an isolated temporary home to verify backups, symlink targets, and idempotency.
+- Validate Omarchy changes with `bash omarchy/install.sh --dry-run`, then run the installer twice against an isolated temporary home to verify replacement behavior, symlink targets, and idempotency.
 - Verify shared platform aliases and Omarchy's Bat and Ranger links resolve to their canonical files under `common/`.
 - Check LazyVim integration with `git submodule status --recursive`.
 - For LazyVim changes, run its dedicated installer and confirm Neovim starts with the expected configuration.

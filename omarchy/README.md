@@ -40,7 +40,7 @@ The installer:
 - Runs `mise install` to restore the tools declared in the tracked Mise configuration, including OMP.
 - Initializes a new Zen profile when needed so the Omarchy theme hook can generate Zen CSS.
 
-Existing destination files are backed up once with a `.pre-omarchy-dotfiles` suffix before repository symlinks replace them. The installer is safe to rerun.
+Existing destination files are replaced by repository symlinks without creating backup copies. The installer is safe to rerun.
 
 The Bat and Ranger files are canonical under `../common/` and shared by the Ubuntu, macOS, and Omarchy installers.
 
