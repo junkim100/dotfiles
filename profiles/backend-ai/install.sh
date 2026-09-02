@@ -25,7 +25,6 @@ fi
 # 1. Symlink dotfiles
 "$LINK_FILE" "$SCRIPT_DIR/.bashrc" "$HOME/.bashrc"
 "$LINK_FILE" "$DOTFILES_DIR/ubuntu/.vimrc" "$HOME/.vimrc"
-"$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$HOME/.tmux.conf"
 "$LINK_FILE" "$DOTFILES_DIR/common/git/config" "$HOME/.config/git/common"
 "$LINK_FILE" "$DOTFILES_DIR/ubuntu/git/config" "$HOME/.gitconfig"
 "$LINK_FILE" "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
@@ -49,6 +48,7 @@ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 
 command -v tmux &>/dev/null || conda install -y -c conda-forge 'tmux=3.5a' ncurses
 # Symlink tmux into ~/.local/bin so it is available without activating conda base.
 "$LINK_FILE" "$MINICONDA_DIR/bin/tmux" "$HOME/.local/bin/tmux"
+bash "$DOTFILES_DIR/common/tmux/install.sh"
 
 # 5. Install GitHub CLI (gh)
 if ! command -v gh &>/dev/null || [[ "$(gh --version 2>&1)" != *"gh version"* ]]; then

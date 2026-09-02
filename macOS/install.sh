@@ -21,7 +21,7 @@ brew bundle install --file="$SCRIPT_DIR/Brewfile"
 "$LINK_FILE" "$SCRIPT_DIR/git/config" "$HOME/.gitconfig"
 "$LINK_FILE" "$SCRIPT_DIR/.zshrc" "$HOME/.zshrc"
 "$LINK_FILE" "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"
-"$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$HOME/.tmux.conf"
+sh "$DOTFILES_DIR/common/tmux/install.sh"
  
 # Ghostty
 mkdir -p ~/.config/ghostty/themes

@@ -19,8 +19,6 @@ clear || true
 "$LINK_FILE" "$SCRIPT_DIR/.bashrc" "$HOME/.bashrc"
 "$LINK_FILE" "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"
 
-bash "$SCRIPT_DIR/setup_tmux.sh"
-
 # bat config
 mkdir -p ~/.config/bat
 "$LINK_FILE" "$DOTFILES_DIR/common/bat/config" "$HOME/.config/bat/config"
@@ -37,6 +35,8 @@ fi
 
 # Install apt packages
 bash "$SCRIPT_DIR/install_packages.sh"
+
+bash "$DOTFILES_DIR/common/tmux/install.sh"
 
 # Install the pinned Neovim binary and restore the exact LazyVim plugin revisions after system dependencies are available.
 git -C "$DOTFILES_DIR" submodule update --init --recursive lazyvim

@@ -95,6 +95,13 @@ fi
 if command -v tmux >/dev/null 2>&1; then
   tmux -L "$TMUX_SOCKET" -f "$DOTFILES_DIR/common/tmux/tmux.conf" new-session -d -s verify
   [[ $(tmux -L "$TMUX_SOCKET" show-options -gv prefix) == C-Space ]] || fail "shared tmux prefix is incorrect"
+  [[ $(tmux -L "$TMUX_SOCKET" show-options -gv status-position) == top ]] || fail "shared tmux status bar is not at the top"
+  [[ $(tmux -L "$TMUX_SOCKET" show-options -gv mouse) == on ]] || fail "shared tmux mouse support is disabled"
+  [[ $(tmux -L "$TMUX_SOCKET" show-options -gv renumber-windows) == on ]] || fail "shared tmux window renumbering is disabled"
+  [[ $(tmux -L "$TMUX_SOCKET" show-options -gqv @continuum-restore) == on ]] || fail "shared tmux automatic restore is disabled"
+  [[ $(tmux -L "$TMUX_SOCKET" show-options -gqv @continuum-boot) == on ]] || fail "shared tmux automatic boot is disabled"
+  [[ $(tmux -L "$TMUX_SOCKET" list-keys -T root) =~ M-Enter[[:space:]]+split-window[[:space:]]+-v ]] || fail "shared tmux vertical split binding is missing"
+  [[ $(tmux -L "$TMUX_SOCKET" list-keys -T root) =~ M-S-Enter[[:space:]]+split-window[[:space:]]+-h ]] || fail "shared tmux horizontal split binding is missing"
   tmux -L "$TMUX_SOCKET" kill-server
 fi
 

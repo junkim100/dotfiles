@@ -35,6 +35,8 @@ The Omarchy installer is intended for a fresh Omarchy installation. It restores 
 
 Configuration shared by two or more platforms lives under `common/`. This currently includes tmux, Bat, Ranger, Git defaults, and the Everforest Ghostty theme. Platform Git files include the shared defaults and remain available for platform-specific overrides. Compatibility symlinks at old paths keep existing installations working.
 
+The shared tmux installer links the canonical configuration and installs TPM, tmux-resurrect, and tmux-continuum. Sessions save every 15 minutes, restore when tmux starts, and start automatically after login on supported macOS and Linux systems.
+
 The MacBook-specific monitor layout is intentionally skipped on other hardware. Include it explicitly when restoring the same display setup:
 
 ```bash
