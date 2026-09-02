@@ -9,12 +9,15 @@ packages=(
   btop
   curl
   unzip
+  python3-venv
+  nvitop
 )
 
 # Function to check if a package is installed.
 # Checks PATH as well as dpkg, so binaries dropped into ~/.local/bin count.
 is_installed() {
-  dpkg -l "$1" &> /dev/null || command -v "$1" &> /dev/null
+  [ "$(dpkg-query -W -f='${Status}' "$1" 2> /dev/null)" = "install ok installed" ] ||
+    command -v "$1" &> /dev/null
 }
 
 # Work out whether we can escalate at all. On hosts where the sudoers entry has
@@ -56,10 +59,4 @@ else
   if [ -f /usr/bin/batcat ] && [ ! -f /usr/bin/bat ]; then
     $SUDO mv /usr/bin/batcat /usr/bin/bat
   fi
-fi
-
-if [ "$(id -u)" -eq 0 ]; then
-  pip3 install --upgrade nvitop
-else
-  pip3 install --user --upgrade nvitop
 fi

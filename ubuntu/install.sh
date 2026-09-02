@@ -29,8 +29,8 @@ mkdir -p ~/.config/bat
 mkdir -p ~/.config/ranger
 "$LINK_FILE" "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
-# Check if conda is installed and run setup_conda.sh if it's not
-if ! command -v conda &> /dev/null; then
+# Install Conda only when neither PATH nor the managed installation contains it.
+if ! command -v conda &> /dev/null && [ ! -x "$HOME/miniconda3/bin/conda" ]; then
     echo "Conda is not installed. Running setup_conda.sh..."
     bash "$SCRIPT_DIR/setup_conda.sh"
 fi
