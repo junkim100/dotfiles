@@ -2,7 +2,8 @@ macos-icon = xray
 theme = everforest-dark.txt
 mouse-hide-while-typing = true
 font-family = "MesloLGM Nerd Font"
-keybind = shift+enter=text:\x1b\r
+# Keep Shift+Enter distinct from tmux's Alt+Enter split shortcut.
+keybind = shift+enter=csi:13;2u
 background-opacity = 0.9
 background-blur = 30
 macos-option-as-alt = true
