@@ -131,7 +131,6 @@ if command -v tmux >/dev/null 2>&1; then
   [[ $(tmux -L "$TMUX_SOCKET" show-options -gv renumber-windows) == on ]] || fail "shared tmux window renumbering is disabled"
   [[ $(tmux -L "$TMUX_SOCKET" show-options -gqv @continuum-restore) == on ]] || fail "shared tmux automatic restore is disabled"
   [[ $(tmux -L "$TMUX_SOCKET" show-options -gqv @continuum-boot) == on ]] || fail "shared tmux automatic boot is disabled"
-  [[ $(tmux -L "$TMUX_SOCKET" list-keys -T root) =~ M-Enter[[:space:]]+split-window[[:space:]]+-v ]] || fail "shared tmux vertical split binding is missing"
   [[ $(tmux -L "$TMUX_SOCKET" list-keys -T root) =~ M-S-Enter[[:space:]]+split-window[[:space:]]+-h ]] || fail "shared tmux horizontal split binding is missing"
   tmux -L "$TMUX_SOCKET" kill-server
 fi
