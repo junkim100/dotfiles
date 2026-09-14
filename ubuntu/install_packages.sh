@@ -11,6 +11,7 @@ packages=(
   unzip
   python3-venv
   nvitop
+  urlview
 )
 
 # Function to check if a package is installed.

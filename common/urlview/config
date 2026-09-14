@@ -1,0 +1,4 @@
+# Shared by macOS and Ubuntu, linked to ~/.urlview by their installers.
+# urlview passes COMMAND to system() and substitutes %s with the selected URL, so %s is quoted here to survive the & and ? that appear in ordinary query strings.
+# The default COMMAND is "open %s", which is correct on macOS and absent on Linux, so dispatch on uname and use xdg-open elsewhere.
+COMMAND sh -c 'case "$(uname)" in Darwin) open "$1";; *) xdg-open "$1";; esac' urlview "%s"

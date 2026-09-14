@@ -48,6 +48,9 @@ mkdir -p ~/.config/bat
 mkdir -p ~/.config/ranger
 "$LINK_FILE" "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
+# urlview, for the tmux URL picker on prefix + u
+"$LINK_FILE" "$DOTFILES_DIR/common/urlview/config" "$HOME/.urlview"
+
 # Zed
 mkdir -p ~/.config/zed/themes
 "$LINK_FILE" "$SCRIPT_DIR/zed-settings.json" "$HOME/.config/zed/settings.json"

@@ -27,6 +27,9 @@ mkdir -p ~/.config/bat
 mkdir -p ~/.config/ranger
 "$LINK_FILE" "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
+# urlview, for the tmux URL picker on prefix + u
+"$LINK_FILE" "$DOTFILES_DIR/common/urlview/config" "$HOME/.urlview"
+
 # Install Conda only when neither PATH nor the managed installation contains it.
 if ! command -v conda &> /dev/null && [ ! -x "$HOME/miniconda3/bin/conda" ]; then
     echo "Conda is not installed. Running setup_conda.sh..."

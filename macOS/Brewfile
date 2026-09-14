@@ -28,6 +28,8 @@ brew "ranger"
 brew "ripgrep"
 brew "tmux"
 brew "tree"
+# Backs the tmux URL picker bound to prefix + u in common/tmux/tmux.conf.
+brew "urlview"
 brew "uv"
 brew "watch"
 brew "yt-dlp"
