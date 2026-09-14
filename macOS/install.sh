@@ -52,8 +52,19 @@ if ! command -v brew > /dev/null 2>&1; then
     echo "  + install Homebrew"
   else
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    eval "$(/opt/homebrew/bin/brew shellenv)"
   fi
+fi
+
+# The Homebrew installer only prints its shellenv line under "Next steps" and never runs it, so brew
+# is still off PATH in this process right after installing. Load the prefix so brew bundle can run.
+# The deployed .zprofile does the same thing for every later login shell.
+if ! command -v brew > /dev/null 2>&1; then
+  for candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [ -x "$candidate" ]; then
+      eval "$("$candidate" shellenv)"
+      break
+    fi
+  done
 fi
 
 # Install everything from Brewfile
@@ -62,6 +73,7 @@ run brew bundle install --file="$SCRIPT_DIR/Brewfile"
 # Layer platform Git configuration over the shared defaults.
 link_file "$DOTFILES_DIR/common/git/config" "$HOME/.config/git/common"
 link_file "$SCRIPT_DIR/git/config" "$HOME/.gitconfig"
+link_file "$SCRIPT_DIR/.zprofile" "$HOME/.zprofile"
 link_file "$SCRIPT_DIR/.zshrc" "$HOME/.zshrc"
 link_file "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"
 sh "$DOTFILES_DIR/common/tmux/install.sh" $DRY_RUN_FLAG

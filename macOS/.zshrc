@@ -38,27 +38,15 @@ export NVM_DIR="$HOME/.nvm"
 ##### Local env script (optional) #####
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" >/dev/null 2>&1
 
-##### Conda (kept, silenced) #####
-if [[ -n "$CONDA_PREFIX" ]] && [[ ! -d "$CONDA_PREFIX" ]]; then
-  unset CONDA_PREFIX CONDA_DEFAULT_ENV
-fi
-
-__conda_setup="$("$HOME/miniconda3/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-  eval "$__conda_setup" >/dev/null 2>&1
-else
-  if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
-    . "$HOME/miniconda3/etc/profile.d/conda.sh" >/dev/null 2>&1
-  else
-    export PATH="$HOME/miniconda3/bin:$PATH"
-  fi
-fi
-unset __conda_setup
-
 ##### Homebrew Zsh plugins #####
 # Guarded: sourcing a missing file makes zsh print an error on every single shell,
 # which is what happens on a machine where brew bundle has not run yet.
-BREW_PREFIX="${HOMEBREW_PREFIX:-$(brew --prefix)}"
+# brew itself can be missing too, and calling it unconditionally prints a command-not-found on
+# every shell. HOMEBREW_PREFIX is already exported by the shellenv line in .zprofile.
+BREW_PREFIX="${HOMEBREW_PREFIX:-}"
+if [[ -z "$BREW_PREFIX" ]] && command -v brew > /dev/null 2>&1; then
+  BREW_PREFIX="$(brew --prefix)"
+fi
 
 # zsh-autosuggestions (Homebrew install instructions use brew prefix sourcing). [web:56]
 [[ -r "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] \
@@ -93,4 +81,8 @@ unset _d
 # over the network meant every shell used whatever was on main rather than the commit
 # this machine has, so editing the theme locally did nothing until it was pushed, and a
 # shell with no network paid 0.3s waiting for it.
-eval "$(oh-my-posh init zsh --config "$DOTFILES_DIR/macOS/.ohmyposh-nord-theme.json")"
+# Guarded for the same reason as the plugins above: on a fresh machine this runs before
+# brew bundle has installed oh-my-posh, and an unguarded call errors on every shell.
+if command -v oh-my-posh > /dev/null 2>&1; then
+  eval "$(oh-my-posh init zsh --config "$DOTFILES_DIR/macOS/.ohmyposh-nord-theme.json")"
+fi

@@ -91,6 +91,7 @@ done < <(find "$DOTFILES_DIR" \( -path "$DOTFILES_DIR/.git" -o -path "$DOTFILES_
 bash -n "$DOTFILES_DIR/ubuntu/.bashrc"
 if command -v zsh >/dev/null 2>&1; then
   zsh -n "$DOTFILES_DIR/macOS/.zshrc"
+  zsh -n "$DOTFILES_DIR/macOS/.zprofile"
 fi
 bash -n "$DOTFILES_DIR/profiles/backend-ai/.bashrc"
 

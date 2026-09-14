@@ -17,12 +17,14 @@ cask "zed"
 
 # CLI Tools
 brew "bat"
+# fastfetch stands in for neofetch, which Homebrew disabled on 2025-05-04 once its upstream was archived.
+# Leaving neofetch here aborts the whole installer, because brew bundle exits non-zero under set -eu.
+brew "fastfetch"
 brew "fd"
 brew "gh"
 # Required by claude-code/statusline-command.sh for the model and token segments.
 brew "jq"
 brew "lazygit"
-brew "neofetch"
 brew "oh-my-posh"
 brew "ranger"
 brew "ripgrep"
@@ -35,3 +37,36 @@ brew "watch"
 brew "yt-dlp"
 brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
+
+# Neovim is deliberately absent because lazyvim/install.sh installs a pinned, checksum-verified build into ~/.local/bin.
+
+# Media and documents
+brew "ffmpeg"
+brew "graphviz"
+brew "mupdf"
+
+# Development
+brew "kubernetes-cli"
+brew "node"
+brew "nuget"
+brew "pillow"
+brew "pnpm"
+brew "portaudio"
+brew "python@3.10"
+brew "python@3.11"
+brew "swig"
+brew "tcl-tk"
+
+# macOS utilities
+brew "cliclick"
+brew "displayplacer"
+brew "nowplaying-cli"
+
+# Archives and disc images
+brew "cabextract"
+brew "cdrtools"
+brew "wimlib"
+
+# Other
+brew "gogcli"
+brew "thefuck"
