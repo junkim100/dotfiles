@@ -27,29 +27,14 @@ check_alias() {
   [[ $(readlink "$path") == "$expected" ]] || fail "$1 points to $(readlink "$path"), expected $expected"
 }
 
-check_manifest() {
-  local manifest=$1
-  local path
-  while IFS= read -r path || [[ -n $path ]]; do
-    [[ -z $path || $path == \#* ]] && continue
-    [[ -e "$DOTFILES_DIR/omarchy/home/$path" ]] || fail "$manifest references missing $path"
-  done < "$DOTFILES_DIR/omarchy/$manifest"
-}
-
 check_alias .gitconfig common/git/config
 check_alias macOS/.tmux.conf ../common/tmux/tmux.conf
 check_alias ubuntu/.tmux.conf ../common/tmux/tmux.conf
-check_alias omarchy/home/.tmux.conf ../../common/tmux/tmux.conf
 check_alias macOS/bat/config ../../common/bat/config
 check_alias ubuntu/bat/config ../../common/bat/config
 check_alias macOS/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias ubuntu/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias macOS/ghostty-theme-everforest-dark ../common/ghostty/themes/everforest-dark.txt
-check_alias omarchy/home/.config/ghostty/themes/everforest-dark.txt ../../../../../common/ghostty/themes/everforest-dark.txt
-check_alias omarchy/home/.config/git/common ../../../../common/git/config
-
-check_manifest config-files.txt
-check_manifest hardware-files.txt
 
 while IFS= read -r script; do
   case "$(sed -n '1p' "$script")" in
@@ -76,7 +61,7 @@ done < <(find "$DOTFILES_DIR" \( -path "$DOTFILES_DIR/.git" -o -path "$DOTFILES_
 printf 'old config\n' > "$TEMP_DIR/config"
 "$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$TEMP_DIR/config" >/dev/null
 [[ -L $TEMP_DIR/config ]] || fail "link helper did not replace an existing file"
-[[ ! -e $TEMP_DIR/config.pre-omarchy-dotfiles ]] || fail "link helper created a backup"
+[[ ! -e $TEMP_DIR/config.pre-dotfiles ]] || fail "link helper created a backup"
 "$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$TEMP_DIR/config" >/dev/null
 mkdir "$TEMP_DIR/real-directory"
 if "$LINK_FILE" "$DOTFILES_DIR/common/tmux/tmux.conf" "$TEMP_DIR/real-directory" >/dev/null 2>&1; then

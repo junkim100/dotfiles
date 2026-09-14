@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=1.0
-Name=Spotify
-Comment=Spotify
-Exec=zen-browser-twilight https://open.spotify.com
-Terminal=false
-Type=Application
-Icon=spotify
-StartupNotify=true

@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal dotfiles and configuration scripts for macOS, Ubuntu, Omarchy, LazyVim, and Claude Code.
+Personal dotfiles and configuration scripts for macOS, Ubuntu, LazyVim, and Claude Code.
 
 ## Setup
 
@@ -26,30 +26,9 @@ bash "$DOTFILES_DIR/ubuntu/install.sh"
 bash "$DOTFILES_DIR/profiles/backend-ai/install.sh"
 ```
 
-**Omarchy:**
-```bash
-bash "$DOTFILES_DIR/omarchy/install.sh"
-```
-
-The Omarchy installer is intended for a fresh Omarchy installation. It restores the selected applications, removes unwanted stock applications and web apps, replaces existing configuration files with links to the tracked configuration, and reapplies the current defaults and theme.
-
 Configuration shared by two or more platforms lives under `common/`. This currently includes tmux, Bat, Ranger, Git defaults, and the Everforest Ghostty theme. Platform Git files include the shared defaults and remain available for platform-specific overrides. Compatibility symlinks at old paths keep existing installations working.
 
 The shared tmux installer links the canonical configuration and installs TPM, tmux-resurrect, and tmux-continuum. Sessions save every 15 minutes, restore when tmux starts, and start automatically after login on supported macOS and Linux systems.
-
-The MacBook-specific monitor layout is intentionally skipped on other hardware. Include it explicitly when restoring the same display setup:
-
-```bash
-bash "$DOTFILES_DIR/omarchy/install.sh" --include-hardware
-```
-
-Preview the complete operation without changing the machine:
-
-```bash
-bash "$DOTFILES_DIR/omarchy/install.sh" --dry-run
-```
-
-The shared SSH private key and authenticated application state are not stored in Git and must be restored separately through a secure channel.
 
 **LazyVim:**
 ```bash
