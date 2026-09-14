@@ -3,10 +3,13 @@ cask "font-fira-code-nerd-font"
 cask "font-meslo-lg-nerd-font"
 
 # Applications
+cask "antinote"
 cask "arc"
 cask "claude"
 cask "ghostty"
 cask "google-chrome"
+cask "google-drive"
+cask "hiddenbar"
 cask "obsidian"
 cask "slack"
 cask "spotify"
@@ -71,3 +74,15 @@ brew "wimlib"
 # Other
 brew "gogcli"
 brew "thefuck"
+
+# Mac App Store
+# These four have no Homebrew cask, so mas drives the App Store instead.
+# mas only installs apps already purchased under the Apple ID signed into the App Store,
+# so sign in there before running brew bundle on a new machine.
+# brew "mas" stays in this block rather than the CLI list because brew bundle works through
+# the file in order and the mas entries below need the binary to already be present.
+brew "mas"
+mas "Amphetamine", id: 937984704
+mas "Hand Mirror", id: 1502839586
+mas "Magnet", id: 441258766
+mas "QuickShade", id: 931571202
