@@ -36,6 +36,51 @@ check_alias macOS/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias ubuntu/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias macOS/ghostty-theme-everforest-dark ../common/ghostty/themes/everforest-dark.txt
 
+# Installers that support --dry-run must run end to end without touching the
+# machine. link-file rejects a missing source even under --dry-run, so this
+# doubles as proof that every path the installer links from still exists.
+check_dry_run() {
+  local installer=$1
+  local home
+  # Verified statically and first: an installer that does not parse --dry-run
+  # ignores the flag and runs for real, which is exactly what this must prevent.
+  grep -q -- '--dry-run)' "$DOTFILES_DIR/$installer" \
+    || fail "$installer has no --dry-run case arm, so it would run for real"
+  home=$(mktemp -d "$TEMP_DIR/dry-run-XXXXXX")
+  if ! HOME="$home" bash "$DOTFILES_DIR/$installer" --dry-run > "$home.log" 2>&1; then
+    cat "$home.log" >&2
+    fail "$installer --dry-run exited non-zero"
+  fi
+  [[ -z $(find "$home" -mindepth 1) ]] || fail "$installer --dry-run modified the home directory"
+}
+
+# Installers without --dry-run still get their tracked link sources verified
+# statically. Sources that are only known at run time are skipped.
+check_link_sources() {
+  local installer=$1
+  local dir="$DOTFILES_DIR/$(dirname "$installer")"
+  local source
+  while IFS= read -r source; do
+    [[ -z $source || $source == *'$'* ]] && continue
+    [[ -e $source ]] || fail "$installer links from a missing source: $source"
+  done < <(grep -oE '("\$LINK_FILE"|link_file)[^"]*"[^"]+"' "$DOTFILES_DIR/$installer" \
+    | sed -E 's/.*"([^"]+)"$/\1/' \
+    | sed -e "s|\$DOTFILES_DIR|$DOTFILES_DIR|g" -e "s|\$SCRIPT_DIR|$dir|g")
+}
+
+check_dry_run macOS/install.sh
+check_dry_run ubuntu/install.sh
+
+check_link_sources macOS/install.sh
+check_link_sources ubuntu/install.sh
+check_link_sources common/tmux/install.sh
+check_link_sources claude-code/install.sh
+check_link_sources profiles/backend-ai/install.sh
+
+# Sourced fragments carry no shebang, so the shebang-driven loop below skips them.
+sh -n "$DOTFILES_DIR/common/shell/autopull.sh"
+
+
 while IFS= read -r script; do
   case "$(sed -n '1p' "$script")" in
     *bash*) bash -n "$script" ;;

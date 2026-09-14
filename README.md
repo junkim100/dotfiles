@@ -11,6 +11,8 @@ DOTFILES_DIR="$HOME/dotfiles"
 
 Installers derive the repository root from their own location, so the checkout may live anywhere.
 
+The macOS and Ubuntu installers accept `--dry-run`, which prints every action and changes nothing. Use it to preview a fresh install, or to check an installer edit without running it against your own machine.
+
 **macOS:**
 ```bash
 bash "$DOTFILES_DIR/macOS/install.sh"
@@ -50,3 +52,7 @@ Run the location-independent repository check before pushing configuration chang
 ```bash
 "$DOTFILES_DIR/scripts/check"
 ```
+
+It verifies the shared-configuration symlinks, shell syntax, and tmux settings, and runs the macOS and Ubuntu installers with `--dry-run` against a temporary home. Because `scripts/link-file` rejects a missing source even in a dry run, that last step also proves every file the installers link from still exists.
+
+GitHub Actions runs the same check on every push and pull request, defined in `.github/workflows/check.yml`.

@@ -1,0 +1,21 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # scripts/check skips its zsh and tmux assertions when the binary is absent,
+      # so install both to keep CI coverage equal to a local run.
+      - name: Install zsh and tmux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh tmux
+
+      - name: Run repository check
+        run: ./scripts/check

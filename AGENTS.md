@@ -23,7 +23,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Never replace a real configuration directory with a file symlink; fail instead.
 - All installers must derive the repository root from their own path and use `scripts/link-file` for managed symlinks.
 - Edit the tracked source rather than the live file under `~/.config` when a managed symlink exists.
-- Do not run the full macOS or Ubuntu installer merely for validation because those scripts install packages and alter live configuration. Validate installers with an isolated temporary home and stubbed external commands.
+- Do not run the full macOS or Ubuntu installer merely for validation because those scripts install packages and alter live configuration. Validate them with `--dry-run`, which prints every action and changes nothing.
 
 ## Changes
 
@@ -39,8 +39,8 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 
 ## Verification
 
-- Run `scripts/check` after repository configuration or installer changes.
-- Run `bash -n` on every changed shell script.
+- Run `scripts/check` after repository configuration or installer changes. GitHub Actions runs it on every push and pull request.
+- Run `bash -n` on every changed shell script. Fragments meant to be sourced carry no shebang, so add them to the explicit syntax checks in `scripts/check`.
 - Run `git diff --cached --check` before committing.
 - Use `realpath` to verify changed live symlink targets.
 - Use `cmp` when platform copies are expected to be identical.
@@ -48,4 +48,5 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Verify shared platform aliases resolve to their canonical files under `common/`.
 - Check LazyVim integration with `git submodule status --recursive`.
 - For LazyVim changes, run its dedicated installer and confirm Neovim starts with the expected configuration.
-- Verify that no tracked installer or README still references a removed path.
+- Verify that no tracked installer or README still references a removed path. `scripts/check` enforces this for every path an installer links from.
+- An installer wired into `check_dry_run` must parse `--dry-run` and reject unknown options, otherwise the check runs it for real.
