@@ -11,6 +11,8 @@ DOTFILES_DIR="$HOME/dotfiles"
 
 Installers derive the repository root from their own location, so the checkout may live anywhere.
 
+The repository is also a Homebrew tap. `Casks/` carries casks that Homebrew itself does not offer, currently the GlobalProtect VPN client, and `macOS/Brewfile` taps the repository by URL so `brew bundle` installs them like any other cask.
+
 The macOS and Ubuntu installers accept `--dry-run`, which prints every action and changes nothing. Use it to preview a fresh install, or to check an installer edit without running it against your own machine.
 
 **macOS:**

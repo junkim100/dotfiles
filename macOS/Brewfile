@@ -1,6 +1,8 @@
 # Taps
-# Orca ships only through its vendor tap. brew bundle taps before it installs casks, so this stays first.
+# brew bundle taps before it installs casks, so these stay first. Orca ships only through its vendor tap.
 tap "stablyai/orca"
+# This repository is also a tap: Casks/ carries the GlobalProtect cask that Homebrew itself does not offer.
+tap "junkim100/dotfiles", "https://github.com/junkim100/dotfiles.git"
 
 # Fonts
 cask "font-fira-code-nerd-font"
@@ -11,7 +13,8 @@ cask "antinote"
 cask "arc"
 cask "claude"
 cask "codex"
-cask "ghostty"
+# From this repository's own tap, see Casks/globalprotect.rb.
+cask "globalprotect"
 cask "google-chrome"
 cask "google-drive"
 cask "obsidian"
@@ -81,8 +84,6 @@ mas "QuickShade", id: 931571202
 # Exceptions
 # These apps live on the Mac but are deliberately not managed here. Each has no Homebrew cask or is
 # installed by something else, so install them by hand on a new machine.
-# - GlobalProtect: Palo Alto VPN client. Homebrew has no cask for it, and the copy that was on the
-#   machine stopped working, so download the pkg from the organisation's GlobalProtect portal instead.
 # - BIG-IP Edge Client and F5 Endpoint Inspector: F5 VPN client, installed from the organisation's F5 portal pkg.
 # - Sindoh MPS Cloud: printer driver, installed from the Sindoh pkg.
 # - Exosphere: no cask, installed from the vendor pkg.
