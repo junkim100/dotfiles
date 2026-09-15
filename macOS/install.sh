@@ -105,9 +105,3 @@ link_file "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
 # urlview, for the tmux URL picker on prefix + u
 link_file "$DOTFILES_DIR/common/urlview/config" "$HOME/.urlview"
-
-# Zed
-run mkdir -p "$HOME/.config/zed/themes"
-link_file "$SCRIPT_DIR/zed-settings.json" "$HOME/.config/zed/settings.json"
-link_file "$SCRIPT_DIR/zed-keymap.json" "$HOME/.config/zed/keymap.json"
-link_file "$SCRIPT_DIR/zed-theme-glassy-nord.json" "$HOME/.config/zed/themes/glassy_nord.json"

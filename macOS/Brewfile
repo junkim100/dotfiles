@@ -1,3 +1,7 @@
+# Taps
+# Orca ships only through its vendor tap. brew bundle taps before it installs casks, so this stays first.
+tap "stablyai/orca"
+
 # Fonts
 cask "font-fira-code-nerd-font"
 cask "font-meslo-lg-nerd-font"
@@ -6,18 +10,19 @@ cask "font-meslo-lg-nerd-font"
 cask "antinote"
 cask "arc"
 cask "claude"
+cask "codex"
 cask "ghostty"
 cask "google-chrome"
 cask "google-drive"
-cask "hiddenbar"
 cask "obsidian"
+cask "orca"
+cask "pearcleaner"
 cask "slack"
 cask "spotify"
 cask "stats"
 cask "superwhisper"
 cask "tailscale-app"
 cask "logi-options+"
-cask "zed"
 
 # CLI Tools
 brew "bat"
@@ -46,37 +51,22 @@ brew "zsh-syntax-highlighting"
 
 # Media and documents
 brew "ffmpeg"
-brew "graphviz"
-brew "mupdf"
 
 # Development
-brew "kubernetes-cli"
-brew "node"
-brew "nuget"
-brew "pillow"
-brew "pnpm"
-brew "portaudio"
-brew "python@3.10"
-brew "python@3.11"
-brew "swig"
-brew "tcl-tk"
+brew "hf"
 
 # macOS utilities
 brew "cliclick"
 brew "displayplacer"
 brew "nowplaying-cli"
 
-# Archives and disc images
-brew "cabextract"
-brew "cdrtools"
-brew "wimlib"
-
 # Other
 brew "gogcli"
-brew "thefuck"
 
 # Mac App Store
-# These four have no Homebrew cask, so mas drives the App Store instead.
+# These apps are installed from the App Store, so mas drives the App Store instead of a cask.
+# Hidden Bar also has a cask, but the copy on the current Mac carries an App Store receipt,
+# and a cask install fails when an app it did not install already sits in /Applications.
 # mas only installs apps already purchased under the Apple ID signed into the App Store,
 # so sign in there before running brew bundle on a new machine.
 # brew "mas" stays in this block rather than the CLI list because brew bundle works through
@@ -84,5 +74,18 @@ brew "thefuck"
 brew "mas"
 mas "Amphetamine", id: 937984704
 mas "Hand Mirror", id: 1502839586
+mas "Hidden Bar", id: 1452453066
 mas "Magnet", id: 441258766
 mas "QuickShade", id: 931571202
+
+# Exceptions
+# These apps live on the Mac but are deliberately not managed here. Each has no Homebrew cask or is
+# installed by something else, so install them by hand on a new machine.
+# - GlobalProtect: Palo Alto VPN client. Homebrew has no cask for it, and the copy that was on the
+#   machine stopped working, so download the pkg from the organisation's GlobalProtect portal instead.
+# - BIG-IP Edge Client and F5 Endpoint Inspector: F5 VPN client, installed from the organisation's F5 portal pkg.
+# - Sindoh MPS Cloud: printer driver, installed from the Sindoh pkg.
+# - Exosphere: no cask, installed from the vendor pkg.
+# - CuaDriver: installed by the Cua tooling, not by hand.
+# - Google Docs, Google Sheets, and Google Slides: shortcuts that Google Drive creates on its own.
+# - Claude Code URL Handler in ~/Applications: created by Claude Code on first run.
