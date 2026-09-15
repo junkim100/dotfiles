@@ -90,12 +90,15 @@ fi
 # syntax-checks every cask in the tap under every OS and architecture, so tapping an untrusted tap fails
 # with "Invalid cask (...)" for each cask and then "Cannot tap ...: invalid syntax in tap!". Trust is a
 # record in ~/.homebrew/trust.json that does not need the tap to exist, so grant it first, then tap.
-# Both commands are no-ops when repeated.
+# A user/repo trust entry only matches a tap on its default GitHub remote (user/homebrew-repo). This
+# repository is junkim100/dotfiles, a custom remote, so it must be trusted by URL or the entry never
+# matches. Both commands are no-ops when repeated.
+DOTFILES_TAP_URL="https://github.com/junkim100/dotfiles.git"
 if [ "$DRY_RUN" = true ] || brew trust --help > /dev/null 2>&1; then
-  run brew trust --tap stablyai/orca junkim100/dotfiles
+  run brew trust --tap stablyai/orca "$DOTFILES_TAP_URL"
 fi
 run brew tap stablyai/orca
-run brew tap junkim100/dotfiles https://github.com/junkim100/dotfiles.git
+run brew tap junkim100/dotfiles "$DOTFILES_TAP_URL"
 
 # Install everything from Brewfile
 run brew bundle install --file="$SCRIPT_DIR/Brewfile"
