@@ -23,7 +23,6 @@ cask "pearcleaner"
 cask "slack"
 cask "spotify"
 cask "stats"
-cask "superwhisper"
 cask "tailscale-app"
 cask "logi-options+"
 
