@@ -10,7 +10,6 @@ packages=(
   curl
   unzip
   python3-venv
-  nvitop
   urlview
 )
 
@@ -61,3 +60,22 @@ else
     $SUDO mv /usr/bin/batcat /usr/bin/bat
   fi
 fi
+
+# nvitop is installed as a user-level Python tool, never through apt: the Ubuntu nvitop package depends on
+# libnvidia-compute-<ver>, which replaces the NVML userspace library and breaks nvidia-smi on any host whose
+# kernel module is a different driver version (this took down the NHN gpu099 login node twice in Sep 2026).
+install_nvitop() {
+  if command -v nvitop &> /dev/null; then
+    echo "nvitop is already installed."
+  elif command -v uv &> /dev/null; then
+    echo "Installing nvitop with uv tool..."
+    uv tool install nvitop
+  elif command -v pipx &> /dev/null; then
+    echo "Installing nvitop with pipx..."
+    pipx install nvitop
+  else
+    echo "Installing nvitop with pip --user..."
+    python3 -m pip install --user nvitop
+  fi
+}
+install_nvitop
