@@ -49,19 +49,20 @@ link_file "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
 # This setup only supports Apple silicon. Homebrew picks its prefix from the architecture of the shell
 # that runs its installer, and a shell under Rosetta reports x86_64, so an Intel Homebrew lands in
 # /usr/local and every cask is then rejected as "macOS 27 on Intel" once Apple dropped Intel support.
-# Refuse early rather than let that half-install happen.
-if [ "$(uname -m)" != "arm64" ]; then
+# Refuse early rather than let that half-install happen. A dry run only reports the checks, because
+# scripts/check runs it on a Linux CI host to prove every linked source exists.
+if [ "$DRY_RUN" = true ]; then
+  echo "  + require an arm64 shell with no Intel Homebrew under /usr/local"
+elif [ "$(uname -m)" != "arm64" ]; then
   cat >&2 <<MSG
 This dotfiles setup only supports Apple silicon, but this shell reports $(uname -m).
 If this Mac has an Apple silicon chip, the shell is running under Rosetta: run 'arch -arm64 zsh'
 and try again, and untick "Open using Rosetta" on the terminal app so later shells are native too.
 MSG
   exit 1
-fi
-
 # An Intel Homebrew left over from a Rosetta terminal or Migration Assistant would shadow the native
 # one and reintroduce the same failure, so refuse to continue until it is gone.
-if [ -e /usr/local/bin/brew ] || [ -d /usr/local/Homebrew ]; then
+elif [ -e /usr/local/bin/brew ] || [ -d /usr/local/Homebrew ]; then
   cat >&2 <<'MSG'
 An Intel Homebrew is installed under /usr/local. Remove it before running this script:
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" -- --path=/usr/local
