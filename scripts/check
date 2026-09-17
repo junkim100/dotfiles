@@ -92,6 +92,7 @@ check_link_sources profiles/backend-ai/install.sh
 check_dry_run agents/install.sh
 
 # Sourced fragments carry no shebang, so the shebang-driven loop below skips them.
+sh -n "$DOTFILES_DIR/common/shell/aliases.sh"
 sh -n "$DOTFILES_DIR/common/shell/autopull.sh"
 
 

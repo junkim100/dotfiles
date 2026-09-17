@@ -67,10 +67,14 @@ fi
 
 export PATH="$HOME/.local/bin:$PATH"
 
-##### dotfiles auto-update #####
-# Locate the checkout, then hand off to the shared implementation in common/shell/.
+##### Shared shell configuration #####
+# Locate the checkout, then load shared aliases and automatic updates.
 for _d in "${DOTFILES_DIR:-}" "$HOME/.config/dotfiles/repo" "$HOME/dotfiles"; do
-  [ -n "$_d" ] && [ -r "$_d/common/shell/autopull.sh" ] && { . "$_d/common/shell/autopull.sh"; break; }
+  if [ -n "$_d" ] && [ -r "$_d/common/shell/autopull.sh" ]; then
+    . "$_d/common/shell/aliases.sh"
+    . "$_d/common/shell/autopull.sh"
+    break
+  fi
 done
 unset _d
 
