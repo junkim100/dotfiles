@@ -27,6 +27,7 @@ check_alias() {
   [[ $(readlink "$path") == "$expected" ]] || fail "$1 points to $(readlink "$path"), expected $expected"
 }
 
+check_alias CLAUDE.md AGENTS.md
 check_alias .gitconfig common/git/config
 check_alias macOS/.tmux.conf ../common/tmux/tmux.conf
 check_alias ubuntu/.tmux.conf ../common/tmux/tmux.conf
