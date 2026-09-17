@@ -13,6 +13,7 @@ cask "antinote"
 cask "arc"
 cask "claude"
 cask "codex"
+cask "ghostty"
 # From this repository's own tap, see Casks/globalprotect.rb.
 cask "globalprotect"
 cask "google-chrome"
