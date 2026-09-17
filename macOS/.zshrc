@@ -2,6 +2,15 @@
 export SHELL="$(command -v zsh)"
 export LANG="en_US.UTF-8"
 
+# Start solar-system Orca terminals in wbl-eval, including linked worktrees.
+if [[ -o interactive && "${TERM_PROGRAM:-}" == "Orca" && -e "$PWD/.git" && -d "$PWD/eval/wbl-eval" ]]; then
+  _orca_project_git_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+  if [[ "$_orca_project_git_dir" == "$HOME/solar-system/.git" ]]; then
+    builtin cd -- "$PWD/eval/wbl-eval"
+  fi
+  unset _orca_project_git_dir
+fi
+
 # History (simple, sane defaults)
 HISTFILE="$HOME/.zsh_history"
 HISTSIZE=10000
