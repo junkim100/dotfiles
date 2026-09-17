@@ -35,6 +35,7 @@ check_alias ubuntu/bat/config ../../common/bat/config
 check_alias macOS/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias ubuntu/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias macOS/ghostty-theme-everforest-dark ../common/ghostty/themes/everforest-dark.txt
+check_alias claude-code/skills/pr ../../agents/skills/pr-review
 
 # Installers that support --dry-run must run end to end without touching the
 # machine. link-file rejects a missing source even under --dry-run, so this
@@ -75,7 +76,10 @@ check_link_sources macOS/install.sh
 check_link_sources ubuntu/install.sh
 check_link_sources common/tmux/install.sh
 check_link_sources claude-code/install.sh
+check_link_sources agents/install.sh
 check_link_sources profiles/backend-ai/install.sh
+
+check_dry_run agents/install.sh
 
 # Sourced fragments carry no shebang, so the shebang-driven loop below skips them.
 sh -n "$DOTFILES_DIR/common/shell/autopull.sh"

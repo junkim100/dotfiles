@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Review"
+  short_description: "Orchestrate a verified PR review with inline drafts"
+  default_prompt: "Use $pr-review to orchestrate this pull request review, report actionable findings, and draft inline comments."

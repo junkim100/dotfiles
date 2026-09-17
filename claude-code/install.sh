@@ -30,6 +30,9 @@ mkdir -p ~/.claude/skills
 for skill in "$SCRIPT_DIR"/skills/*/; do
   "$LINK_FILE" "${skill%/}" "$HOME/.claude/skills/$(basename "$skill")"
 done
+for skill in "$DOTFILES_DIR"/agents/skills/*/; do
+  "$LINK_FILE" "${skill%/}" "$HOME/.claude/skills/$(basename "$skill")"
+done
 
 # Install or update claude-code via native installer (auto-updates in background)
 curl -fsSL https://claude.ai/install.sh | bash -s -- latest

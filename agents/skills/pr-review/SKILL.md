@@ -1,13 +1,13 @@
 ---
-name: pr
+name: pr-review
 description: >
-  Use when the user types /pr <N> or asks to review a GitHub pull request.
-  Verification-first, multi-agent PR review: materializes the PR head SHA in a git worktree, fans out independent finder lenses over it, puts every candidate through an adversarial verifier that never saw the finder's reasoning, sweeps for gaps, then prints a review and drafts short, post-ready inline comments in the user's Korean style. The response to the user should be English. Does not post anything; the user posts comments himself.
+  Orchestrate a verification-first pull request review when the user asks to review a GitHub PR or provides a PR number or URL.
+  Materializes the exact head, fans out independent review lenses when agent delegation is available, adversarially verifies candidates, reports high-confidence findings, and always provides post-ready inline comment drafts without posting them.
 ---
 
-# /pr: verification-first, fan-out PR review
+# PR Review: verification-first orchestration
 
-Reviews PR `<N>` in Phases 0-6, then drafts comments in Phase 7.
+Reviews the requested change in Phases 0-6, then drafts inline comments in Phase 7.
 Pseudocode is normative. Follow steps in order. Take each branch literally.
 
 Topology: **materialize head → fan out lenses → adversarially verify every candidate → sweep for gaps → report → draft comments**.
@@ -25,6 +25,7 @@ Find for recall, report for precision, comment for certainty. Those are three di
 - R7. A value that is dropped, defaulted, or rewritten between layers is a finding even when nothing crashes. Warnings, log lines, and comments do not neutralize it; they are how it hides.
 - R8. No silent caps. Whenever you bound the work (a lens not run, candidates dropped before verify, a changed file no lens opened, a probe that failed), say so in the report. A review that quietly narrowed its scope reads to the user as full coverage.
 - R9. Subagents find and verify. They never edit files, never post, never run destructive or state-changing commands, and never `git commit`/`push`. They return their schema and nothing else.
+- R10. Every completed review ends with an `Inline comment drafts` section. Draft one post-ready inline comment for every finding that passes the Phase 7 gate. If none pass, print `No inline comments recommended.` Never silently omit this section.
 
 ## Schemas (handoff between phases)
 
@@ -94,10 +95,10 @@ COMMENT = { file: str, line: int, body: str, style: "ko-formal" }
 
 ## Orchestration contract
 
-- Dispatch finders with the `Agent` tool. Put every lens of a wave in **one message** so they run concurrently.
+- Orchestrate finders with the platform-native delegation tool when it is available and permitted: Claude Code's `Agent` tool or Codex's collaboration agent tools. Put every lens of a wave in one concurrent dispatch.
 - Each subagent prompt contains: the hard rules above, `BRIEF`, its own lens body verbatim, its return schema, and "return the JSON only, no prose".
 - Subagents are blind to each other. Never paste one lens's candidates into another lens's prompt. If two lenses flag the same line for different reasons, keep both and let dedup handle it in 3.1.
-- **Fallback**: if the `Agent` tool is not in your tool set, do not error. Run every selected lens yourself, sequentially, in this context, then verify each candidate yourself with a deliberate adversarial re-read. Say plainly in the Phase 6 report that this was a single-context run without fan-out, so the user is not misled about what ran.
+- **Fallback**: if agent delegation is unavailable or not permitted, do not error. Run every selected lens yourself, sequentially, in this context, then verify each candidate yourself with a deliberate adversarial re-read. Say plainly in the Phase 6 report that this was a single-context run without fan-out, so the user is not misled about what ran.
 - Scale by applicability, not by diff size. Three lenses on a small PR is the correct fleet, not a shortfall.
 
 ---
@@ -188,13 +189,13 @@ fileAtHead(F) := gh api repos/:owner/:repo/contents/F?ref=HEAD -q .content | bas
       (aggregation, limit/sampling, resume filters, parsing, scoring, path building):
                      L8 (execution proof)
 
-1.5 Print the selected fleet to the user in one line before dispatching, with the lenses
-    you skipped and why (R8). Then dispatch Phase 2.
+1.5 Print the selected fleet to the user in one line before orchestrating it, with the
+    lenses you skipped and why (R8). Then run Phase 2.
 ```
 
 ## PHASE 2: FINDER FAN-OUT
 
-Dispatch every selected lens in one message. Each returns `FINDER_RESULT`.
+Orchestrate every selected lens as one concurrent wave. Each returns `FINDER_RESULT`.
 
 Prepend to every lens prompt:
 
@@ -313,7 +314,7 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
 3.2 Cap: verify every candidate. If more than 24 survive dedup, verify the 24 with the
     most concrete failure scenarios and list the deferred ones by file:line in the report (R8).
 
-3.3 Dispatch ONE verifier per candidate, all in one message. The verifier receives: the
+3.3 Orchestrate ONE verifier per candidate as one concurrent wave. The verifier receives: the
     hard rules, WT, the diff, the candidate's claim / failure / evidence / file:line, and
     the relevant files. It does NOT receive the finder's reasoning, the other candidates,
     or the lens name. Its prompt:
@@ -355,7 +356,7 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
       a lens returned non-empty `blocked` → that check did not happen. Retry it yourself
           if you can; otherwise it goes in the report as a stated gap.
 
-4.2 SWEEP. Dispatch ONE fresh finder holding the verified FINDING list and the BRIEF, with:
+4.2 SWEEP. Run ONE fresh finder holding the verified FINDING list and the BRIEF, with:
       > You are a fresh reviewer. Here is what has already been found and verified. Do NOT
       > re-derive, re-confirm, or restate any of it. Your only job is what is MISSING.
       > Re-read the diff and the enclosing functions, and focus on what a first pass tends
@@ -398,7 +399,7 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
 6.1 Print, in this order:
       - One-line verdict: mergeable? what blocks it?
       - What ran: the lens fleet, the verify count (n candidates → n confirmed / n plausible
-        / n refuted), and the sweep result. If the Agent tool was unavailable and this was a
+        / n refuted), and the sweep result. If agent delegation was unavailable and this was a
         single-context run, say so here.
       - What was verified CLEAN: the pooled `cleared` lines, especially the L6 probes and the
         L8 executions with their inputs, plus executed refutations from 3.4. A cleared area is
@@ -408,10 +409,10 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
         opened, body_claims nobody landed on, blocked probes.
       - CI status + mergeable/mergeStateStatus.
 6.2 Lead with High/Medium. Separate Note/Nit.
-6.3 Proceed to PHASE 7 and draft comments. Do not ask first.
+6.3 Proceed to PHASE 7 and draft comments. Do not ask first and do not end the response before Phase 7.
 ```
 
-## PHASE 7: DRAFT COMMENTS (always, after Phase 6)
+## PHASE 7: INLINE COMMENT DRAFTS (always, after Phase 6)
 
 ```
 7.0 COMMENT GATE. Report precision is one bar; comment precision is a higher one.
@@ -444,7 +445,7 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
       - Reference cross-file evidence as `path:line`.
       - When the finding cites a repo rule (L5), name the rule: "GUIDELINE item 7".
 
-7.3 Emit each as: file · Line N · body. One block per comment.
+7.3 Print the heading `Inline comment drafts`, then emit each as: file · Line N · body. One block per comment. If the comment set is empty, print `No inline comments recommended.` under the heading.
 7.4 The user posts them. Do NOT call gh to post.
 7.5 Clean up: git worktree remove --force "$WT". Do this only after the user has what they
     need; if they are likely to ask a follow-up (N5), keep WT and say it is still there.

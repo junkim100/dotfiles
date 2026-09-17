@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal dotfiles and configuration scripts for macOS, Ubuntu, LazyVim, and Claude Code.
+Personal dotfiles and configuration scripts for macOS, Ubuntu, LazyVim, Claude Code, and Codex.
 
 ## Setup
 
@@ -42,10 +42,19 @@ bash "$DOTFILES_DIR/lazyvim/install.sh"
 
 The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/lazyvim) and is pinned here as a Git submodule. Its installer links the checkout to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
 
+**Shared agent skills (Codex and Claude Code):**
+```bash
+bash "$DOTFILES_DIR/agents/install.sh"
+```
+
+Codex discovers these skills through individual symlinks under `~/.agents/skills`, leaving room for machine-local skills in the same directory.
+
 **Claude Code:**
 ```bash
 bash "$DOTFILES_DIR/claude-code/install.sh"
 ```
+
+The Claude Code installer links the same shared skills into `~/.claude/skills` alongside Claude-specific skills.
 
 ## Verification
 

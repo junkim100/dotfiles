@@ -11,6 +11,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - `common/` owns canonical configuration used by two or more platforms. Platform paths may remain as compatibility symlinks when deployed home-directory links still target them.
 - `profiles/` owns machine-role overlays that reuse a platform configuration, including the Backend.AI Ubuntu profile.
 - `claude-code/` owns Claude Code configuration and installation.
+- `agents/` owns canonical agent skills and their installation into `~/.agents/skills`, which Codex discovers directly. The Claude Code installer links shared skills from here into `~/.claude/skills`.
 - `Casks/` makes the repository a Homebrew tap. It holds casks that Homebrew itself does not offer, and `macOS/Brewfile` taps the repository by URL so `brew bundle` can install them.
 - `lazyvim/` is a Git submodule backed by `junkim100/lazyvim`.
 - OMP settings, themes, credentials, and runtime state intentionally remain local under `~/.omp/agent` and must not be added to this repository.
@@ -30,6 +31,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 
 - Keep platform-specific paths self-contained under their platform directory.
 - When multiple platforms intentionally use identical configuration, keep one canonical file under `common/` and point installers and compatibility symlinks to it.
+- When Claude Code and Codex intentionally share a skill, keep one canonical skill under `agents/skills/`, link it into `~/.agents/skills` for Codex, and link the same source into `~/.claude/skills` instead of maintaining copies.
 - Update every installer callsite and README path when moving configuration.
 - Keep profile installers under `profiles/<name>/`; profiles must reuse platform and common configuration instead of duplicating it.
 - Remove obsolete files, paths, symlinks, and documentation after a clean migration.
