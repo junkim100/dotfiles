@@ -17,6 +17,8 @@ case "${1:-}" in
     ;;
 esac
 
+# Codex, Pi, and OpenCode discover this shared directory directly, including
+# when an agent is installed later. No agent-specific links are needed here.
 for skill in "$SCRIPT_DIR"/skills/*/; do
   if $dry_run; then
     "$LINK_FILE" --dry-run "${skill%/}" "$HOME/.agents/skills/$(basename "$skill")"

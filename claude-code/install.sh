@@ -24,14 +24,15 @@ fi
 "$LINK_FILE" "$SCRIPT_DIR/settings.json" "$HOME/.claude/settings.json"
 "$LINK_FILE" "$SCRIPT_DIR/statusline-command.sh" "$HOME/.claude/statusline-command.sh"
 
-# Symlink individual skills (not the whole dir) so machine-local skills in
-# ~/.claude/skills are left in place.
+# All skills live in agents/skills; claude-code/skills contains compatibility
+# aliases only. Link individual skills so machine-local skills stay in place.
 mkdir -p ~/.claude/skills
-for skill in "$SCRIPT_DIR"/skills/*/; do
-  "$LINK_FILE" "${skill%/}" "$HOME/.claude/skills/$(basename "$skill")"
-done
 for skill in "$DOTFILES_DIR"/agents/skills/*/; do
   "$LINK_FILE" "${skill%/}" "$HOME/.claude/skills/$(basename "$skill")"
+done
+for skill in "$SCRIPT_DIR"/skills/*/; do
+  [[ -d "$DOTFILES_DIR/agents/skills/$(basename "$skill")" ]] && continue
+  "$LINK_FILE" "$(cd "$skill" && pwd -P)" "$HOME/.claude/skills/$(basename "$skill")"
 done
 
 # Install or update claude-code via native installer (auto-updates in background)

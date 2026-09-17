@@ -35,7 +35,16 @@ check_alias ubuntu/bat/config ../../common/bat/config
 check_alias macOS/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias ubuntu/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias macOS/ghostty-theme-everforest-dark ../common/ghostty/themes/everforest-dark.txt
+check_alias claude-code/skills/interview ../../agents/skills/interview
 check_alias claude-code/skills/pr ../../agents/skills/pr-review
+check_alias claude-code/skills/quiz ../../agents/skills/quiz
+
+for skill in "$DOTFILES_DIR"/claude-code/skills/*; do
+  [[ -L $skill ]] || fail "$skill must be a compatibility symlink into agents/skills"
+  canonical=$(cd "$skill" && pwd -P)
+  [[ $canonical == "$DOTFILES_DIR/agents/skills/"* && -f $canonical/SKILL.md ]] \
+    || fail "$skill does not resolve to a canonical skill in agents/skills"
+done
 
 # Installers that support --dry-run must run end to end without touching the
 # machine. link-file rejects a missing source even under --dry-run, so this

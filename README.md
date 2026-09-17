@@ -42,19 +42,19 @@ bash "$DOTFILES_DIR/lazyvim/install.sh"
 
 The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/lazyvim) and is pinned here as a Git submodule. Its installer links the checkout to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
 
-**Shared agent skills (Codex and Claude Code):**
+**Shared agent skills (Codex, Pi, OpenCode, and Claude Code):**
 ```bash
 bash "$DOTFILES_DIR/agents/install.sh"
 ```
 
-Codex discovers these skills through individual symlinks under `~/.agents/skills`, leaving room for machine-local skills in the same directory.
+All repository-managed skills live under `agents/skills/`, currently `interview`, `pr-review`, and `quiz`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. This also works when an agent is installed later; the script does not need to detect or install agent applications. Use `--dry-run` to preview the links. Claude Code receives its links through the installer below.
 
 **Claude Code:**
 ```bash
 bash "$DOTFILES_DIR/claude-code/install.sh"
 ```
 
-The Claude Code installer links the same shared skills into `~/.claude/skills` alongside Claude-specific skills.
+`claude-code/` owns Claude Code settings, instructions, the status line, and installation. Its installer links the same canonical skills from `agents/skills/` into `~/.claude/skills`, preserving machine-local skills. `claude-code/skills/` contains only compatibility symlinks, including the `pr` alias for `pr-review`; existing home-directory links through those paths keep working.
 
 ## Verification
 
