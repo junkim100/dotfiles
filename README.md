@@ -47,7 +47,7 @@ The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/la
 bash "$DOTFILES_DIR/agents/install.sh"
 ```
 
-All repository-managed skills live under `agents/skills/`, currently `interview`, `pr-review`, and `quiz`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. This also works when an agent is installed later; the script does not need to detect or install agent applications. Use `--dry-run` to preview the links. Claude Code receives its links through the installer below.
+All repository-managed skills live under `agents/skills/`, including `conference-paper-review`, `interview`, `paper-study-notes`, `pr-review`, and `quiz`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. This also works when an agent is installed later; the script does not need to detect or install agent applications. Use `--dry-run` to preview the links. Claude Code receives its links through the installer below.
 
 **Claude Code:**
 ```bash
@@ -55,6 +55,8 @@ bash "$DOTFILES_DIR/claude-code/install.sh"
 ```
 
 `claude-code/` owns Claude Code settings, instructions, the status line, and installation. Its installer links the same canonical skills from `agents/skills/` into `~/.claude/skills`, preserving machine-local skills. `claude-code/skills/` contains only compatibility symlinks, including the `pr` alias for `pr-review`; existing home-directory links through those paths keep working.
+
+Custom skills imported from claude.ai follow the same ownership rule. The paper skills include their reference files and PDF scanner under `agents/skills/`. Claude Code's `skillOverrides` disables their duplicate `anthropic-skills:<name>` commands, while the local commands use the canonical symlinks. Anthropic's synced skills and cache remain managed by Claude Code. See [synced skill names](https://code.claude.com/docs/en/skills#when-a-synced-skill-name-matches-another-command) and [skill visibility overrides](https://code.claude.com/docs/en/skills#override-skill-visibility-from-settings).
 
 ## Verification
 

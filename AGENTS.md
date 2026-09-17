@@ -34,6 +34,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Keep platform-specific paths self-contained under their platform directory.
 - When multiple platforms intentionally use identical configuration, keep one canonical file under `common/` and point installers and compatibility symlinks to it.
 - Keep every repository-managed skill under `agents/skills/` and link it into `~/.agents/skills` for Codex, Pi, and OpenCode. Claude Code must use symlinks in `~/.claude/skills` that resolve to those same canonical skill directories. Use `claude-code/skills/` only for compatibility symlinks, never skill copies, and edit skill contents at their canonical paths under `agents/skills/`.
+- Custom skills synced from claude.ai must also have canonical sources under `agents/skills/`, including their references and scripts. Import authored files without sync manifests or cache state. Disable duplicate synced commands by their `anthropic-skills:<name>` keys in Claude Code's `skillOverrides`; leave third-party synced skills and the application-managed cache alone.
 - Update every installer callsite and README path when moving configuration.
 - Keep profile installers under `profiles/<name>/`; profiles must reuse platform and common configuration instead of duplicating it.
 - Remove obsolete files, paths, symlinks, and documentation after a clean migration.

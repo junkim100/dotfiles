@@ -36,7 +36,9 @@ check_alias ubuntu/bat/config ../../common/bat/config
 check_alias macOS/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias ubuntu/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias macOS/ghostty-theme-everforest-dark ../common/ghostty/themes/everforest-dark.txt
+check_alias claude-code/skills/conference-paper-review ../../agents/skills/conference-paper-review
 check_alias claude-code/skills/interview ../../agents/skills/interview
+check_alias claude-code/skills/paper-study-notes ../../agents/skills/paper-study-notes
 check_alias claude-code/skills/pr ../../agents/skills/pr-review
 check_alias claude-code/skills/quiz ../../agents/skills/quiz
 

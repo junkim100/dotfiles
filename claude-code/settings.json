@@ -2,6 +2,10 @@
   "permissions": {
     "defaultMode": "auto"
   },
+  "skillOverrides": {
+    "anthropic-skills:paper-study-notes": "off",
+    "anthropic-skills:conference-paper-review": "off"
+  },
   "statusLine": {
     "type": "command",
     "command": "bash $HOME/.claude/statusline-command.sh"
@@ -49,5 +53,6 @@
   "skipDangerousModePermissionPrompt": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "model": "claude-fable-5-1"
 }
