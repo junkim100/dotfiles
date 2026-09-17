@@ -13,7 +13,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - `common/` owns canonical configuration used by two or more platforms. Platform paths may remain as compatibility symlinks when deployed home-directory links still target them.
 - `profiles/` owns machine-role overlays that reuse a platform configuration, including the Backend.AI Ubuntu profile.
 - `claude-code/` owns Claude Code configuration and installation. `claude-code/install.sh` installs Claude Code and its plugins and links configuration and canonical skills into `~/.claude/`. Its `skills/` directory contains only compatibility symlinks into `agents/skills/`.
-- `agents/` owns all repository-managed agent skills. `agents/install.sh` links them into `~/.agents/skills`, which Codex, Pi, and OpenCode discover directly. Agent application installation belongs in the corresponding application installer.
+- `agents/` owns Codex CLI installation and all repository-managed agent skills. `agents/install.sh` installs Codex when missing and links skills into `~/.agents/skills`, which Codex, Pi, and OpenCode discover directly. Other agent applications use their corresponding installers.
 - `Casks/` makes the repository a Homebrew tap. It holds casks that Homebrew itself does not offer, and `macOS/Brewfile` taps the repository by URL so `brew bundle` can install them.
 - `lazyvim/` is a Git submodule backed by `junkim100/lazyvim`.
 - OMP settings, themes, credentials, and runtime state intentionally remain local under `~/.omp/agent` and must not be added to this repository.

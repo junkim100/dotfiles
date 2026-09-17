@@ -42,12 +42,14 @@ bash "$DOTFILES_DIR/lazyvim/install.sh"
 
 The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/lazyvim) and is pinned here as a Git submodule. Its installer links the checkout to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
 
-**Shared agent skills (Codex, Pi, OpenCode, and Claude Code):**
+**Codex CLI and shared agent skills (Codex, Pi, OpenCode, and Claude Code):**
 ```bash
 bash "$DOTFILES_DIR/agents/install.sh"
 ```
 
-All repository-managed skills live under `agents/skills/`, including `conference-paper-review`, `interview`, `paper-study-notes`, `pr-review`, and `quiz`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. This also works when an agent is installed later; the script does not need to detect or install agent applications. Use `--dry-run` to preview the links. Claude Code receives its links through the installer below.
+The agent installer installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) when missing, using OpenAI's native installer non-interactively with `curl` on macOS and Linux. New installations go into `~/.local/bin`; existing installations on `PATH` or at `~/.local/bin/codex`, including Homebrew installations, are reused without upgrading them. The platform shell configurations already add `~/.local/bin` to `PATH`; the installer prints a reminder when needed and does not edit shell configuration. Use `--dry-run` to preview installation and skill links without downloading or changing anything.
+
+All repository-managed skills live under `agents/skills/`, including `conference-paper-review`, `interview`, `paper-study-notes`, `pr-review`, and `quiz`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. Claude Code receives its links through the installer below.
 
 **Claude Code:**
 ```bash

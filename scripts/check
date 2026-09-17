@@ -93,6 +93,82 @@ check_link_sources profiles/backend-ai/install.sh
 
 check_dry_run agents/install.sh
 
+# Exercise Codex installation with isolated tools and a fake download, never the
+# network or a real package installation, even on a machine without Codex.
+agent_bin="$TEMP_DIR/agent-bin"
+agent_home="$TEMP_DIR/agent-home"
+mkdir -p "$agent_bin" "$agent_home"
+for tool in bash sh dirname basename mkdir readlink ln rm mktemp cat chmod; do
+  ln -s "$(command -v "$tool")" "$agent_bin/$tool"
+done
+cat > "$agent_bin/curl" <<'CURL'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'download\n' >> "$HOME/downloads"
+cat > "${!#}" <<'INSTALLER'
+#!/bin/sh
+set -eu
+printf 'installed\n' >> "$HOME/installer-ran"
+[ "$CODEX_NON_INTERACTIVE" = 1 ]
+[ "$CODEX_INSTALL_DIR" = "$HOME/.local/bin" ]
+case ":$PATH:" in
+  *":$CODEX_INSTALL_DIR:"*) ;;
+  *) exit 1 ;;
+esac
+[ "${MOCK_INSTALL_EXIT:-0}" = 0 ] || exit "$MOCK_INSTALL_EXIT"
+mkdir -p "$CODEX_INSTALL_DIR"
+printf '#!/bin/sh\nprintf "codex-cli test\\n"\n' > "$CODEX_INSTALL_DIR/codex"
+chmod +x "$CODEX_INSTALL_DIR/codex"
+INSTALLER
+exit "${MOCK_CURL_EXIT:-0}"
+CURL
+chmod +x "$agent_bin/curl"
+
+HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" --dry-run > "$TEMP_DIR/agent.log" 2>&1 \
+  || { cat "$TEMP_DIR/agent.log"; fail "agent dry-run failed without Codex"; }
+[[ -z $(find "$agent_home" -mindepth 1) ]] || fail "agent dry-run downloaded or changed files"
+grep -q 'install Codex CLI' "$TEMP_DIR/agent.log" || fail "agent dry-run did not preview Codex installation"
+if HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" --dry-run --unknown > "$TEMP_DIR/agent.log" 2>&1; then
+  fail "agent installer accepted an unknown extra argument"
+fi
+
+mkdir -p "$agent_home/.agents/skills/local-skill"
+printf 'local skill\n' > "$agent_home/.agents/skills/local-skill/SKILL.md"
+for attempt in 1 2; do
+  HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/agent.log" 2>&1 \
+    || { cat "$TEMP_DIR/agent.log"; fail "agent installation attempt $attempt failed"; }
+done
+[[ -x $agent_home/.local/bin/codex ]] || fail "Codex was not installed"
+[[ $(cat "$agent_home/downloads") == download ]] || fail "agent installer downloaded again on rerun"
+[[ $(cat "$agent_home/installer-ran") == installed ]] || fail "agent installer reinstalled Codex on rerun"
+[[ $(cat "$agent_home/.agents/skills/local-skill/SKILL.md") == 'local skill' ]] || fail "agent installer changed a local skill"
+for skill in "$DOTFILES_DIR"/agents/skills/*/; do
+  [[ $(readlink "$agent_home/.agents/skills/$(basename "$skill")") == "${skill%/}" ]] \
+    || fail "agent installer did not link $skill"
+done
+
+existing_home="$TEMP_DIR/agent-existing"
+mkdir -p "$existing_home"
+HOME="$existing_home" PATH="$agent_home/.local/bin:$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/agent.log" 2>&1 \
+  || { cat "$TEMP_DIR/agent.log"; fail "agent installation failed with Codex on PATH"; }
+[[ ! -e $existing_home/downloads && ! -e $existing_home/.local ]] || fail "agent installer replaced an existing Codex"
+
+for failure in download install; do
+  failed_home="$TEMP_DIR/agent-failed-$failure"
+  mkdir -p "$failed_home"
+  curl_exit=0
+  install_exit=0
+  if [[ $failure == download ]]; then curl_exit=22; else install_exit=42; fi
+  if HOME="$failed_home" PATH="$agent_bin" MOCK_CURL_EXIT="$curl_exit" MOCK_INSTALL_EXIT="$install_exit" \
+    bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/agent.log" 2>&1; then
+    fail "agent installer ignored a Codex $failure failure"
+  fi
+  [[ ! -e $failed_home/.local/bin/codex ]] || fail "Codex was installed after a $failure failure"
+  if [[ $failure == download ]]; then
+    [[ ! -e $failed_home/installer-ran ]] || fail "agent installer executed an incomplete download"
+  fi
+done
+
 # Sourced fragments carry no shebang, so the shebang-driven loop below skips them.
 sh -n "$DOTFILES_DIR/common/shell/aliases.sh"
 sh -n "$DOTFILES_DIR/common/shell/autopull.sh"
