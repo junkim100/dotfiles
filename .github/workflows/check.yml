@@ -10,12 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # scripts/check skips its zsh and tmux assertions when the binary is absent,
-      # so install both to keep CI coverage equal to a local run.
-      - name: Install zsh and tmux
+      # scripts/check skips its zsh, tmux, and jq assertions when the binary is absent,
+      # so install them to keep CI coverage equal to a local run.
+      - name: Install validation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y zsh tmux
+          sudo apt-get install -y zsh tmux jq
 
       - name: Run repository check
         run: ./scripts/check

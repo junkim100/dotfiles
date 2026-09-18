@@ -14,6 +14,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - `profiles/` owns machine-role overlays that reuse a platform configuration, including the Backend.AI Ubuntu profile.
 - `claude-code/` owns Claude Code configuration and installation. `claude-code/install.sh` installs Claude Code and its plugins and links configuration and canonical skills into `~/.claude/`. Its `skills/` directory contains only compatibility symlinks into `agents/skills/`.
 - `agents/` owns Codex CLI installation and all repository-managed agent skills. `agents/install.sh` installs Codex when missing and links skills into `~/.agents/skills`, which Codex, Pi, and OpenCode discover directly. Other agent applications use their corresponding installers.
+- `scripts/lib/install.sh` owns shared Bash installer argument handling, progress, diagnostics, downloads, and cleanup. `scripts/link-file` owns managed symlinks, and `scripts/tests/` owns isolated installer regression tests.
 - `Casks/` makes the repository a Homebrew tap. It holds casks that Homebrew itself does not offer, and `macOS/Brewfile` taps the repository by URL so `brew bundle` can install them.
 - `lazyvim/` is a Git submodule backed by `junkim100/lazyvim`.
 - OMP settings, themes, credentials, and runtime state intentionally remain local under `~/.omp/agent` and must not be added to this repository.
@@ -26,6 +27,8 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Do not commit or push unless the user explicitly requests it.
 - Never replace a real configuration directory with a file symlink; fail instead.
 - All installers must derive the repository root from their own path and use `scripts/link-file` for managed symlinks.
+- Parent-repository installers must source `scripts/lib/install.sh`, call `install_init` before taking action, and support `--dry-run` and `--help`. Use `run_installer` to propagate previews to nested installers; preview external installers with `run` when they do not support dry runs.
+- Required commands must fail visibly with their exit status. Do not suppress installation failures with `|| true`; optional skips must explain what is missing. Reuse existing tools by default and keep upgrades explicit.
 - Edit the tracked source rather than the live file under `~/.config` when a managed symlink exists.
 - Do not run the full macOS or Ubuntu installer merely for validation because those scripts install packages and alter live configuration. Validate them with `--dry-run`, which prints every action and changes nothing.
 
@@ -55,4 +58,4 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - Check LazyVim integration with `git submodule status --recursive`.
 - For LazyVim changes, run its dedicated installer and confirm Neovim starts with the expected configuration.
 - Verify that no tracked installer or README still references a removed path. `scripts/check` enforces this for every path an installer links from.
-- An installer wired into `check_dry_run` must parse `--dry-run` and reject unknown options, otherwise the check runs it for real.
+- An installer wired into `check_dry_run` must use the shared argument parser and reject unknown options, otherwise the check could run it for real. Add each parent-repository installer to both the dry-run checks and the guarded preview tests.

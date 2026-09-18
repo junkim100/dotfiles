@@ -1,50 +1,13 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-DOTFILES_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
-LINK_FILE="$DOTFILES_DIR/scripts/link-file"
-DRY_RUN=false
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+. "$DOTFILES_DIR/scripts/lib/install.sh"
+install_init "macOS setup" 8 "$@"
 
-usage() {
-  cat <<'USAGE'
-Usage: macOS/install.sh [--dry-run]
-
-Install the macOS configuration: Homebrew and the Brewfile, the tracked
-symlinks, tmux, and LazyVim.
-
-Options:
-  --dry-run  Print intended changes without modifying the machine.
-USAGE
-}
-
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --dry-run) DRY_RUN=true ;;
-    -h|--help) usage; exit 0 ;;
-    *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
-  esac
-  shift
-done
-
-DRY_RUN_FLAG=""
-[ "$DRY_RUN" = true ] && DRY_RUN_FLAG="--dry-run"
-
-run() {
-  if [ "$DRY_RUN" = true ]; then
-    printf '  + %s\n' "$*"
-  else
-    "$@"
-  fi
-}
-
-# link-file reports a missing source and exits non-zero even under --dry-run,
-# so a dry run doubles as a check that every tracked source still exists.
-link_file() {
-  "$LINK_FILE" $DRY_RUN_FLAG "$@"
-}
-
-link_file "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
+step "Platform checks"
+require_os Darwin
 
 # This setup only supports Apple silicon. Homebrew picks its prefix from the architecture of the shell
 # that runs its installer, and a shell under Rosetta reports x86_64, so an Intel Homebrew lands in
@@ -52,7 +15,7 @@ link_file "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
 # Refuse early rather than let that half-install happen. A dry run only reports the checks, because
 # scripts/check runs it on a Linux CI host to prove every linked source exists.
 if [ "$DRY_RUN" = true ]; then
-  echo "  + require an arm64 shell with no Intel Homebrew under /usr/local"
+  info "Requires an arm64 shell with no Intel Homebrew under /usr/local."
 elif [ "$(uname -m)" != "arm64" ]; then
   cat >&2 <<MSG
 This dotfiles setup only supports Apple silicon, but this shell reports $(uname -m).
@@ -72,21 +35,28 @@ fi
 
 # Install Homebrew if missing. Check the Apple silicon prefix directly rather than PATH so a stray
 # brew elsewhere cannot make the script skip the native install.
+step "Homebrew"
 if [ ! -x /opt/homebrew/bin/brew ]; then
   if [ "$DRY_RUN" = true ]; then
-    echo "  + install Homebrew"
+    info "Would install Homebrew at /opt/homebrew."
   else
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    make_temp_dir
+    download https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh "$INSTALL_TEMP_DIR/homebrew.sh"
+    run /bin/bash "$INSTALL_TEMP_DIR/homebrew.sh"
   fi
+else
+  skip "Homebrew already installed at /opt/homebrew"
 fi
 
 # The Homebrew installer only prints its shellenv line under "Next steps" and never runs it, so brew
 # is still off PATH in this process right after installing. Load the prefix so brew bundle can run.
 # The deployed .zprofile does the same thing for every later login shell.
-if [ -x /opt/homebrew/bin/brew ]; then
-  eval "$(/opt/homebrew/bin/brew shellenv)"
+if ! $DRY_RUN; then
+  brew_env=$(/opt/homebrew/bin/brew shellenv)
+  eval "$brew_env"
 fi
 
+step "Homebrew packages"
 # Homebrew refuses to load casks from a third-party tap until that tap is trusted, and brew tap itself
 # syntax-checks every cask in the tap under every OS and architecture, so tapping an untrusted tap fails
 # with "Invalid cask (...)" for each cask and then "Cannot tap ...: invalid syntax in tap!". Trust is a
@@ -101,18 +71,26 @@ fi
 run brew tap stablyai/orca
 run brew tap junkim100/dotfiles "$DOTFILES_TAP_URL"
 
-# Install everything from Brewfile
-run brew bundle install --file="$SCRIPT_DIR/Brewfile"
+# Avoid package upgrades as a side effect of rerunning configuration setup.
+if ! $DRY_RUN && brew bundle check --no-upgrade --file="$SCRIPT_DIR/Brewfile" >/dev/null 2>&1; then
+  skip "All Brewfile packages are already installed"
+else
+  run brew bundle install --no-upgrade --file="$SCRIPT_DIR/Brewfile"
+fi
 
 # Layer platform Git configuration over the shared defaults.
+step "Shell and Git configuration"
+link_file "$DOTFILES_DIR" "$HOME/.config/dotfiles/repo"
 link_file "$DOTFILES_DIR/common/git/config" "$HOME/.config/git/common"
 link_file "$SCRIPT_DIR/git/config" "$HOME/.gitconfig"
 link_file "$SCRIPT_DIR/.zprofile" "$HOME/.zprofile"
 link_file "$SCRIPT_DIR/.zshrc" "$HOME/.zshrc"
 link_file "$SCRIPT_DIR/.vimrc" "$HOME/.vimrc"
-sh "$DOTFILES_DIR/common/tmux/install.sh" $DRY_RUN_FLAG
+step "tmux"
+run_installer "$DOTFILES_DIR/common/tmux/install.sh"
 
 # Ghostty
+step "Ghostty"
 run mkdir -p "$HOME/.config/ghostty/themes"
 link_file "$SCRIPT_DIR/ghostty-config" "$HOME/.config/ghostty/config"
 link_file "$SCRIPT_DIR/ghostty-theme-glassy-nord" "$HOME/.config/ghostty/themes/glassy-nord"
@@ -122,11 +100,13 @@ run mkdir -p "$HOME/Library/Application Support/com.mitchellh.ghostty"
 link_file "$SCRIPT_DIR/ghostty-config" "$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 
 # Install the pinned Neovim binary and restore the exact LazyVim plugin revisions.
+step "LazyVim"
 run git -C "$DOTFILES_DIR" submodule update --init --recursive lazyvim
 run bash "$DOTFILES_DIR/lazyvim/install.sh"
 
 # Suppress the "Last login: ..." banner login(1) prints for every new login shell,
 # which ghostty starts for every window and tab. The file only has to exist.
+step "Terminal utilities"
 run touch "$HOME/.hushlogin"
 
 # bat
@@ -139,3 +119,4 @@ link_file "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
 # urlview, for the tmux URL picker on prefix + u
 link_file "$DOTFILES_DIR/common/urlview/config" "$HOME/.urlview"
+finish

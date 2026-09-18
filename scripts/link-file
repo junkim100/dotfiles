@@ -25,7 +25,7 @@ source_dir=$(cd "$(dirname "$source")" && pwd)
 source="$source_dir/$(basename "$source")"
 
 if [[ -L $target && $(readlink "$target") == "$source" ]]; then
-  echo "  = $target"
+  echo "  [SKIP] $target already linked"
   exit 0
 fi
 
@@ -35,7 +35,7 @@ if [[ -d $target && ! -L $target ]]; then
 fi
 
 if $dry_run; then
-  printf '  + link %s -> %s\n' "$target" "$source"
+  printf '  [PLAN] link %s -> %s\n' "$target" "$source"
   exit 0
 fi
 
@@ -44,4 +44,4 @@ if [[ -e $target || -L $target ]]; then
   rm -f -- "$target"
 fi
 ln -s -- "$source" "$target"
-echo "  linked $target"
+echo "  [OK] linked $target"
