@@ -88,10 +88,13 @@ def main():
 
     parser.add_argument(
         "--context",
-        default="",
+        required=True,
         help=(
-            "Optional context such as dependencies, expected file overlap, "
-            "current workers, or shared-state concerns."
+            "Orchestration context: file and subsystem overlap with the parent, "
+            "whether the child is read-only, its dependencies, which workers are "
+            "already live and what scope they own, and whether the parent alone "
+            "may run or land the result. Required because this field decides most "
+            "verdicts; an empty one yields a confident answer built on nothing."
         ),
     )
 
