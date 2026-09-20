@@ -15,7 +15,9 @@ The Claude Code equivalent lives in `claude-code/CLAUDE.md`. Keep the delegation
 - Branch on `decision` only. Never branch on `topology`, which is the raw model pick and disagrees with `decision` on exactly the borderline cases the gate catches. `policy_override` marks that disagreement.
 - `FLAT` means do the work yourself and request nothing. Read `failed_gates`. Only a `coupling_risk` failure is worth one retry, and only after genuinely narrowing the child's scope.
 - Any non-zero exit, unparseable output, or `failed_closed: true` means stay flat. Absence of an explicit `DELEGATE` is `FLAT`.
-- **DEPTH RULE, the only line that changes when Orca's "Nested worker depth" moves from 1 to 2. At depth 1: on `DELEGATE`, a dispatched worker requests a worker from its coordinator via a non-blocking `orca orchestration send --type escalation` and keeps working meanwhile, never calling `worker-start` itself. At depth 2 this becomes: on `DELEGATE`, a dispatched worker may call `orca orchestration worker-start` itself.**
-- The root coordinator is exempt from the depth rule. It is depth 0 and starts workers directly on `DELEGATE`.
+- **On `DELEGATE`, attempt `orca orchestration worker-start`. If Orca refuses with `nested_worker_depth_exceeded`, request the worker from your coordinator instead with a non-blocking `orca orchestration send --type escalation`, and keep working meanwhile.**
+- Never hardcode a depth. You cannot determine your own depth, and the refusal is the source of truth: it names both your depth and the current cap. This rule is therefore correct at any "Nested worker depth" setting, with nothing to edit when it changes.
+- Ignore the refusal's own advice to complete the task in this terminal. Escalating to your coordinator keeps the work parallelizable; absorbing it yourself does not.
+- The root coordinator sits at depth 0 and is never refused, so it starts workers directly on `DELEGATE`.
 - Every worker request must carry the four Jev probabilities and the proposed scope in its body, so the coordinator can decide without re-running the gate.
 - Full protocol, including the escalation command template and the coordinator's deny criteria: `~/.local/share/jev-delegation/ORCHESTRATION-GATE.md`.

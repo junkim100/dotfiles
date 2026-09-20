@@ -48,19 +48,19 @@ Never branch on `topology`. That field is the model's raw pick, and it disagrees
 
 ## Depth rule
 
-**This is the only line that changes when Orca's "Nested worker depth" setting moves from 1 to 2.**
+**Never hardcode a depth.** You cannot determine your own depth from inside a worker; you can only tell that you are one, from your preamble. Orca knows, and it tells you when it matters.
 
-> **At depth 1**: on DELEGATE, a dispatched worker requests a worker from its coordinator and keeps working meanwhile. It never calls `orca orchestration worker-start` itself.
+On DELEGATE, attempt `orca orchestration worker-start`. If Orca permits it, the dispatch proceeds. If Orca refuses, it returns the code `nested_worker_depth_exceeded` with a message naming both your depth and the current cap, and you then request the worker from your coordinator instead.
 
-When the setting becomes 2, replace that line with this one and change nothing else:
+That makes this rule correct at any "Nested worker depth" setting, with nothing to edit when you change it. A refused attempt costs one cheap CLI call, and only on the rare dispatch path.
 
-> **At depth 2**: on DELEGATE, a dispatched worker may call `orca orchestration worker-start` itself.
+Orca's own next-steps text on that refusal tells you to complete the task in this terminal. Ignore that line. Escalating to your coordinator preserves the chance of parallel work; absorbing the task yourself forecloses it.
 
-The root coordinator is not governed by that line. It sits at depth 0 and starts workers directly on a DELEGATE verdict.
+The root coordinator sits at depth 0 and is never refused, so it starts workers directly on a DELEGATE verdict.
 
-## Requesting a worker at depth 1
+## Requesting a worker after a depth refusal
 
-Send the request with the escalation form from your own preamble, substituting your real handles. Escalation is deliberate rather than `ask`: it does not block, so you keep making progress on your own task while the coordinator decides. If the coordinator never answers, you simply finish the work yourself, which is the safe outcome.
+When Orca refuses the dispatch, send the request with the escalation form from your own preamble, substituting your real handles. Escalation is deliberate rather than `ask`: it does not block, so you keep making progress on your own task while the coordinator decides. If the coordinator never answers, you simply finish the work yourself, which is the safe outcome.
 
 ```sh
 orca orchestration send --from <your-terminal> --dispatch-capability <your-dcap> \

@@ -11,5 +11,6 @@ alone may run or land the result:
 Branch on `decision` only, never on `topology`. FLAT, a non-zero exit, unparseable
 output, or `failed_closed: true` all mean: do the work yourself and request nothing.
 On DELEGATE, send me an escalation naming the candidate, the scope the child would
-own, and the four Jev probabilities. Never call `orca orchestration worker-start`
-yourself; nested worker depth is 1 and Orca will refuse it.
+own, and the four Jev probabilities. You may attempt `orca orchestration
+worker-start` first; if Orca refuses with `nested_worker_depth_exceeded`, escalate
+to me instead of absorbing the task yourself.
