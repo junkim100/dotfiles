@@ -1,0 +1,15 @@
+DELEGATION GATE: if at any point you think a separate agent would help, do not act on
+that thought directly. Run the gate first, passing all four flags, with --context
+naming file and subsystem overlap with me, whether the child is read-only, its
+dependencies, which workers are already live and what scope they own, and whether I
+alone may run or land the result:
+
+  jev-delegation --parent-task "<your current task>" --proposed-task "<candidate>" \
+    --reason "<why a worker helps>" --context "<overlap, deps, live workers, authority>" \
+    | tee >(jq -c . >> ~/.local/share/jev-delegation/decisions.jsonl)
+
+Branch on `decision` only, never on `topology`. FLAT, a non-zero exit, unparseable
+output, or `failed_closed: true` all mean: do the work yourself and request nothing.
+On DELEGATE, send me an escalation naming the candidate, the scope the child would
+own, and the four Jev probabilities. Never call `orca orchestration worker-start`
+yourself; nested worker depth is 1 and Orca will refuse it.

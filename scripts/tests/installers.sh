@@ -123,7 +123,7 @@ existing_home="$TEMP_DIR/agent-existing"
 mkdir -p "$existing_home"
 HOME="$existing_home" PATH="$agent_home/.local/bin:$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/agent.log" 2>&1 \
   || { cat "$TEMP_DIR/agent.log"; fail "agent installation failed with Codex on PATH"; }
-[[ ! -e $existing_home/downloads && ! -e $existing_home/.local ]] || fail "agent installer replaced an existing Codex"
+[[ ! -e $existing_home/downloads && ! -e $existing_home/.local/bin/codex ]] || fail "agent installer replaced an existing Codex"
 
 for failure in download install; do
   failed_home="$TEMP_DIR/agent-failed-$failure"

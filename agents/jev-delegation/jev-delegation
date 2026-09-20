@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+VENV = Path.home() / ".local/share/jev-delegation/venv"
+site_packages = next((VENV / "lib").glob("python*/site-packages"), None)
+
+if site_packages:
+    sys.path.insert(0, str(site_packages))
+
+
+# Thresholds tuned 2026-09-20 against 13 real solar-system dispatches
+# (8 that settled cleanly, 5 that needed rework or blocked on root),
+# 3 runs each. Observed run-to-run noise: 0.04 worst, 0.01 median.
+#
+# Measured separation between the two classes, per signal:
+#
+#   coupling_risk      gap 0.33   DELEGATE <= 0.32, FLAT >= 0.65   <- strongest
+#   independent        gap 0.12   DELEGATE >= 0.71, FLAT <= 0.59
+#   delegate_prob      gap 0.04   DELEGATE >= 0.91, FLAT <= 0.87
+#   delegation_value   gap 0.02   DELEGATE >= 0.52, FLAT <= 0.50   <- weakest
+#
+# Coupling risk is the primary routing signal, not the topology choice.
+# Every FLAT case in the sample was caught by coupling and by independence;
+# the topology probability missed the hardest one. Leave-one-out refitting
+# showed the coupling and independence thresholds are stable across folds,
+# while the value and topology thresholds swing wildly because their class
+# gap is smaller than the fold-to-fold variation. So those two are held
+# deliberately loose as vetoes against clearly bad delegation rather than
+# fitted to this sample.
+MINIMUM_INDEPENDENCE = 0.65
+MINIMUM_DELEGATION_VALUE = 0.35
+MAXIMUM_COUPLING_RISK = 0.50
+MINIMUM_DELEGATE_PROBABILITY = 0.85
+
+
+def load_key():
+    if os.environ.get("TYPESAFE_API_KEY"):
+        return
+
+    key_path = Path.home() / ".config/typesafe/api_key"
+
+    if not key_path.exists():
+        raise RuntimeError(
+            "No TYPESAFE_API_KEY environment variable found and "
+            "~/.config/typesafe/api_key does not exist."
+        )
+
+    key = key_path.read_text().strip()
+
+    if not key:
+        raise RuntimeError(
+            "~/.config/typesafe/api_key exists but is empty."
+        )
+
+    os.environ["TYPESAFE_API_KEY"] = key
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Ask Jev whether a proposed Orca subtask should be delegated "
+            "to another worker or kept flat."
+        )
+    )
+
+    parser.add_argument(
+        "--parent-task",
+        required=True,
+        help="The current worker's parent/current task.",
+    )
+
+    parser.add_argument(
+        "--proposed-task",
+        required=True,
+        help="The specific task proposed for delegation.",
+    )
+
+    parser.add_argument(
+        "--reason",
+        required=True,
+        help="Why delegation may be useful.",
+    )
+
+    parser.add_argument(
+        "--context",
+        default="",
+        help=(
+            "Optional context such as dependencies, expected file overlap, "
+            "current workers, or shared-state concerns."
+        ),
+    )
+
+    args = parser.parse_args()
+
+    # Everything that can fail lives inside the envelope, so a missing API key
+    # or a broken venv still prints parseable JSON instead of a traceback.
+    try:
+        from typesafe_sdk import Choice, Noul, TypeSafeClient
+
+        load_key()
+
+        state = {
+            "parent_task": args.parent_task,
+            "proposed_child_task": args.proposed_task,
+            "reason_for_delegation": args.reason,
+            "additional_context": args.context,
+        }
+
+        with TypeSafeClient() as client:
+            response = client.system_one(
+                state=state,
+                questions={
+                    "independent": Noul(
+                        instructions=(
+                            "Can `proposed_child_task` be performed meaningfully "
+                            "independently of the parent's ongoing execution? "
+                            "Answer based on whether the child can make useful "
+                            "progress without frequent synchronization with the "
+                            "parent."
+                        )
+                    ),
+
+                    "delegation_value": Noul(
+                        instructions=(
+                            "Would assigning `proposed_child_task` to a separate "
+                            "worker provide material benefit that justifies the "
+                            "additional coordination overhead? Consider parallelism, "
+                            "specialization, context separation, and whether the "
+                            "task is substantial enough to deserve its own worker."
+                        )
+                    ),
+
+                    "coupling_risk": Noul(
+                        instructions=(
+                            "Would the proposed child task require frequent access "
+                            "to changing state, files, implementation decisions, or "
+                            "other tightly coupled work owned by the parent? "
+                            "Treat these as strong signals of coupling: the parent "
+                            "re-inspects or re-reviews the result before it counts "
+                            "as done; the parent retains sole authority to run, "
+                            "launch, or land what the child produces; another live "
+                            "worker is blocked waiting on the child's output; or "
+                            "the child cannot verify its own work without the "
+                            "parent. Higher probability means greater coupling risk."
+                        )
+                    ),
+
+                    "topology": Choice(
+                        instructions=(
+                            "Which execution topology is more appropriate for "
+                            "`proposed_child_task`?"
+                        ),
+                        criteria={
+                            "flat": (
+                                "The parent should perform or retain this work "
+                                "without creating another worker. Choose this when "
+                                "the task is small, tightly coupled, highly dependent "
+                                "on the parent's changing context, or unlikely to "
+                                "justify coordination overhead."
+                            ),
+                            "delegate": (
+                                "A separate worker is justified because the task is "
+                                "sufficiently independent and substantial, and "
+                                "delegation is likely to provide meaningful value "
+                                "despite coordination overhead."
+                            ),
+                        },
+                    ),
+                },
+            )
+
+        independent = response.answers["independent"].noul
+        value = response.answers["delegation_value"].noul
+        coupling = response.answers["coupling_risk"].noul
+        topology = response.answers["topology"]
+
+        delegate_probability = topology.probabilities.get("delegate", 0.0)
+        flat_probability = topology.probabilities.get("flat", 0.0)
+
+        # Each gate reports independently so the caller can see which one
+        # actually decided the outcome instead of inferring it.
+        gates = {
+            "independence": independent >= MINIMUM_INDEPENDENCE,
+            "delegation_value": value >= MINIMUM_DELEGATION_VALUE,
+            "coupling_risk": coupling <= MAXIMUM_COUPLING_RISK,
+            "delegate_probability": (
+                delegate_probability >= MINIMUM_DELEGATE_PROBABILITY
+            ),
+        }
+
+        allow = all(gates.values())
+
+        result = {
+            "decision": "DELEGATE" if allow else "FLAT",
+
+            "independent_probability": independent,
+            "delegation_value_probability": value,
+            "coupling_risk_probability": coupling,
+
+            # `topology` is the model's raw pick. `decision` is authoritative and
+            # is what callers must branch on. The two disagree exactly on the
+            # borderline cases the gates exist to catch, so `policy_override`
+            # flags that disagreement rather than leaving it to be noticed.
+            "topology": topology.choice,
+            "delegate_probability": delegate_probability,
+            "flat_probability": flat_probability,
+            "topology_confidence": topology.confidence,
+            "topology_probabilities": topology.probabilities,
+
+            "gates": gates,
+            "failed_gates": [k for k, ok in gates.items() if not ok],
+            "policy_override": (
+                topology.choice == "delegate" and not allow
+            ),
+
+            "policy": {
+                "minimum_independence": MINIMUM_INDEPENDENCE,
+                "minimum_delegation_value": MINIMUM_DELEGATION_VALUE,
+                "maximum_coupling_risk": MAXIMUM_COUPLING_RISK,
+                "minimum_delegate_probability": MINIMUM_DELEGATE_PROBABILITY,
+            },
+
+            "model": getattr(response, "model", None),
+        }
+
+        print(json.dumps(result, indent=2))
+
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "decision": "FLAT",
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "failed_closed": True,
+                },
+                indent=2,
+            )
+        )
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main()

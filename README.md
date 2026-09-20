@@ -61,6 +61,10 @@ The agent installer installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cl
 
 All repository-managed skills live under `agents/skills/`, including `conference-paper-review`, `interview`, `paper-study-notes`, `pr-review`, and `quiz`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. Claude Code receives its links through the installer below.
 
+`agents/AGENTS.md` holds the global instructions for agents that read `AGENTS.md`. The installer links it to `$CODEX_HOME/AGENTS.md`, which is `~/.codex/AGENTS.md` for a plain terminal. Orca points `CODEX_HOME` at its own managed home, so its Codex workers read a different global file; the installer links that copy too when Orca is present, and skips it otherwise. The Claude Code equivalent is `claude-code/CLAUDE.md`, and the delegation gate section is duplicated in both because no instruction file is shared across agents.
+
+`agents/jev-delegation/` holds the delegation gate that Orca agents consult before creating or requesting another worker. The installer links the script to `~/.local/bin/jev-delegation` and its protocol and dispatch snippet to `~/.local/share/jev-delegation/`, then creates a virtual environment there from `requirements.txt`. The gate needs a [TypeSafe](https://typesafe.ai) API key in `~/.config/typesafe/api_key` or `TYPESAFE_API_KEY`; the installer warns when neither is present. Without the environment or the key the command still runs and fails closed to `FLAT`, so a broken installation keeps work flat rather than fanning out unchecked.
+
 **Claude Code:**
 ```bash
 bash "$DOTFILES_DIR/claude-code/install.sh"

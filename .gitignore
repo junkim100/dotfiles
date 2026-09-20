@@ -3,3 +3,6 @@
 
 # Claude Code hook logs
 **/.claude/hooks/.logs/
+
+# Orca writes this before injecting its agent hooks into settings.json
+claude-code/settings.json.bak
