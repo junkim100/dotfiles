@@ -1,0 +1,59 @@
+#!/bin/sh
+# PreToolUse observer for the Orca delegation gate.
+#
+# Registered against the Bash tool in both Claude Code and Codex, so this runs
+# on EVERY shell command an agent issues. It must do almost nothing on the
+# overwhelming majority of calls, and it must never block or fail a tool call:
+# losing an audit line is free, stalling an agent is not. Every path exits 0.
+#
+# Observe only. It records that a dispatch happened and whether the gate had
+# been consulted, so compliance can be measured before anyone decides whether
+# to enforce it. To turn this into a block, exit non-zero in the record step.
+#
+# Usage: jev-observe --agent claude|codex
+
+AGENT=unknown
+case "$1" in --agent) AGENT=${2:-unknown} ;; esac
+
+# Consume stdin unconditionally. A hook that leaves the payload unread can hand
+# the caller a broken pipe.
+PAYLOAD=$(cat 2>/dev/null)
+
+# Fast path. Substring test in the shell, no JSON parsing, no subprocess.
+case "$PAYLOAD" in
+  *worker-start*) ;;
+  *) exit 0 ;;
+esac
+
+SHARE="$HOME/.local/share/jev-delegation"
+LOG="$SHARE/dispatches.jsonl"
+DECISIONS="$SHARE/decisions.jsonl"
+
+{
+  mkdir -p "$SHARE" 2>/dev/null
+
+  # Orca task ids look like task_<hex>. Absent for an ad hoc dispatch.
+  TASK=$(printf '%s' "$PAYLOAD" | grep -oE 'task_[0-9a-f]{6,}' | head -1)
+  [ -n "$TASK" ] || TASK=none
+
+  # Whether the gate was consulted at all, and what it last said. The verdicts
+  # carry no timestamp, so this is deliberately a weak signal: it answers "was
+  # the gate used" rather than "was it used for this exact dispatch".
+  LAST=none
+  COUNT=0
+  if [ -s "$DECISIONS" ]; then
+    COUNT=$(wc -l < "$DECISIONS" 2>/dev/null | tr -d ' ')
+    case "$(tail -1 "$DECISIONS" 2>/dev/null)" in
+      *'"decision":"DELEGATE"'*) LAST=DELEGATE ;;
+      *'"decision":"FLAT"'*) LAST=FLAT ;;
+    esac
+  fi
+
+  # One short line, one write, appended. Small enough that concurrent appends
+  # from parallel agents interleave safely without a lock.
+  printf '{"t":"%s","a":"%s","task":"%s","last":"%s","n":%s,"cwd":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$AGENT" "$TASK" "$LAST" "${COUNT:-0}" "$PWD" \
+    >> "$LOG"
+} 2>/dev/null
+
+exit 0

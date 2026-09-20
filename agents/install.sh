@@ -76,6 +76,22 @@ else
   warn "python3 not found; jev-delegation fails closed to FLAT until $JEV_VENV exists."
 fi
 
+link_file "$JEV_SRC/jev-observe" "$HOME/.local/bin/jev-observe"
+
+# The observer records dispatches; it never blocks a tool call. Claude Code
+# picks it up from the tracked settings.json, but Codex owns its hooks.json and
+# Orca rewrites it, so that one is merged in place instead of linked.
+if $DRY_RUN; then
+  info "Would register jev-observe in each Codex hooks.json"
+elif command -v python3 >/dev/null 2>&1; then
+  for codex_home in "$HOME/.codex" "$ORCA_CODEX_HOME_DIR"; do
+    [[ -d $codex_home ]] || continue
+    python3 "$JEV_SRC/register-codex-hook.py" "$codex_home/hooks.json"
+  done
+else
+  warn "python3 not found; Codex will not record dispatches until jev-observe is registered."
+fi
+
 if [[ -z ${TYPESAFE_API_KEY:-} && ! -s $HOME/.config/typesafe/api_key ]]; then
   warn "No TypeSafe API key; jev-delegation fails closed to FLAT. Write one to ~/.config/typesafe/api_key or set TYPESAFE_API_KEY."
 fi
