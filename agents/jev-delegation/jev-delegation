@@ -38,6 +38,30 @@ MAXIMUM_COUPLING_RISK = 0.50
 MINIMUM_DELEGATE_PROBABILITY = 0.85
 
 
+REQUEST_TIMEOUT_SECONDS = 30
+
+
+def unavailable(reason, exc):
+    """The gate could not run. Hand the call back to the agent's own judgement.
+
+    Exits 0 on purpose: a non-zero exit is the caller's signal to stay flat, and
+    that signal must stay reserved for genuine faults so it still catches a
+    crash we did not anticipate.
+    """
+    print(
+        json.dumps(
+            {
+                "decision": "UNAVAILABLE",
+                "fallback": "agent_judgement",
+                "reason": reason,
+                "error": f"{type(exc).__name__}: {exc}",
+            },
+            indent=2,
+        )
+    )
+    sys.exit(0)
+
+
 def load_key():
     if os.environ.get("TYPESAFE_API_KEY"):
         return
@@ -100,13 +124,36 @@ def main():
 
     args = parser.parse_args()
 
-    # Everything that can fail lives inside the envelope, so a missing API key
-    # or a broken venv still prints parseable JSON instead of a traceback.
+    # Two different kinds of failure, deliberately kept apart.
+    #
+    # UNAVAILABLE means the gate could not run at all: no SDK, no key, or the
+    # service is unreachable. Forcing FLAT there would silently disable all
+    # delegation during an outage, which is worse than the behaviour Orca had
+    # before this gate existed. Hand the decision back to the agent instead.
+    #
+    # FLAT with failed_closed means something unexpected went wrong in our own
+    # code or in a response we cannot trust. Stay conservative there.
     try:
-        from typesafe_sdk import Choice, Noul, TypeSafeClient
+        from typesafe_sdk import (
+            Choice,
+            Noul,
+            TypeSafeAPIConnectionError,
+            TypeSafeAPITimeoutError,
+            TypeSafeAuthenticationError,
+            TypeSafeInternalServerError,
+            TypeSafePermissionDeniedError,
+            TypeSafeRateLimitError,
+            TypeSafeClient,
+        )
+    except Exception as exc:
+        unavailable("sdk_unavailable", exc)
 
+    try:
         load_key()
+    except Exception as exc:
+        unavailable("no_api_key", exc)
 
+    try:
         state = {
             "parent_task": args.parent_task,
             "proposed_child_task": args.proposed_task,
@@ -114,7 +161,7 @@ def main():
             "additional_context": args.context,
         }
 
-        with TypeSafeClient() as client:
+        with TypeSafeClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
             response = client.system_one(
                 state=state,
                 questions={
@@ -233,7 +280,14 @@ def main():
 
         print(json.dumps(result, indent=2))
 
+    except (TypeSafeAPIConnectionError, TypeSafeAPITimeoutError) as exc:
+        unavailable("service_unreachable", exc)
+    except (TypeSafeInternalServerError, TypeSafeRateLimitError) as exc:
+        unavailable("service_error", exc)
+    except (TypeSafeAuthenticationError, TypeSafePermissionDeniedError) as exc:
+        unavailable("auth_rejected", exc)
     except Exception as exc:
+        # Unknown failure, or a response we could not trust. Stay closed.
         print(
             json.dumps(
                 {

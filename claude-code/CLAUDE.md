@@ -36,7 +36,8 @@
 - Append every verdict with `| tee >(jq -c . >> ~/.local/share/jev-delegation/decisions.jsonl)` so real decisions accumulate as line-delimited JSON for auditing, while the full verdict still prints for you to read.
 - Branch on `decision` only. Never branch on `topology`, which is the raw model pick and disagrees with `decision` on exactly the borderline cases the gate catches. `policy_override` marks that disagreement.
 - `FLAT` means do the work yourself and request nothing. Read `failed_gates`. Only a `coupling_risk` failure is worth one retry, and only after genuinely narrowing the child's scope.
-- Any non-zero exit, unparseable output, or `failed_closed: true` means stay flat. Absence of an explicit `DELEGATE` is `FLAT`.
+- `UNAVAILABLE` means the gate could not run, not that delegating is unwise. Fall back to your own judgement, weighing the same things the gate weighs: independence from the parent's in-flight work, whether the coordination is worth it, and above all coupling. Say in your request that the gate was unavailable.
+- Any non-zero exit, unparseable output, or `failed_closed: true` means stay flat. Those signal a real fault rather than an outage.
 - **On `DELEGATE`, attempt `orca orchestration worker-start`. If Orca refuses with `nested_worker_depth_exceeded`, request the worker from your coordinator instead with a non-blocking `orca orchestration send --type escalation`, and keep working meanwhile.**
 - Never hardcode a depth. You cannot determine your own depth, and the refusal is the source of truth: it names both your depth and the current cap. This rule is therefore correct at any "Nested worker depth" setting, with nothing to edit when it changes.
 - Ignore the refusal's own advice to complete the task in this terminal. Escalating to your coordinator keeps the work parallelizable; absorbing it yourself does not.

@@ -44,7 +44,8 @@ Never branch on `topology`. That field is the model's raw pick, and it disagrees
 
 - **`decision: DELEGATE`**. See the depth rule below.
 - **`decision: FLAT`**. Do the work yourself in this terminal, and do not request a worker. Read `failed_gates` to understand why. A `coupling_risk` failure is the one worth reacting to: narrowing the child to something read-only or non-overlapping may legitimately flip it.
-- **Anything else**. A non-zero exit, unparseable output, or a body carrying `failed_closed: true` means stay flat and do the work yourself. The tool already fails closed by returning FLAT on error, so treat the absence of an explicit DELEGATE as FLAT.
+- **`decision: UNAVAILABLE`**. The gate could not run: no SDK, no API key, or the service was unreachable or timed out. This is not a verdict, and it must not collapse into FLAT, because forcing every dispatch flat during an outage would disable orchestration more thoroughly than having no gate at all. Decide for yourself, using the same criteria the gate uses, and record in your request that the gate was unavailable so the call can be reviewed later.
+- **Anything else**. A non-zero exit, unparseable output, or a body carrying `failed_closed: true` means stay flat and do the work yourself. Those indicate a real fault or an answer that cannot be trusted, which is different from an outage.
 
 ## Depth rule
 
