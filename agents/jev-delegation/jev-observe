@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # PreToolUse observer for the Orca delegation gate.
 #
 # Registered against the Bash tool in both Claude Code and Codex, so this runs
@@ -15,13 +15,19 @@
 AGENT=unknown
 case "$1" in --agent) AGENT=${2:-unknown} ;; esac
 
-# Consume stdin unconditionally. A hook that leaves the payload unread can hand
-# the caller a broken pipe.
-PAYLOAD=$(cat 2>/dev/null)
+# Consume stdin, but never wait on it forever. A hook that leaves the payload
+# unread can hand the caller a broken pipe, while a plain `cat` blocks until EOF
+# and would hang the agent's tool call if stdin is never closed. Codex hook
+# entries carry no timeout field, so the bound has to live here rather than in
+# the registration. A timed-out read just yields an empty payload and we exit.
+PAYLOAD=""
+IFS= read -r -d "" -t 5 PAYLOAD 2>/dev/null || true
 
 # Fast path. Substring test in the shell, no JSON parsing, no subprocess.
+# Both words are required and in order, so a jev-delegation call that merely
+# mentions worker-start in its task text is not logged as a real dispatch.
 case "$PAYLOAD" in
-  *worker-start*) ;;
+  *orchestration*worker-start*) ;;
   *) exit 0 ;;
 esac
 
