@@ -107,7 +107,7 @@ orca orchestration check --terminal <your-handle> --ack <delivery_id> --wait --t
 
 **Messages are durable; they wait for you.** `check` is non-destructive until you pass `--ack`, so an unacknowledged batch replays and nothing is lost by reading it. The danger is not consuming messages, it is never looking.
 
-<!-- UPSTREAM stablyai/orca — recheck when Orca's mailbox reporting changes; delete this paragraph if `inbox` becomes trustworthy. -->
+<!-- UPSTREAM stablyai/orca. Recheck when Orca's mailbox reporting changes; delete this paragraph if `inbox` becomes trustworthy. -->
 **Read with `--all`, not with `inbox`.** On a live Run where two workers had sent four questions and escalations, `orca orchestration inbox --terminal <handle>` reported zero messages while `check --terminal <handle> --all` returned all thirty-one. Believing `inbox` cost that run three hours of a blocked worker. Treat `check --all` as the source of truth for what is waiting, `--peek` for unread only, and `--wait` to block for the next arrival.
 
 Polling the filesystem instead of the mailbox is the deeper version of the same mistake: it tells you what a worker produced and nothing about what it is stuck on.
