@@ -43,7 +43,8 @@
 - Ignore the refusal's own advice to complete the task in this terminal. Escalating to your coordinator keeps the work parallelizable; absorbing it yourself does not.
 - The root coordinator sits at depth 0 and is never refused, so it starts workers directly on `DELEGATE`.
 - **Once you have dispatched anything, tending the mailbox is your only job until every worker settles.** Block on `orca orchestration check --terminal <you> --wait`, answer every question and escalation as it lands, and acknowledge each batch with `--ack` on the next wait. Do not start substantial work of your own while supervising: a worker blocked on an answer you never send will stall or invent a workaround you would not have approved.
-- Never poll with a bare `check` you do not intend to process, because it marks the batch read and destroys the messages you were watching for. Use `--peek` to observe and `--all` for history. Polling the filesystem is the same mistake in disguise: it shows what a worker produced and nothing about what it needs.
+- Messages are durable: `check` is non-destructive until you pass `--ack`, so nothing is lost by reading. The danger is never looking. Read with `check --all`, which is the source of truth; `orca orchestration inbox` has been observed reporting zero while `--all` returned thirty-one messages including four unanswered questions.
+- Polling the filesystem is the deeper version of the same mistake: it shows what a worker produced and nothing about what it is stuck on.
 - When a worker reports that something you own is blocking it, fix your thing rather than leaving it to route around the obstacle.
 - Every worker request must carry the four Jev probabilities and the proposed scope in its body, so the coordinator can decide without re-running the gate.
 - Full protocol, including the escalation command template and the coordinator's deny criteria: `~/.local/share/jev-delegation/ORCHESTRATION-GATE.md`.

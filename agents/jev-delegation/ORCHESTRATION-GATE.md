@@ -105,7 +105,11 @@ orca orchestration check --terminal <your-handle> --wait --timeout-ms 600000 --j
 orca orchestration check --terminal <your-handle> --ack <delivery_id> --wait --timeout-ms 600000 --json
 ```
 
-**Never poll with a bare `check` you do not intend to process.** The default form returns the oldest unacknowledged batch and marks it read, so a loop that reads and discards destroys the very messages it was watching for. Use `--peek` to look without consuming and `--all` to review history. Polling the filesystem instead of the mailbox is the same mistake wearing a disguise: it tells you what a worker produced and nothing about what it needs.
+**Messages are durable; they wait for you.** `check` is non-destructive until you pass `--ack`, so an unacknowledged batch replays and nothing is lost by reading it. The danger is not consuming messages, it is never looking.
+
+**Read with `--all`, not with `inbox`.** On a live Run where two workers had sent four questions and escalations, `orca orchestration inbox --terminal <handle>` reported zero messages while `check --terminal <handle> --all` returned all thirty-one. Believing `inbox` cost that run three hours of a blocked worker. Treat `check --all` as the source of truth for what is waiting, `--peek` for unread only, and `--wait` to block for the next arrival.
+
+Polling the filesystem instead of the mailbox is the deeper version of the same mistake: it tells you what a worker produced and nothing about what it is stuck on.
 
 ### Answering well
 
