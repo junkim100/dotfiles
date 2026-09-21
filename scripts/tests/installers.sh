@@ -209,13 +209,13 @@ if command -v jq >/dev/null 2>&1; then
 case "$*" in
   'plugin marketplace list --json')
     cat <<'JSON'
-[{"name":"autoresearch","repo":"uditgoenka/autoresearch"},{"name":"understand-anything","repo":"Lum1104/Understand-Anything"},{"name":"gavel","repo":"junkim100/gavel"}]
+[{"name":"understand-anything","repo":"Lum1104/Understand-Anything"},{"name":"gavel","repo":"junkim100/gavel"}]
 JSON
     ;;
   'plugin list --json')
     if [ "${TEST_MISSING_PLUGINS:-0}" = 1 ]; then echo '[]'; else
       cat <<'JSON'
-[{"id":"autoresearch@autoresearch","scope":"user"},{"id":"understand-anything@understand-anything","scope":"user"},{"id":"gavel@gavel","scope":"user"}]
+[{"id":"understand-anything@understand-anything","scope":"user"},{"id":"gavel@gavel","scope":"user"}]
 JSON
     fi
     ;;

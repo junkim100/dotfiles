@@ -2,59 +2,11 @@
   "permissions": {
     "defaultMode": "auto"
   },
+  "model": "claude-fable-5-1",
   "skillOverrides": {
     "anthropic-skills:paper-study-notes": "off",
     "anthropic-skills:conference-paper-review": "off"
   },
-  "statusLine": {
-    "type": "command",
-    "command": "bash $HOME/.claude/statusline-command.sh"
-  },
-  "enabledPlugins": {
-    "context7@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "autoresearch@autoresearch": true,
-    "slack@claude-plugins-official": true,
-    "understand-anything@understand-anything": true,
-    "gavel@gavel": true,
-    "frontend-design@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "claude-plugins-official": {
-      "source": {
-        "source": "github",
-        "repo": "anthropics/claude-plugins-official"
-      }
-    },
-    "autoresearch": {
-      "source": {
-        "source": "github",
-        "repo": "uditgoenka/autoresearch"
-      }
-    },
-    "understand-anything": {
-      "source": {
-        "source": "github",
-        "repo": "Lum1104/Understand-Anything"
-      }
-    },
-    "gavel": {
-      "source": {
-        "source": "github",
-        "repo": "junkim100/gavel"
-      }
-    }
-  },
-  "syntaxHighlightingDisabled": false,
-  "effortLevel": "high",
-  "autoUpdatesChannel": "latest",
-  "tui": "fullscreen",
-  "skipDangerousModePermissionPrompt": true,
-  "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true,
-  "model": "claude-fable-5-1",
   "hooks": {
     "SessionStart": [
       {
@@ -213,5 +165,46 @@
         ]
       }
     ]
-  }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash $HOME/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "slack@claude-plugins-official": true,
+    "understand-anything@understand-anything": true,
+    "gavel@gavel": true,
+    "frontend-design@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    },
+    "understand-anything": {
+      "source": {
+        "source": "github",
+        "repo": "Lum1104/Understand-Anything"
+      }
+    },
+    "gavel": {
+      "source": {
+        "source": "github",
+        "repo": "junkim100/gavel"
+      }
+    }
+  },
+  "syntaxHighlightingDisabled": false,
+  "effortLevel": "high",
+  "autoUpdatesChannel": "latest",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
 }

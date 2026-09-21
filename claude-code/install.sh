@@ -62,13 +62,13 @@ for skill in "$SCRIPT_DIR"/skills/*/; do
 done
 
 step "Plugin marketplaces"
-marketplace_names=(autoresearch understand-anything gavel)
-marketplace_sources=(uditgoenka/autoresearch Lum1104/Understand-Anything junkim100/gavel)
+marketplace_names=(understand-anything gavel)
+marketplace_sources=(Lum1104/Understand-Anything junkim100/gavel)
 if ! $DRY_RUN; then
   marketplaces=$("$claude_bin" plugin marketplace list --json)
   jq -e 'type == "array"' <<< "$marketplaces" >/dev/null || die "Claude returned an unexpected marketplace list; update Claude Code and retry."
 fi
-for i in 0 1 2; do
+for i in 0 1; do
   name=${marketplace_names[$i]}
   source=${marketplace_sources[$i]}
   if $DRY_RUN; then
@@ -87,7 +87,7 @@ if ! $DRY_RUN; then
   plugins=$("$claude_bin" plugin list --json)
   jq -e 'type == "array"' <<< "$plugins" >/dev/null || die "Claude returned an unexpected plugin list; update Claude Code and retry."
 fi
-for plugin in autoresearch@autoresearch understand-anything@understand-anything gavel@gavel; do
+for plugin in understand-anything@understand-anything gavel@gavel; do
   if $DRY_RUN; then
     info "Would install user plugin $plugin if missing."
   elif jq -e --arg id "$plugin" 'any(.[]; .id == $id and .scope == "user")' <<< "$plugins" >/dev/null; then
