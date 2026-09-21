@@ -107,6 +107,7 @@ orca orchestration check --terminal <your-handle> --ack <delivery_id> --wait --t
 
 **Messages are durable; they wait for you.** `check` is non-destructive until you pass `--ack`, so an unacknowledged batch replays and nothing is lost by reading it. The danger is not consuming messages, it is never looking.
 
+<!-- UPSTREAM stablyai/orca — recheck when Orca's mailbox reporting changes; delete this paragraph if `inbox` becomes trustworthy. -->
 **Read with `--all`, not with `inbox`.** On a live Run where two workers had sent four questions and escalations, `orca orchestration inbox --terminal <handle>` reported zero messages while `check --terminal <handle> --all` returned all thirty-one. Believing `inbox` cost that run three hours of a blocked worker. Treat `check --all` as the source of truth for what is waiting, `--peek` for unread only, and `--wait` to block for the next arrival.
 
 Polling the filesystem instead of the mailbox is the deeper version of the same mistake: it tells you what a worker produced and nothing about what it is stuck on.
@@ -118,3 +119,13 @@ When an escalation arrives carrying a Jev result, trust the attached numbers rat
 Deny the request when the proposed scope overlaps a live worker's files, when you are actively modifying the same subsystem, or when you would need to re-inspect the output before it counts as done. Those three patterns are what produced the rework rounds the thresholds were tuned on.
 
 When a worker reports that something you own is blocking it, fix your thing. A worker that cannot edit the file that is stopping it, and cannot reach you, will route around the obstacle instead, and the workaround lands in the deliverable.
+
+## Upstream-dependent claims
+
+Anything here that is true only because an upstream tool is currently broken carries an `UPSTREAM` marker naming the project, so the whole set is one grep away:
+
+```sh
+grep -rn "UPSTREAM" ~/dotfiles/agents ~/dotfiles/claude-code
+```
+
+Recheck those when the named project ships a release. Everything without a marker is a standing rule that survives upstream fixes, which is most of this file: the gate decides whether to delegate, and the depth rule reads Orca's refusal rather than assuming a number, so neither goes stale when the orchestration plumbing changes.
