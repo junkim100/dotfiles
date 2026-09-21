@@ -439,7 +439,7 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
       - 1-2 sentences. No preamble or restating the code; state verified problems directly.
       - State the problem; add the fix only if it is not obvious from the problem.
       - Korean with 입니다/습니다 endings.
-      - Phrase recommended actions gently as "~해야 할 것 같습니다" (e.g. "전체 ClientHello를 검사해야 할 것 같습니다"). This softens the recommendation, not the confidence in verified evidence.
+      - Phrase recommended actions gently as "~해야 할 것 같습니다". This softens the recommendation, not the confidence in verified evidence.
       - English (Latin) for all technical/computing terms (timeout, env, default, override,
         regex, semaphore, ...). Hangul only for native grammar and words.
       - No Korean gloss in parens after an English term.
