@@ -79,6 +79,38 @@ Use `orca orchestration ask` instead of escalation only when you genuinely canno
 
 Run the same gate before each `worker-start` you are about to issue, using the same four flags.
 
+### Supervising is the job, not a background task
+
+**Once you have dispatched anything, tending the mailbox is your only job until every worker settles.** Do not start substantial work of your own while supervising.
+
+The hybrid is the failure mode, and it is not a hypothetical: dispatch, get absorbed in your own task, poll file state to feel informed, and a worker sits blocked on an answer you never send. It then either stalls or invents a workaround you would never have approved. A worker waiting on you is the most expensive state in the system, a whole terminal burning wall clock to do nothing, so answer in minutes rather than hours.
+
+If the work is too interesting to hand over, that is a signal you should not have delegated it. Either delegate and coordinate, or do it yourself.
+
+### The loop
+
+```sh
+# Block until something arrives. Keepalive lines go to stderr every 15s, so
+# silence on stdout means waiting rather than hung.
+orca orchestration check --terminal <your-handle> --wait --timeout-ms 600000 --json
+
+# Process EVERY message in the batch before you move on:
+#   question    -> reply to it, now
+#   escalation  -> decide, and tell the worker the decision
+#   worker_done -> validate against the Dispatch you expected to settle
+#   heartbeat   -> nothing to do, but it tells you the worker is alive
+# Decide each settled terminal's next owner before acknowledging.
+
+# Acknowledge the batch you just handled as part of the next wait.
+orca orchestration check --terminal <your-handle> --ack <delivery_id> --wait --timeout-ms 600000 --json
+```
+
+**Never poll with a bare `check` you do not intend to process.** The default form returns the oldest unacknowledged batch and marks it read, so a loop that reads and discards destroys the very messages it was watching for. Use `--peek` to look without consuming and `--all` to review history. Polling the filesystem instead of the mailbox is the same mistake wearing a disguise: it tells you what a worker produced and nothing about what it needs.
+
+### Answering well
+
 When an escalation arrives carrying a Jev result, trust the attached numbers rather than re-running the gate, unless the worker's stated scope conflicts with a scope you have already assigned to a live worker.
 
 Deny the request when the proposed scope overlaps a live worker's files, when you are actively modifying the same subsystem, or when you would need to re-inspect the output before it counts as done. Those three patterns are what produced the rework rounds the thresholds were tuned on.
+
+When a worker reports that something you own is blocking it, fix your thing. A worker that cannot edit the file that is stopping it, and cannot reach you, will route around the obstacle instead, and the workaround lands in the deliverable.
