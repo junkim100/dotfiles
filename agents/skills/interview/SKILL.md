@@ -37,7 +37,7 @@ The interview exists because intent lives only in the user's head. Everything el
 ## Phase 0: Ground
 
 - 0.1 Restate the task privately in one sentence. List the nouns it touches: components, files, commands, users, data.
-- 0.2 Reconnoiter the repo: the files those nouns map to, the patterns they already follow, the tests that cover them, the conventions in `CLAUDE.md` and `AGENTS.md`, and the last few commits that touched the same area. Use an Explore subagent when the area is broad. Time-box this: it is reconnaissance for question-writing, not implementation.
+- 0.2 Reconnoiter the repo: the files those nouns map to, the patterns they already follow, the tests that cover them, the conventions in `CLAUDE.md` and `AGENTS.md`, and the last few commits that touched the same area. Time-box this: it is reconnaissance for question-writing, not implementation.
 - 0.3 Write down privately what you would assume if you had to start now. Each assumption you are confident in becomes a stated default in the brief. Each assumption you are not confident in becomes a candidate question.
 - 0.4 Write down the ambiguities in the request itself: words with more than one reading, an unstated success criterion, a scope boundary the user did not draw.
 
@@ -117,7 +117,7 @@ The line between /interview and reading: intent, priorities, and taste are the u
 
 ## Notes for the operator (you)
 
-- N1. "You decide" means pick the recommended option and record it in the brief as a delegated decision.
+- N1. "You decide" means pick the recommended option and record it in the brief as a decision made on the user's behalf.
 - N2. "Just do it" mid-interview means stop asking, print the brief with the remaining items as defaults, and proceed.
 - N3. A user who answers with a long free-text paragraph has often answered the next two questions as well. Re-read it before the next round and drop what it covers.
 - N4. When no interactive answer channel exists (a non-interactive run), do not interview. State the assumptions you would have asked about and proceed.

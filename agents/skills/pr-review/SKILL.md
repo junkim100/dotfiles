@@ -1,36 +1,35 @@
 ---
 name: pr-review
 description: >
-  Orchestrate a verification-first pull request review when the user asks to review a GitHub PR or provides a PR number or URL.
-  Materializes the exact head, fans out independent review lenses when agent delegation is available, adversarially verifies candidates, reports high-confidence findings, and always provides post-ready inline comment drafts without posting them.
+  Perform a verification-first pull request review when the user asks to review a GitHub PR or provides a PR number or URL.
+  Materializes the exact head, applies relevant review lenses, adversarially verifies candidates, reports high-confidence findings, and always provides post-ready inline comment drafts without posting them.
 ---
 
-# PR Review: verification-first orchestration
+# PR Review
 
-Reviews the requested change in Phases 0-6, then drafts inline comments in Phase 7.
-Pseudocode is normative. Follow steps in order. Take each branch literally.
+Reviews the requested change in Phases 0-6, then drafts inline comments in Phase 7. Pseudocode is normative. Follow steps in order. Take each branch literally.
 
-Topology: **materialize head → fan out lenses → adversarially verify every candidate → sweep for gaps → report → draft comments**.
+Workflow: **materialize head → apply review lenses → adversarially verify every candidate → sweep for gaps → report → draft comments**.
 
-Find for recall, report for precision, comment for certainty. Those are three different bars, and Phase 3 is the machinery that separates them. A finder that suppresses a half-believed candidate has bypassed the verifier, which is the dominant cause of misses. A comment drafted from an unverified candidate spends the author's attention on your doubt.
+Find for recall, report for precision, comment for certainty. Those are three different bars, and Phase 3 separates them. Record uncertain candidates with concrete failure scenarios for verification instead of suppressing them during initial inspection. A comment drafted from an unverified candidate spends the author's attention on your doubt.
 
-## Hard rules (apply in every phase, and go in every subagent prompt)
+## Hard rules (apply in every phase)
 
-- R1. Ground truth is `WT`, a worktree checked out at the PR head SHA (Phase 0.7). The primary working directory is usually on `main`: it gives base-branch line numbers and stale content. Never read, grep, or anchor against it. Every subagent receives `WT` and the same instruction.
+- R1. Ground truth is `WT`, a worktree checked out at the PR head SHA (Phase 0.7). The primary working directory is usually on `main`: it gives base-branch line numbers and stale content. Never read, grep, or anchor against it.
 - R2. Verify, do not trust. Check claims (PR body, commit messages, author replies, CI verdicts) against code at `WT`. A green run can hide per-instance crashes: confirm via the code or the artifact, not the status.
 - R3. Reason about net diff, not commit history.
-- R4. Produce, do not post. Emit `{file, line, body}`; the user posts. No subagent posts, edits, pushes, or comments.
+- R4. Produce, do not post. Emit `{file, line, body}`; the user posts.
 - R5. State each finding with an exact `file:line@HEAD` anchor and `path:line` evidence.
-- R6. Never outsource a check to the **author**. Before writing "please confirm X", ask whether a read, a diff, an HTTP probe, or importing the pure functions would answer it. Only ask the author for facts that exist solely in their head: intent, and why a change was made. Anything in code, in a registry, or on a public endpoint is yours to check. Delegating that check to a subagent is still you checking it.
+- R6. Never outsource a check to the **author**. Before writing "please confirm X", ask whether a read, a diff, an HTTP probe, or importing the pure functions would answer it. Only ask the author for facts that exist solely in their head: intent, and why a change was made. Anything in code, in a registry, or on a public endpoint is yours to check.
 - R7. A value that is dropped, defaulted, or rewritten between layers is a finding even when nothing crashes. Warnings, log lines, and comments do not neutralize it; they are how it hides.
 - R8. No silent caps. Whenever you bound the work (a lens not run, candidates dropped before verify, a changed file no lens opened, a probe that failed), say so in the report. A review that quietly narrowed its scope reads to the user as full coverage.
-- R9. Subagents find and verify. They never edit files, never post, never run destructive or state-changing commands, and never `git commit`/`push`. They return their schema and nothing else.
+- R9. Keep reviewed code unchanged. Do not edit project files, commit, push, or post. Use scratch space for execution probes.
 - R10. Every completed review ends with an `Inline comment drafts` section. Draft one post-ready inline comment for every finding that passes the Phase 7 gate. If none pass, print `No inline comments recommended.` Never silently omit this section.
 
-## Schemas (handoff between phases)
+## Review records
 
 ```
-BRIEF = {                      # built once in Phase 1, pasted into every finder prompt
+BRIEF = {                      # built once in Phase 1 for all review passes
   pr, head, wt,                # PR number, head SHA, worktree path
   title, body_claims: str[],   # claims the PR body makes, each independently checkable
   files: str[],                # changed paths
@@ -40,7 +39,7 @@ BRIEF = {                      # built once in Phase 1, pasted into every finder
   vendor_pins: {dir, repo, pin}[]
 }
 
-FINDER_RESULT = {
+LENS_RESULT = {
   lens:       str,             # "L1".."L8"
   candidates: CANDIDATE[],
   files_read: str[],           # every changed file this lens actually opened
@@ -93,14 +92,6 @@ COMMENT = { file: str, line: int, body: str, style: "ko-formal" }
 - Note   = intended behavior worth conscious awareness (an override, a plan assumption).
 - Nit    = cosmetic / dead-but-harmless / doc inconsistency.
 
-## Orchestration contract
-
-- Orchestrate finders with the platform-native delegation tool when it is available and permitted: Claude Code's `Agent` tool or Codex's collaboration agent tools. Put every lens of a wave in one concurrent dispatch.
-- Each subagent prompt contains: the hard rules above, `BRIEF`, its own lens body verbatim, its return schema, and "return the JSON only, no prose".
-- Subagents are blind to each other. Never paste one lens's candidates into another lens's prompt. If two lenses flag the same line for different reasons, keep both and let dedup handle it in 3.1.
-- **Fallback**: if agent delegation is unavailable or not permitted, do not error. Run every selected lens yourself, sequentially, in this context, then verify each candidate yourself with a deliberate adversarial re-read. Say plainly in the Phase 6 report that this was a single-context run without fan-out, so the user is not misled about what ran.
-- Scale by applicability, not by diff size. Three lenses on a small PR is the correct fleet, not a shortfall.
-
 ---
 
 ## PHASE 0: RESOLVE TARGET & MATERIALIZE HEAD
@@ -124,16 +115,16 @@ COMMENT = { file: str, line: int, body: str, style: "ko-formal" }
     outrank your generic instincts, and citing a rule number makes a finding actionable.
     See "Repo hooks" for repos with a known contract.
 
-0.7 MATERIALIZE. This is what makes fan-out safe: subagents get real files with real
-    HEAD line numbers instead of gh-api reads or a stale main checkout.
+0.7 MATERIALIZE. Use files checked out at the PR head so reads and line anchors match
+    the requested revision.
       WT ← <scratchpad>/pr-<PR>-<HEAD[:7]>
       git fetch origin pull/<PR>/head
       git worktree add --detach "$WT" FETCH_HEAD
       git -C "$WT" rev-parse HEAD          # MUST equal HEAD; if not, the PR moved, so refetch
     BRANCH:
       worktree add fails (repo too large, no space, shallow clone)
-          → DEGRADED MODE (below): run the lenses yourself sequentially rather than
-            fanning out, and record the degradation (R8)
+          → DEGRADED MODE (below): read files at the head SHA through the API and
+            record the degradation (R8)
       succeeds → every read, grep, and anchor from here on is against WT
     Clean up at the very end of Phase 7: git worktree remove --force "$WT"
     Do NOT clean up earlier. Phase 7.1 re-anchors against WT, and the user's follow-up
@@ -145,7 +136,7 @@ COMMENT = { file: str, line: int, body: str, style: "ko-formal" }
 
 ### Degraded mode (only when 0.7 fails)
 
-Without a worktree there are no real files to hand a subagent, so fan-out is off and you read the head SHA one file at a time:
+Without a worktree, read files at the head SHA through the API:
 
 ```
 fileAtHead(F) := gh api repos/:owner/:repo/contents/F?ref=HEAD -q .content | base64 -d
@@ -159,17 +150,15 @@ fileAtHead(F) := gh api repos/:owner/:repo/contents/F?ref=HEAD -q .content | bas
 ## PHASE 1: BRIEF & LENS SELECTION
 
 ```
-1.1 Read the diff yourself, once, end to end. You are not looking for bugs here; you are
-    building the map the fleet works from. Note: what each file is for, which layers the
-    change crosses, and which of the lenses below have anything to bite on.
+1.1 Read the diff once, end to end, to map the review scope. Note what each file is for,
+    which layers the change crosses, and which of the lenses below apply.
 
 1.2 body_claims ← decompose the PR body into individually checkable assertions
     ("vendored at pin X", "params are forwarded", "matches the sibling benchmark",
     "dataset is mirrored"). Each one is a claim some lens must land on. A claim no lens
     covers is a gap you own, not the author's.
 
-1.3 Assemble BRIEF. This is the only context finders get about the PR, so it must stand
-    alone: a finder cannot ask you a follow-up question.
+1.3 Assemble BRIEF with the PR context and evidence needed for the review passes.
 
 1.4 SELECT LENSES.
       always:        L1 (reference integrity)
@@ -189,21 +178,19 @@ fileAtHead(F) := gh api repos/:owner/:repo/contents/F?ref=HEAD -q .content | bas
       (aggregation, limit/sampling, resume filters, parsing, scoring, path building):
                      L8 (execution proof)
 
-1.5 Print the selected fleet to the user in one line before orchestrating it, with the
-    lenses you skipped and why (R8). Then run Phase 2.
+1.5 Print the selected lenses to the user in one line, with the lenses you skipped and
+    why (R8). Then run Phase 2.
 ```
 
-## PHASE 2: FINDER FAN-OUT
+## PHASE 2: APPLY REVIEW LENSES
 
-Orchestrate every selected lens as one concurrent wave. Each returns `FINDER_RESULT`.
+Apply every selected lens using `BRIEF` and record a `LENS_RESULT` for each. Select lenses by applicability, not by diff size.
 
-Prepend to every lens prompt:
+Use the worktree at `WT`, checked out at the PR head SHA, for all code reads and anchors. Record the results in the schemas above.
 
-> You are a finder in a PR review fleet. Ground truth is the worktree at `{wt}`, checked out at the PR head SHA. Never read or grep outside it for anchors or content. Do not edit anything, do not post anything, do not run state-changing commands. Return the JSON schema only.
->
-> Surface every candidate you can name a concrete failure scenario for, including ones you only half-believe. A separate adversarial verifier judges each candidate afterwards, and it never sees your reasoning. Dropping a half-believed candidate bypasses that verifier and is the single largest cause of missed bugs. Do **not** pad: a candidate with no nameable failure scenario is not a candidate.
->
-> Prove by running the code wherever you can rather than reasoning about it. Anything you could not check, put in `blocked` with the reason. Anything you checked and found clean, put in `cleared` as one line.
+Surface every candidate with a concrete failure scenario, including uncertain ones. Reassess each candidate in the verification pass before treating it as a finding. Do **not** pad: a candidate with no nameable failure scenario is not a candidate.
+
+Prove by running the code wherever you can rather than reasoning about it. Anything you could not check, put in `blocked` with the reason. Anything you checked and found clean, put in `cleared` as one line.
 
 ### L1: Reference integrity
 
@@ -308,18 +295,17 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
 
 ```
 3.1 Pool all candidates. Dedup: same file, same line, same mechanism → keep the one with
-    the most concrete failure scenario, and record that both lenses hit it (independent
-    corroboration is a severity signal). Same line, DIFFERENT mechanism → keep both.
+    the most concrete failure scenario, and retain supporting evidence from each lens.
+    Same line, DIFFERENT mechanism → keep both.
 
 3.2 Cap: verify every candidate. If more than 24 survive dedup, verify the 24 with the
     most concrete failure scenarios and list the deferred ones by file:line in the report (R8).
 
-3.3 Orchestrate ONE verifier per candidate as one concurrent wave. The verifier receives: the
-    hard rules, WT, the diff, the candidate's claim / failure / evidence / file:line, and
-    the relevant files. It does NOT receive the finder's reasoning, the other candidates,
-    or the lens name. Its prompt:
+3.3 Recheck each candidate against the hard rules, WT, the diff, its claim / failure /
+    evidence / file:line, and the relevant files. Challenge the initial interpretation
+    instead of assuming it is correct.
 
-      > Be skeptical. Your job is to REFUTE this claim. Return exactly one VERDICT.
+      > Be skeptical. Try to REFUTE the claim. Record exactly one VERDICT.
       > CONFIRMED: you can name the inputs or state that trigger it and the wrong output
       >   or crash that results. Quote the line.
       > PLAUSIBLE: the mechanism is real, the trigger is uncertain (timing, env, config).
@@ -338,7 +324,8 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
                                         an executed refutation is a review result.
       REFUTED with method="read"      → drop, UNLESS the candidate came from L8 with a
                                         reproducing input, in which case execution beats
-                                        reading: keep it and say the verifier disagreed.
+                                        reading: keep it and disclose the conflicting
+                                        interpretation.
       CONFIRMED / PLAUSIBLE           → promote to FINDING, carrying the VERDICT.
 3.5 Re-rank severity using the verdict. A CONFIRMED Medium with a named trigger outranks
     a PLAUSIBLE High whose trigger nobody can name.
@@ -347,18 +334,18 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
 ## PHASE 4: SWEEP & COVERAGE
 
 ```
-4.1 COVERAGE TABLE. Build it mechanically from every FINDER_RESULT.files_read:
+4.1 COVERAGE TABLE. Build it mechanically from every LENS_RESULT.files_read:
       changed file × which lenses opened it.
     BRANCH:
-      a changed file no lens opened → you have a hole. Either dispatch a targeted finder
-          at it now, or declare it in the report (R8). Do not let it pass silently.
+      a changed file no lens opened → inspect it with the appropriate lens now, or declare
+          the gap in the report (R8). Do not let it pass silently.
       a body_claim from BRIEF that no lens landed on → same treatment.
       a lens returned non-empty `blocked` → that check did not happen. Retry it yourself
           if you can; otherwise it goes in the report as a stated gap.
 
-4.2 SWEEP. Run ONE fresh finder holding the verified FINDING list and the BRIEF, with:
-      > You are a fresh reviewer. Here is what has already been found and verified. Do NOT
-      > re-derive, re-confirm, or restate any of it. Your only job is what is MISSING.
+4.2 SWEEP. Make another pass using the verified FINDING list and the BRIEF:
+      > Focus on what is MISSING. Do not re-derive, re-confirm, or restate findings that
+      > have already been verified.
       > Re-read the diff and the enclosing functions, and focus on what a first pass tends
       > to miss: moved or extracted code that dropped a guard along the way; a config
       > default quietly flipped; setup/teardown asymmetry in tests; a dataclass default
@@ -398,9 +385,8 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
 ```
 6.1 Print, in this order:
       - One-line verdict: mergeable? what blocks it?
-      - What ran: the lens fleet, the verify count (n candidates → n confirmed / n plausible
-        / n refuted), and the sweep result. If agent delegation was unavailable and this was a
-        single-context run, say so here.
+      - What ran: the lenses applied, the verify count (n candidates → n confirmed /
+        n plausible / n refuted), and the sweep result.
       - What was verified CLEAN: the pooled `cleared` lines, especially the L6 probes and the
         L8 executions with their inputs, plus executed refutations from 3.4. A cleared area is
         a review result, and it is what justifies not commenting there.
@@ -431,7 +417,7 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
     Order the emitted comments by severity so the user can cut the tail.
 
 7.1 For each finding to comment, re-read the anchor at WT and confirm line still points at
-    the intended code. Line numbers from the fleet are HEAD line numbers by construction
+    the intended code. Review anchors use HEAD line numbers by construction
     (R1), so this is a cheap confirmation rather than a re-derivation. If the PR was updated
     mid-review, HEAD moved: rerun Phase 0.7 and re-anchor.
 
@@ -493,8 +479,8 @@ CI semantics for this repo (Phase 5):
 
 - N1. If the primary working tree shows different content than `WT`, trust `WT` (R1) and say so.
 - N2. The user lands out-of-band fixes on related PRs without mentioning them. If a premise looks already-fixed, re-check git and PR state before reporting it as broken.
-- N3. Distinguish "looks like a bug" from "dead / overwritten / intended". That distinction is what Phase 3 is for; do not pre-empt it inside a finder by suppressing the candidate.
-- N4. Two findings per review are worth more than twenty. The scarce resource is the author's attention. The fan-out exists to raise recall at the *finding* stage; the 7.0 gate is what keeps the comment set small. Never let a wide fleet turn into a wide comment list.
-- N5. When the user asks a follow-up ("does anything override X?", "is Y normal?"), treat it as a missing lens, not a one-off answer: dispatch the trace against `WT`, then fold the result back into the finding set and the comment list.
-- N6. Independent corroboration is real signal. When two blind lenses land on the same line for different reasons, that finding is stronger than either finder knew, and it deserves the severity bump 3.1 records.
-- N7. A finder that returns nothing is a result, not a failure. Its `cleared` list is what lets Phase 6 say an area was checked. Push back on empty `cleared` and empty `blocked` together: that means the lens did not actually run.
+- N3. Distinguish "looks like a bug" from "dead / overwritten / intended". That distinction is what Phase 3 is for; do not pre-empt it during initial inspection by suppressing the candidate.
+- N4. Two findings per review are worth more than twenty. The scarce resource is the author's attention. Inspect broadly, then use the 7.0 gate to keep the comment set focused on verified, actionable findings.
+- N5. When the user asks a follow-up ("does anything override X?", "is Y normal?"), treat it as a missing lens, not a one-off answer: trace it against `WT`, then fold the result back into the finding set and the comment list.
+- N6. When several lenses uncover distinct evidence for the same problem, retain that evidence and assess severity against the concrete impact.
+- N7. A lens with no candidates is a valid result. Its `cleared` list is what lets Phase 6 say an area was checked. Empty `cleared` and empty `blocked` together mean the lens lacks a record of what was checked.

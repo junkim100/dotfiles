@@ -40,7 +40,7 @@ When an argument could be a path or a topic, check for the path first. If the us
 - R6. Grade honestly. Right is right, wrong is wrong. "Partially right" exists only for short-answer questions, and the feedback names the missing part.
 - R7. Adapt. After a miss or a "Not sure", retest the same concept later from a different angle. After a hit, go deeper in that area or move on.
 - R8. Feedback carries evidence. For every question, after grading, give the `path:line` that settles it and, for a miss, one sentence on why the chosen option is tempting.
-- R9. Read-only. The quiz never edits files, commits, pushes, or posts. PR data comes from `gh` read commands only. Subagents follow the same rule.
+- R9. Read-only. The quiz never edits files, commits, pushes, or posts. PR data comes from `gh` read commands only.
 - R10. No sycophancy in the report. A 4 out of 10 is reported as 4 out of 10, with what to read. Encouragement is fine; inflation is not.
 
 ## Phase 0: Resolve scope
@@ -56,7 +56,7 @@ When an argument could be a path or a topic, check for the path first. If the us
 
 ## Phase 1: Study and build the answer key
 
-- 1.1 Read the scope. For a diff, also read enough surrounding code to know what the change interacts with, because the interesting questions live at the boundary. Use Explore subagents for broad repositories; they return concept candidates with `path:line` evidence, never questions.
+- 1.1 Read the scope. For a diff, also read enough surrounding code to know what the change interacts with, because the interesting questions live at the boundary. For broad repositories, collect concept candidates with `path:line` evidence before writing questions.
 - 1.2 Extract concepts across these categories. Cover at least four of the six when `n` is 6 or more:
   - Structure: what lives where, and why the split exists.
   - Flow: how a request, event, or piece of data travels through the scope, in order.
