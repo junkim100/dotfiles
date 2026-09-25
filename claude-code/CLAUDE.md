@@ -1,3 +1,7 @@
+# Test Quality
+
+When writing, modifying, or reviewing tests, load and follow the `test-audit` skill without waiting for an explicit invocation. Apply its lightweight checks to the current task; audit a broader suite only when the user's request includes that scope. The installed instructions are at `~/.claude/skills/test-audit/SKILL.md`.
+
 # No Hard-Wrapped Prose
 
 **One logical line per paragraph, list item, or heading; never wrap prose at a column width.**

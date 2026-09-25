@@ -4,6 +4,10 @@ Global instructions for Codex and other agents that read `AGENTS.md`. Installed 
 
 The Claude Code equivalent lives in `claude-code/CLAUDE.md`. Keep the delegation gate below in sync with the copy there.
 
+# Test Quality
+
+When writing, modifying, or reviewing tests, load and follow the `test-audit` skill without waiting for an explicit invocation. Apply its lightweight checks to the current task; audit a broader suite only when the user's request includes that scope. The installed instructions are at `~/.agents/skills/test-audit/SKILL.md`.
+
 # Orca Delegation Gate
 
 **Inside an Orca Run, run `jev-delegation` before creating or requesting any additional worker.**
