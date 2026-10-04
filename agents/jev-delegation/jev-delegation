@@ -7,10 +7,12 @@ import sys
 from pathlib import Path
 
 VENV = Path.home() / ".local/share/jev-delegation/venv"
-site_packages = next((VENV / "lib").glob("python*/site-packages"), None)
+venv_python = VENV / "bin/python"
 
-if site_packages:
-    sys.path.insert(0, str(site_packages))
+# Use the interpreter that owns the SDK, regardless of PATH order. Compare
+# prefixes: the venv and base executables can resolve to the same binary.
+if venv_python.is_file() and Path(sys.prefix).resolve() != VENV.resolve():
+    os.execv(str(venv_python), [str(venv_python), __file__, *sys.argv[1:]])
 
 
 # Thresholds tuned 2026-09-20 against 13 real solar-system dispatches
