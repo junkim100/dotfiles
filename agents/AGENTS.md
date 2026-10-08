@@ -2,11 +2,15 @@
 
 Global instructions for Codex and other agents that read `AGENTS.md`. Installed by `agents/install.sh` to `$CODEX_HOME/AGENTS.md`, and to Orca's managed Codex home when Orca is present.
 
-The Claude Code equivalent lives in `claude-code/CLAUDE.md`. Keep the delegation gate below in sync with the copy there.
+The Claude Code equivalent lives in `claude-code/CLAUDE.md`. Keep the shared skill rules and delegation gate below in sync with the copy there.
 
 # Test Quality
 
 When writing, modifying, or reviewing tests, load and follow the `test-audit` skill without waiting for an explicit invocation. Apply its lightweight checks to the current task; audit a broader suite only when the user's request includes that scope. The installed instructions are at `~/.agents/skills/test-audit/SKILL.md`.
+
+# Consequential Assumptions
+
+When planning, implementing, debugging, or reviewing work whose correctness depends on an unverified assumption that could invalidate results, lose data, waste an expensive run, or require substantial rework, load and follow `doubt-driven-development` without waiting for an explicit invocation. Apply it to the current task and reuse relevant verification already performed. The installed instructions are at `~/.agents/skills/doubt-driven-development/SKILL.md`.
 
 # Orca Delegation Gate
 
