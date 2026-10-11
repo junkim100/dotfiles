@@ -2,9 +2,19 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$DOTFILES_DIR/scripts/lib/install.sh"
 install_init "Claude Code" 6 "$@"
+
+# Only retire the link installed by this repository. Preserve independently
+# authored instructions and refuse to silently discard them during migration.
+legacy_instructions="$HOME/.claude/CLAUDE.md"
+remove_legacy_instructions=false
+if [[ -L $legacy_instructions && $(readlink "$legacy_instructions") == "$DOTFILES_DIR/claude-code/CLAUDE.md" ]]; then
+  remove_legacy_instructions=true
+elif [[ -e $legacy_instructions || -L $legacy_instructions ]]; then
+  die "$legacy_instructions is not the old dotfiles link. Move its instructions into agents/AGENTS.md or ~/.claude/rules, then remove it and rerun."
+fi
 
 step "Dependencies"
 if command -v jq >/dev/null 2>&1; then
@@ -47,19 +57,35 @@ else
   fi
 fi
 
+if $DRY_RUN; then
+  info "Requires Claude Code 2.1.285 or later for native AGENTS.md configuration."
+else
+  version_output=$("$claude_bin" --version)
+  version=${version_output%% *}
+  if [[ $version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    major=${BASH_REMATCH[1]}
+    minor=${BASH_REMATCH[2]}
+    patch=${BASH_REMATCH[3]}
+    ((major > 2 || (major == 2 && (minor > 1 || (minor == 1 && patch >= 285))))) \
+      || die "Claude Code $version is too old. Run 'claude update' and rerun; 2.1.285 or later is required."
+  else
+    die "Cannot determine Claude Code version from: $version_output"
+  fi
+fi
+
 step "Configuration"
-link_file "$SCRIPT_DIR/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+link_file "$DOTFILES_DIR/agents/AGENTS.md" "$HOME/.claude/rules/agents.md"
 link_file "$SCRIPT_DIR/settings.json" "$HOME/.claude/settings.json"
 link_file "$SCRIPT_DIR/statusline-command.sh" "$HOME/.claude/statusline-command.sh"
+if $remove_legacy_instructions; then
+  run rm -- "$legacy_instructions"
+fi
 
 step "Shared skills and aliases"
 for skill in "$DOTFILES_DIR"/agents/skills/*/; do
   link_file "${skill%/}" "$HOME/.claude/skills/$(basename "$skill")"
 done
-for skill in "$SCRIPT_DIR"/skills/*/; do
-  [[ -d "$DOTFILES_DIR/agents/skills/$(basename "$skill")" ]] && continue
-  link_file "$(cd "$skill" && pwd -P)" "$HOME/.claude/skills/$(basename "$skill")"
-done
+link_file "$DOTFILES_DIR/agents/skills/pr-review" "$HOME/.claude/skills/pr"
 
 step "Plugin marketplaces"
 marketplace_names=(understand-anything gavel)

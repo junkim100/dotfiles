@@ -4,7 +4,7 @@
 
 This repository manages reproducible personal configuration for macOS, Ubuntu, and machine profiles. Prefer explicit symlinks and idempotent installers over generated configuration or hidden migration logic.
 
-`AGENTS.md` is the canonical source of repository instructions. The root `CLAUDE.md` must remain a relative symlink to `AGENTS.md`, so Claude Code reads the same rules. Edit these instructions in `AGENTS.md`.
+`AGENTS.md` is the canonical source of repository instructions and is read directly by current Claude Code and Codex. Do not create `CLAUDE.md` files or compatibility links. Personal instructions belong in `agents/AGENTS.md`; Claude Code loads that source through `~/.claude/rules/agents.md`.
 
 ## Ownership
 
@@ -12,8 +12,8 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - `ubuntu/` owns Ubuntu-specific configuration and installation.
 - `common/` owns canonical configuration used by two or more platforms. Platform paths may remain as compatibility symlinks when deployed home-directory links still target them.
 - `profiles/` owns machine-role overlays that reuse a platform configuration, including the Backend.AI Ubuntu profile.
-- `claude-code/` owns Claude Code configuration and installation. `claude-code/install.sh` installs Claude Code and its plugins and links configuration and canonical skills into `~/.claude/`. Its `skills/` directory contains only compatibility symlinks into `agents/skills/`.
-- `agents/` owns Codex CLI installation and all repository-managed agent skills. `agents/install.sh` installs Codex when missing and links skills into `~/.agents/skills`, which Codex, Pi, and OpenCode discover directly. Other agent applications use their corresponding installers.
+- `agents/` owns shared personal instructions, all repository-managed agent skills, and agent installation. `agents/install.sh` installs the shared pieces, then runs the Codex and Claude Code installers.
+- `agents/claude-code/` owns Claude Code settings, the status line, and its installer. `agents/codex/` owns Codex CLI installation and its integration. Keep application-specific settings and installation here; keep shared instructions and skills at the top of `agents/`.
 - `scripts/lib/install.sh` owns shared Bash installer argument handling, progress, diagnostics, downloads, and cleanup. `scripts/link-file` owns managed symlinks, and `scripts/tests/` owns isolated installer regression tests.
 - `Casks/` makes the repository a Homebrew tap. It holds casks that Homebrew itself does not offer, and `macOS/Brewfile` taps the repository by URL so `brew bundle` can install them.
 - `lazyvim/` is a Git submodule backed by `junkim100/lazyvim`.
@@ -36,7 +36,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 
 - Keep platform-specific paths self-contained under their platform directory.
 - When multiple platforms intentionally use identical configuration, keep one canonical file under `common/` and point installers and compatibility symlinks to it.
-- Keep every repository-managed skill under `agents/skills/` and link it into `~/.agents/skills` for Codex, Pi, and OpenCode. Claude Code must use symlinks in `~/.claude/skills` that resolve to those same canonical skill directories. Use `claude-code/skills/` only for compatibility symlinks, never skill copies, and edit skill contents at their canonical paths under `agents/skills/`.
+- Keep every repository-managed skill under `agents/skills/` and link it into `~/.agents/skills` for Codex, Pi, and OpenCode. Claude Code must use symlinks in `~/.claude/skills` that resolve to those same canonical skill directories. Create these links directly from the canonical directories. Do not add application-specific skill copies or intermediate compatibility directories.
 - Custom skills synced from claude.ai must also have canonical sources under `agents/skills/`, including their references and scripts. Import authored files without sync manifests or cache state. Disable duplicate synced commands by their `anthropic-skills:<name>` keys in Claude Code's `skillOverrides`; leave third-party synced skills and the application-managed cache alone.
 - Update every installer callsite and README path when moving configuration.
 - Keep profile installers under `profiles/<name>/`; profiles must reuse platform and common configuration instead of duplicating it.

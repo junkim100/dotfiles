@@ -31,7 +31,7 @@ link_file "$DOTFILES_DIR/ubuntu/git/config" "$HOME/.gitconfig"
 link_file "$DOTFILES_DIR/common/ranger/rc.conf" "$HOME/.config/ranger/rc.conf"
 
 step "Claude Code"
-run_installer "$DOTFILES_DIR/claude-code/install.sh"
+run_installer "$DOTFILES_DIR/agents/claude-code/install.sh"
 
 step "Conda"
 DOTFILES_CONDA_PREFIX="$MINICONDA_DIR" run_installer "$DOTFILES_DIR/ubuntu/setup_conda.sh"

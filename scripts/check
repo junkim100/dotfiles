@@ -27,7 +27,7 @@ check_alias() {
   [[ $(readlink "$path") == "$expected" ]] || fail "$1 points to $(readlink "$path"), expected $expected"
 }
 
-check_alias CLAUDE.md AGENTS.md
+[[ ! -e $DOTFILES_DIR/CLAUDE.md && ! -L $DOTFILES_DIR/CLAUDE.md ]] || fail "Use AGENTS.md directly; remove the root CLAUDE.md"
 check_alias .gitconfig common/git/config
 check_alias macOS/.tmux.conf ../common/tmux/tmux.conf
 check_alias ubuntu/.tmux.conf ../common/tmux/tmux.conf
@@ -36,18 +36,6 @@ check_alias ubuntu/bat/config ../../common/bat/config
 check_alias macOS/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias ubuntu/ranger/rc.conf ../../common/ranger/rc.conf
 check_alias macOS/ghostty-theme-everforest-dark ../common/ghostty/themes/everforest-dark.txt
-check_alias claude-code/skills/conference-paper-review ../../agents/skills/conference-paper-review
-check_alias claude-code/skills/interview ../../agents/skills/interview
-check_alias claude-code/skills/paper-study-notes ../../agents/skills/paper-study-notes
-check_alias claude-code/skills/pr ../../agents/skills/pr-review
-check_alias claude-code/skills/quiz ../../agents/skills/quiz
-
-for skill in "$DOTFILES_DIR"/claude-code/skills/*; do
-  [[ -L $skill ]] || fail "$skill must be a compatibility symlink into agents/skills"
-  canonical=$(cd "$skill" && pwd -P)
-  [[ $canonical == "$DOTFILES_DIR/agents/skills/"* && -f $canonical/SKILL.md ]] \
-    || fail "$skill does not resolve to a canonical skill in agents/skills"
-done
 
 # Installers that support --dry-run must run end to end without touching the
 # machine. link-file rejects a missing source even under --dry-run, so this
@@ -89,12 +77,14 @@ check_dry_run ubuntu/install.sh
 check_link_sources macOS/install.sh
 check_link_sources ubuntu/install.sh
 check_link_sources common/tmux/install.sh
-check_link_sources claude-code/install.sh
+check_link_sources agents/claude-code/install.sh
+check_link_sources agents/codex/install.sh
 check_link_sources agents/install.sh
 check_link_sources profiles/backend-ai/install.sh
 
 check_dry_run agents/install.sh
-check_dry_run claude-code/install.sh
+check_dry_run agents/claude-code/install.sh
+check_dry_run agents/codex/install.sh
 check_dry_run common/tmux/install.sh
 check_dry_run ubuntu/install_packages.sh
 check_dry_run ubuntu/setup_conda.sh

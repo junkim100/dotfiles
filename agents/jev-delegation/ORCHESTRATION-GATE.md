@@ -1,6 +1,6 @@
 # Orca delegation gate
 
-Canonical source for the jev-delegation gate. The compact operative rule is installed in `~/.claude/CLAUDE.md` for Claude workers and in Orca's Codex home `AGENTS.md` for Codex workers. Edit this file first, then re-sync those two copies.
+Canonical source for the jev-delegation gate. The compact operative rule lives in `agents/AGENTS.md`, linked into `~/.claude/rules/agents.md` for Claude workers and into Codex homes as `AGENTS.md`. Edit this protocol first, then update the shared operative rule.
 
 ## Applicability
 
@@ -125,7 +125,7 @@ When a worker reports that something you own is blocking it, fix your thing. A w
 Anything here that is true only because an upstream tool is currently broken carries an `UPSTREAM` marker naming the project, so the whole set is one grep away:
 
 ```sh
-grep -rn "UPSTREAM" ~/dotfiles/agents ~/dotfiles/claude-code
+rg -n "UPSTREAM" agents/
 ```
 
 Recheck those when the named project ships a release. Everything without a marker is a standing rule that survives upstream fixes, which is most of this file: the gate decides whether to delegate, and the depth rule reads Orca's refusal rather than assuming a number, so neither goes stale when the orchestration plumbing changes.

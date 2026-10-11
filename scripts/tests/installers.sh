@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Never let the caller's Codex home escape the isolated fixtures.
+unset CODEX_HOME
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TEMP_DIR=$(mktemp -d)
@@ -47,7 +50,7 @@ exit 97
 FORBIDDEN
   chmod +x "$preview_bin/$tool"
 done
-installers=(macOS/install.sh ubuntu/install.sh agents/install.sh claude-code/install.sh common/tmux/install.sh ubuntu/install_packages.sh ubuntu/setup_conda.sh profiles/backend-ai/install.sh)
+installers=(macOS/install.sh ubuntu/install.sh agents/install.sh agents/codex/install.sh agents/claude-code/install.sh common/tmux/install.sh ubuntu/install_packages.sh ubuntu/setup_conda.sh profiles/backend-ai/install.sh)
 for installer in "${installers[@]}"; do
   preview_home=$(mktemp -d "$TEMP_DIR/preview-XXXXXX")
   HOME="$preview_home" PATH="$preview_bin:$PATH" NO_COLOR=1 bash "$DOTFILES_DIR/$installer" --dry-run > "$TEMP_DIR/preview.log" 2>&1 \
@@ -96,32 +99,25 @@ exit "${MOCK_CURL_EXIT:-0}"
 CURL
 chmod +x "$agent_bin/curl"
 
-HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" --dry-run > "$TEMP_DIR/agent.log" 2>&1 \
+HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/codex/install.sh" --dry-run > "$TEMP_DIR/agent.log" 2>&1 \
   || { cat "$TEMP_DIR/agent.log"; fail "agent dry-run failed without Codex"; }
 [[ -z $(find "$agent_home" -mindepth 1) ]] || fail "agent dry-run downloaded or changed files"
 grep -q 'install Codex CLI' "$TEMP_DIR/agent.log" || fail "agent dry-run did not preview Codex installation"
-if HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" --dry-run --unknown > "$TEMP_DIR/agent.log" 2>&1; then
+if HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/codex/install.sh" --dry-run --unknown > "$TEMP_DIR/agent.log" 2>&1; then
   fail "agent installer accepted an unknown extra argument"
 fi
 
-mkdir -p "$agent_home/.agents/skills/local-skill"
-printf 'local skill\n' > "$agent_home/.agents/skills/local-skill/SKILL.md"
 for attempt in 1 2; do
-  HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/agent.log" 2>&1 \
+  HOME="$agent_home" PATH="$agent_bin" bash "$DOTFILES_DIR/agents/codex/install.sh" > "$TEMP_DIR/agent.log" 2>&1 \
     || { cat "$TEMP_DIR/agent.log"; fail "agent installation attempt $attempt failed"; }
 done
 [[ -x $agent_home/.local/bin/codex ]] || fail "Codex was not installed"
 [[ $(cat "$agent_home/downloads") == download ]] || fail "agent installer downloaded again on rerun"
 [[ $(cat "$agent_home/installer-ran") == installed ]] || fail "agent installer reinstalled Codex on rerun"
-[[ $(cat "$agent_home/.agents/skills/local-skill/SKILL.md") == 'local skill' ]] || fail "agent installer changed a local skill"
-for skill in "$DOTFILES_DIR"/agents/skills/*/; do
-  [[ $(readlink "$agent_home/.agents/skills/$(basename "$skill")") == "${skill%/}" ]] \
-    || fail "agent installer did not link $skill"
-done
 
 existing_home="$TEMP_DIR/agent-existing"
 mkdir -p "$existing_home"
-HOME="$existing_home" PATH="$agent_home/.local/bin:$agent_bin" bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/agent.log" 2>&1 \
+HOME="$existing_home" PATH="$agent_home/.local/bin:$agent_bin" bash "$DOTFILES_DIR/agents/codex/install.sh" > "$TEMP_DIR/agent.log" 2>&1 \
   || { cat "$TEMP_DIR/agent.log"; fail "agent installation failed with Codex on PATH"; }
 [[ ! -e $existing_home/downloads && ! -e $existing_home/.local/bin/codex ]] || fail "agent installer replaced an existing Codex"
 
@@ -132,7 +128,7 @@ for failure in download install; do
   install_exit=0
   if [[ $failure == download ]]; then curl_exit=22; else install_exit=42; fi
   if HOME="$failed_home" PATH="$agent_bin" MOCK_CURL_EXIT="$curl_exit" MOCK_INSTALL_EXIT="$install_exit" \
-    bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/agent.log" 2>&1; then
+    bash "$DOTFILES_DIR/agents/codex/install.sh" > "$TEMP_DIR/agent.log" 2>&1; then
     fail "agent installer ignored a Codex $failure failure"
   fi
   [[ ! -e $failed_home/.local/bin/codex ]] || fail "Codex was installed after a $failure failure"
@@ -207,6 +203,7 @@ if command -v jq >/dev/null 2>&1; then
   cat > "$claude_bin/claude" <<'CLAUDE'
 #!/bin/sh
 case "$*" in
+  --version) printf '%s (Claude Code)\n' "${TEST_CLAUDE_VERSION:-2.1.294}" ;;
   'plugin marketplace list --json')
     cat <<'JSON'
 [{"name":"understand-anything","repo":"Lum1104/Understand-Anything"},{"name":"gavel","repo":"junkim100/gavel"}]
@@ -227,14 +224,69 @@ esac
 CLAUDE
   chmod +x "$claude_bin/claude"
   for attempt in 1 2; do
-    HOME="$claude_home" PATH="$claude_bin:$agent_bin" bash "$DOTFILES_DIR/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1 \
+    HOME="$claude_home" PATH="$claude_bin:$agent_bin" bash "$DOTFILES_DIR/agents/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1 \
       || { cat "$TEMP_DIR/claude.log"; fail "Claude rerun failed on existing plugins"; }
   done
   [[ ! -e $claude_home/claude-mutations && ! -e $claude_home/downloads ]] || fail "Claude installer reinstalled existing tools or plugins"
-  [[ $(readlink "$claude_home/.claude/skills/pr") == "$DOTFILES_DIR/agents/skills/pr-review" ]] || fail "Claude compatibility alias is incorrect"
+  [[ $(readlink "$claude_home/.claude/skills/pr") == "$DOTFILES_DIR/agents/skills/pr-review" ]] || fail "Claude skill alias is incorrect"
+
+  # Exercise the combined installer against dangling links left by a git pull.
+  combined_home="$TEMP_DIR/combined-home"
+  custom_codex_home="$combined_home/custom-codex"
+  orca_home="$combined_home/Library/Application Support/orca/codex-runtime-home/home"
+  mkdir -p "$combined_home/.claude/skills/local-skill" "$combined_home/.agents/skills/local-skill" "$orca_home"
+  printf 'Claude local skill\n' > "$combined_home/.claude/skills/local-skill/SKILL.md"
+  printf 'shared local skill\n' > "$combined_home/.agents/skills/local-skill/SKILL.md"
+  ln -s "$DOTFILES_DIR/claude-code/CLAUDE.md" "$combined_home/.claude/CLAUDE.md"
+  ln -s "$DOTFILES_DIR/claude-code/settings.json" "$combined_home/.claude/settings.json"
+  HOME="$combined_home" CODEX_HOME="$custom_codex_home" PATH="$claude_bin:$agent_bin" \
+    bash "$DOTFILES_DIR/agents/install.sh" --dry-run > "$TEMP_DIR/combined.log" 2>&1 \
+    || { cat "$TEMP_DIR/combined.log"; fail "combined migration preview failed"; }
+  [[ -L $combined_home/.claude/CLAUDE.md && ! -e $combined_home/.claude/rules ]] || fail "migration preview changed instructions"
+  for attempt in 1 2; do
+    HOME="$combined_home" CODEX_HOME="$custom_codex_home" PATH="$claude_bin:$agent_bin" \
+      bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/combined.log" 2>&1 \
+      || { cat "$TEMP_DIR/combined.log"; fail "combined installation attempt $attempt failed"; }
+  done
+  [[ $(cat "$combined_home/downloads") == download ]] || fail "combined installer redownloaded Codex"
+  [[ ! -e $combined_home/claude-mutations ]] || fail "combined installer changed existing Claude plugins"
+  [[ ! -e $combined_home/.claude/CLAUDE.md && ! -L $combined_home/.claude/CLAUDE.md ]] || fail "old Claude instructions remain"
+  for installed in "$combined_home/.codex/AGENTS.md" "$custom_codex_home/AGENTS.md" "$orca_home/AGENTS.md" "$combined_home/.claude/rules/agents.md"; do
+    [[ $(readlink "$installed") == "$DOTFILES_DIR/agents/AGENTS.md" ]] || fail "global instructions do not share one source: $installed"
+  done
+  [[ $(readlink "$combined_home/.claude/settings.json") == "$DOTFILES_DIR/agents/claude-code/settings.json" ]] || fail "Claude settings link was not migrated"
+  [[ $(readlink "$combined_home/.claude/statusline-command.sh") == "$DOTFILES_DIR/agents/claude-code/statusline-command.sh" ]] || fail "Claude status line link was not migrated"
+  [[ $(jq -r '.pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles' "$combined_home/.claude/settings.json") == claude-md-and-agents-md ]] || fail "Claude settings do not enable AGENTS.md alongside project instructions"
+  [[ $(cat "$combined_home/.agents/skills/local-skill/SKILL.md") == 'shared local skill' ]] || fail "combined installer changed a shared local skill"
+  [[ $(cat "$combined_home/.claude/skills/local-skill/SKILL.md") == 'Claude local skill' ]] || fail "combined installer changed a Claude local skill"
+  for skill in "$DOTFILES_DIR"/agents/skills/*/; do
+    for destination in .agents .claude; do
+      [[ $(readlink "$combined_home/$destination/skills/$(basename "$skill")") == "${skill%/}" ]] || fail "combined installer did not link $skill into $destination"
+    done
+  done
+  [[ $(readlink "$combined_home/.claude/skills/pr") == "$DOTFILES_DIR/agents/skills/pr-review" ]] || fail "Claude pr alias lost its canonical target"
+
+  unmanaged_home="$TEMP_DIR/unmanaged-instructions"
+  mkdir -p "$unmanaged_home/.claude"
+  printf 'personal instructions\n' > "$unmanaged_home/.claude/CLAUDE.md"
+  if HOME="$unmanaged_home" PATH="$claude_bin:$agent_bin" bash "$DOTFILES_DIR/agents/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1; then
+    fail "Claude installer discarded unmanaged instructions"
+  fi
+  grep -q 'not the old dotfiles link' "$TEMP_DIR/claude.log" || fail "unmanaged instructions failed for an unrelated reason"
+  [[ $(cat "$unmanaged_home/.claude/CLAUDE.md") == 'personal instructions' && ! -e $unmanaged_home/.claude/rules ]] || fail "unmanaged instructions changed"
+
+  old_claude_home="$TEMP_DIR/old-claude"
+  mkdir -p "$old_claude_home/.claude"
+  ln -s "$DOTFILES_DIR/claude-code/CLAUDE.md" "$old_claude_home/.claude/CLAUDE.md"
+  if HOME="$old_claude_home" PATH="$claude_bin:$agent_bin" TEST_CLAUDE_VERSION=2.1.284 \
+    bash "$DOTFILES_DIR/agents/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1; then
+    fail "Claude installer accepted a CLI without the configured native AGENTS plugin"
+  fi
+  grep -q 'too old' "$TEMP_DIR/claude.log" || fail "old Claude version failed for an unrelated reason"
+  [[ -L $old_claude_home/.claude/CLAUDE.md && ! -e $old_claude_home/.claude/rules ]] || fail "old Claude version lost its instructions"
   status=0
   HOME="$claude_home" PATH="$claude_bin:$agent_bin" TEST_MISSING_PLUGINS=1 TEST_PLUGIN_EXIT=42 \
-    bash "$DOTFILES_DIR/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1 || status=$?
+    bash "$DOTFILES_DIR/agents/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1 || status=$?
   [[ $status -eq 42 ]] || fail "Claude installer ignored a plugin failure"
   grep -q '\[FAIL\].*Plugins' "$TEMP_DIR/claude.log" || fail "Claude plugin failure lacks context"
 else

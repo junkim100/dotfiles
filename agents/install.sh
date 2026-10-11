@@ -4,55 +4,12 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 . "$DOTFILES_DIR/scripts/lib/install.sh"
-install_init "Codex, agent instructions, and shared skills" 4 "$@"
+install_init "Shared agents, Codex, and Claude Code" 4 "$@"
 
-CODEX_INSTALLER_URL="https://chatgpt.com/codex/install.sh"
-CODEX_BIN_DIR="$HOME/.local/bin"
-
-install_codex() {
-  make_temp_dir
-  download "$CODEX_INSTALLER_URL" "$INSTALL_TEMP_DIR/codex.sh"
-  # The platform shell configs already add ~/.local/bin. Providing it here also
-  # prevents the upstream installer from appending to our managed shell files.
-  PATH="$CODEX_BIN_DIR:$PATH" CODEX_INSTALL_DIR="$CODEX_BIN_DIR" CODEX_NON_INTERACTIVE=1 sh "$INSTALL_TEMP_DIR/codex.sh"
-  "$CODEX_BIN_DIR/codex" --version
-}
-
-step "Codex CLI"
-codex_path=$(command -v codex || true)
-if [[ -z $codex_path && -f $CODEX_BIN_DIR/codex && -x $CODEX_BIN_DIR/codex ]]; then
-  codex_path="$CODEX_BIN_DIR/codex"
-fi
-
-if [[ -n $codex_path ]]; then
-  skip "Codex already installed: $codex_path"
-elif $DRY_RUN; then
-  info "Would download $CODEX_INSTALLER_URL and install Codex CLI into $CODEX_BIN_DIR (non-interactive)."
-else
-  [[ ! -d $CODEX_BIN_DIR/codex ]] || die "$CODEX_BIN_DIR/codex is a directory; move it aside first."
-  info "Installing Codex CLI into $CODEX_BIN_DIR"
-  install_codex
-fi
-
-if [[ -z $codex_path || $codex_path == "$CODEX_BIN_DIR/codex" ]]; then
-  case ":$PATH:" in
-    *":$CODEX_BIN_DIR:"*) ;;
-    *) info 'Add ~/.local/bin to your shell PATH: export PATH="$HOME/.local/bin:$PATH"' ;;
-  esac
-fi
-
-# Codex, Pi, and OpenCode discover this shared directory directly, including
-# when an agent is installed later. No agent-specific links are needed here.
-step "Agent instructions"
-link_file "$SCRIPT_DIR/AGENTS.md" "$HOME/.codex/AGENTS.md"
-# Orca points CODEX_HOME at a managed home, so its Codex workers read a different
-# global AGENTS.md than a plain terminal does. Link both when Orca is installed.
-ORCA_CODEX_HOME_DIR="$HOME/Library/Application Support/orca/codex-runtime-home/home"
-if [[ -d $ORCA_CODEX_HOME_DIR ]]; then
-  link_file "$SCRIPT_DIR/AGENTS.md" "$ORCA_CODEX_HOME_DIR/AGENTS.md"
-else
-  skip "Orca managed Codex home not present: $ORCA_CODEX_HOME_DIR"
-fi
+step "Shared skills"
+for skill in "$SCRIPT_DIR"/skills/*/; do
+  link_file "${skill%/}" "$HOME/.agents/skills/$(basename "$skill")"
+done
 
 step "Delegation gate"
 JEV_SRC="$SCRIPT_DIR/jev-delegation"
@@ -78,26 +35,13 @@ fi
 
 link_file "$JEV_SRC/jev-observe" "$HOME/.local/bin/jev-observe"
 
-# The observer records dispatches; it never blocks a tool call. Claude Code
-# picks it up from the tracked settings.json, but Codex owns its hooks.json and
-# Orca rewrites it, so that one is merged in place instead of linked.
-if $DRY_RUN; then
-  info "Would register jev-observe in each Codex hooks.json"
-elif command -v python3 >/dev/null 2>&1; then
-  for codex_home in "$HOME/.codex" "$ORCA_CODEX_HOME_DIR"; do
-    [[ -d $codex_home ]] || continue
-    python3 "$JEV_SRC/register-codex-hook.py" "$codex_home/hooks.json"
-  done
-else
-  warn "python3 not found; Codex will not record dispatches until jev-observe is registered."
-fi
-
 if [[ -z ${TYPESAFE_API_KEY:-} && ! -s $HOME/.config/typesafe/api_key ]]; then
   warn "No TypeSafe API key; jev-delegation fails closed to FLAT. Write one to ~/.config/typesafe/api_key or set TYPESAFE_API_KEY."
 fi
 
-step "Shared skills"
-for skill in "$SCRIPT_DIR"/skills/*/; do
-  link_file "${skill%/}" "$HOME/.agents/skills/$(basename "$skill")"
-done
+step "Codex"
+run_installer "$SCRIPT_DIR/codex/install.sh"
+
+step "Claude Code"
+run_installer "$SCRIPT_DIR/claude-code/install.sh"
 finish

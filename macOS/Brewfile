@@ -33,7 +33,7 @@ brew "bat"
 brew "fastfetch"
 brew "fd"
 brew "gh"
-# Required by claude-code/statusline-command.sh for the model and token segments.
+# Required by agents/claude-code/statusline-command.sh for the model and token segments.
 brew "jq"
 brew "lazygit"
 brew "oh-my-posh"

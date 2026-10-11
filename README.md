@@ -17,7 +17,7 @@ All installers in this repository use Bash 3.2 or later and accept `--dry-run` a
 
 Installers show a progress bar for completed stages, the current stage number, and explicit `RUN`, `PLAN`, `SKIP`, and `WARN` messages. Percentages measure stages, not elapsed time. Command output stays visible, and failures stop the installer with the stage and exit status so you can fix the cause and rerun. Terminal output uses color; redirected output and `NO_COLOR=1` stay plain.
 
-Shared installer behavior lives in `scripts/lib/install.sh`, symlink handling in `scripts/link-file`, and installation regression tests in `scripts/tests/installers.sh`. Platform and application installers keep their existing entry points and own the steps specific to them. Downloads use retries, timeouts, and private temporary directories that are removed on exit; downloaded scripts only run after a successful download.
+Shared installer behavior lives in `scripts/lib/install.sh`, symlink handling in `scripts/link-file`, and installation regression tests in `scripts/tests/installers.sh`. Platform and application installers own the steps specific to them. Downloads use retries, timeouts, and private temporary directories that are removed on exit; downloaded scripts only run after a successful download.
 
 Reruns reuse existing tools and links. Homebrew installs missing Brewfile entries with `--no-upgrade`, apt only runs when packages are missing, and Claude Code skips existing marketplaces and user plugins. Updates are separate maintenance actions, such as `brew upgrade` or `claude plugin update <plugin>@<marketplace>`. Package managers may still update dependencies required by a missing package.
 
@@ -52,29 +52,45 @@ bash "$DOTFILES_DIR/lazyvim/install.sh"
 
 The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/lazyvim) and is pinned here as a Git submodule. Its installer links the checkout to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
 
-**Codex CLI and shared agent skills (Codex, Pi, OpenCode, and Claude Code):**
+**Agents (Codex CLI, Claude Code, and shared skills):**
 ```bash
 bash "$DOTFILES_DIR/agents/install.sh"
 ```
 
-The agent installer installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) when missing, using OpenAI's native installer non-interactively with `curl` or `wget` on macOS and Linux. The macOS Brewfile leaves Codex installation to this installer. New installations go into `~/.local/bin`; existing installations on `PATH` or at `~/.local/bin/codex`, including Homebrew installations, are reused without upgrading them. The platform shell configurations already add `~/.local/bin` to `PATH`; the installer prints a reminder when needed. Use `--dry-run` to preview installation and skill links without downloading or changing anything.
+The agent installer sets up shared skills and the delegation gate, then runs `agents/codex/install.sh` and `agents/claude-code/install.sh`. It installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) when missing, using OpenAI's native installer non-interactively with `curl` or `wget` on macOS and Linux. The macOS Brewfile leaves Codex installation to this installer. New installations go into `~/.local/bin`; existing installations on `PATH` or at `~/.local/bin/codex`, including Homebrew installations, are reused without upgrading them. The platform shell configurations already add `~/.local/bin` to `PATH`; the installer prints a reminder when needed. Use `--dry-run` to preview installation and skill links without downloading or changing anything.
 
-All repository-managed skills live under `agents/skills/`, including `conference-paper-review`, `doubt-driven-development`, `interview`, `paper-study-notes`, `pr-review`, `quiz`, and `test-audit`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. Claude Code receives its links through the installer below.
+All repository-managed skills live under `agents/skills/`, including `conference-paper-review`, `doubt-driven-development`, `interview`, `paper-study-notes`, `pr-review`, `quiz`, and `test-audit`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. The Claude Code installer links the same skill directories directly into `~/.claude/skills`.
 
-`doubt-driven-development` checks consequential assumptions with focused reproductions, fixtures, or source traces before relying on them. Both global instruction files require automatic use when a wrong assumption could invalidate results, lose data, waste an expensive run, or cause substantial rework. It reuses existing verification and does not initiate reviewer orchestration. The skill is a lightweight adaptation of [Addy Osmani's workflow](https://github.com/addyosmani/agent-skills/blob/main/skills/doubt-driven-development/SKILL.md).
+`doubt-driven-development` checks consequential assumptions with focused reproductions, fixtures, or source traces before relying on them. The shared global instructions require automatic use when a wrong assumption could invalidate results, lose data, waste an expensive run, or cause substantial rework. It reuses existing verification and does not initiate reviewer orchestration. The skill is a lightweight adaptation of [Addy Osmani's workflow](https://github.com/addyosmani/agent-skills/blob/main/skills/doubt-driven-development/SKILL.md).
 
-`test-audit` is a portable adaptation of OpenClaw's test-quality skill. It applies lightweight checks when writing, modifying, or reviewing tests, and reserves broader audits for requests that include that scope. Its description supports automatic selection, reinforced by a rule in both global instruction files, `agents/AGENTS.md` and `claude-code/CLAUDE.md`. Future agents can use the same skill through a supported discovery path; agents with different locations need an installer link, and those with separate global instructions need an equivalent rule for explicit automatic-use guidance.
+`test-audit` is a portable adaptation of OpenClaw's test-quality skill. It applies lightweight checks when writing, modifying, or reviewing tests, and reserves broader audits for requests that include that scope. Its description supports automatic selection, reinforced by a rule in `agents/AGENTS.md`. Future agents can use the same skill through a supported discovery path; agents with different locations need an installer link, and those with separate global instructions need an equivalent rule for explicit automatic-use guidance.
 
-`agents/AGENTS.md` holds the global instructions for agents that read `AGENTS.md`. The installer links it to `$CODEX_HOME/AGENTS.md`, which is `~/.codex/AGENTS.md` for a plain terminal. Orca points `CODEX_HOME` at its own managed home, so its Codex workers read a different global file; the installer links that copy too when Orca is present, and skips it otherwise. The Claude Code equivalent is `claude-code/CLAUDE.md`, and the delegation gate section is duplicated in both because no instruction file is shared across agents.
+`agents/AGENTS.md` is the single source of personal instructions for Claude Code and Codex, including skill rules, writing preferences, and the delegation gate. The Codex installer links it into `~/.codex/AGENTS.md`, a custom `CODEX_HOME` when set, and Orca's managed Codex home when present. The Claude Code installer links it into `~/.claude/rules/agents.md`, which loads across projects without a `CLAUDE.md`. The repository root `AGENTS.md` separately describes how to maintain dotfiles.
+
+Claude Code 2.1.285 or later is required. Project instructions are configured to include `AGENTS.md` even in repositories that also contain Claude-specific instruction files. The installer reports an older CLI and asks you to run `claude update`; it does not upgrade an existing installation implicitly. No `CLAUDE.md` files or compatibility skill directories are maintained here. The installer removes only the former dotfiles-managed `~/.claude/CLAUDE.md` link after linking the shared rules; it refuses to discard independently authored instructions. See [Claude Code instruction discovery](https://code.claude.com/docs/en/memory#agentsmd) and [global rules](https://code.claude.com/docs/en/memory#user-level-rules).
 
 `agents/jev-delegation/` holds the delegation gate that Orca agents consult before creating or requesting another worker. The installer links the script to `~/.local/bin/jev-delegation` and its protocol and dispatch snippet to `~/.local/share/jev-delegation/`, then creates a virtual environment there from `requirements.txt`. The gate needs a [TypeSafe](https://typesafe.ai) API key in `~/.config/typesafe/api_key` or `TYPESAFE_API_KEY`; the installer warns when neither is present. Without the environment or the key the command still runs and fails closed to `FLAT`, so a broken installation keeps work flat rather than fanning out unchecked. A companion observer, `jev-observe`, is registered as a `PreToolUse` hook in Claude Code's `settings.json` and merged into each Codex `hooks.json`; it records every `worker-start` and whether the gate had been consulted to `~/.local/share/jev-delegation/dispatches.jsonl`. It only observes, never blocks, and always exits zero, because a stalled hook costs a run while a lost audit line costs nothing.
 
 **Claude Code:**
 ```bash
-bash "$DOTFILES_DIR/claude-code/install.sh"
+bash "$DOTFILES_DIR/agents/claude-code/install.sh"
 ```
 
-`claude-code/` owns Claude Code settings, instructions, the status line, and installation. Its installer links the same canonical skills from `agents/skills/` into `~/.claude/skills`, preserving machine-local skills. `claude-code/skills/` contains only compatibility symlinks, including the `pr` alias for `pr-review`; existing home-directory links through those paths keep working.
+`agents/claude-code/` owns Claude Code settings, the status line, and installation. Its installer links the shared rules and canonical skills, preserving machine-local skills. It also creates the `pr` alias directly from `agents/skills/pr-review`. The standalone Codex installer is `agents/codex/install.sh`; use `agents/install.sh` for the complete shared setup.
+
+```text
+agents/
+├── AGENTS.md
+├── install.sh
+├── skills/
+├── jev-delegation/
+├── claude-code/
+│   ├── install.sh
+│   ├── settings.json
+│   └── statusline-command.sh
+└── codex/
+    └── install.sh
+```
 
 Custom skills imported from claude.ai follow the same ownership rule. The paper skills include their reference files and PDF scanner under `agents/skills/`. Claude Code's `skillOverrides` disables their duplicate `anthropic-skills:<name>` commands, while the local commands use the canonical symlinks. Anthropic's synced skills and cache remain managed by Claude Code. See [synced skill names](https://code.claude.com/docs/en/skills#when-a-synced-skill-name-matches-another-command) and [skill visibility overrides](https://code.claude.com/docs/en/skills#override-skill-visibility-from-settings).
 
