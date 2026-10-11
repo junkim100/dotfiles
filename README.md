@@ -19,7 +19,7 @@ Installers show a progress bar for completed stages, the current stage number, a
 
 Shared installer behavior lives in `scripts/lib/install.sh`, symlink handling in `scripts/link-file`, and installation regression tests in `scripts/tests/installers.sh`. Platform and application installers own the steps specific to them. Downloads use retries, timeouts, and private temporary directories that are removed on exit; downloaded scripts only run after a successful download.
 
-Reruns reuse existing tools and links. Homebrew installs missing Brewfile entries with `--no-upgrade`, apt only runs when packages are missing, and Claude Code skips existing marketplaces and user plugins. Updates are separate maintenance actions, such as `brew upgrade` or `claude plugin update <plugin>@<marketplace>`. Package managers may still update dependencies required by a missing package.
+Reruns reuse existing tools and links. Homebrew installs missing Brewfile entries with `--no-upgrade`, apt only runs when packages are missing, and the shared agent installer reuses matching pinned packages and plugins. Updates are separate maintenance actions, such as `brew upgrade` or reviewing new pins in `agents/plugins/catalog.json`. Package managers may still update dependencies required by a missing package.
 
 **macOS:**
 ```bash
@@ -57,9 +57,11 @@ The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/la
 bash "$DOTFILES_DIR/agents/install.sh"
 ```
 
-The agent installer sets up shared skills and the delegation gate, then runs `agents/codex/install.sh` and `agents/claude-code/install.sh`. It installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) when missing, using OpenAI's native installer non-interactively with `curl` or `wget` on macOS and Linux. The macOS Brewfile leaves Codex installation to this installer. New installations go into `~/.local/bin`; existing installations on `PATH` or at `~/.local/bin/codex`, including Homebrew installations, are reused without upgrading them. The platform shell configurations already add `~/.local/bin` to `PATH`; the installer prints a reminder when needed. Use `--dry-run` to preview installation and skill links without downloading or changing anything.
+The agent installer sets up shared skills and the delegation gate, runs `agents/codex/install.sh` and `agents/claude-code/install.sh`, then installs the shared plugin catalog with `agents/plugins/install.sh`. It installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) when missing, using OpenAI's native installer non-interactively with `curl` or `wget` on macOS and Linux. The macOS Brewfile leaves Codex installation to this installer. New installations go into `~/.local/bin`; existing installations on `PATH` or at `~/.local/bin/codex`, including Homebrew installations, are reused without upgrading them. The platform shell configurations already add `~/.local/bin` to `PATH`; the installer prints a reminder when needed. Use `--dry-run` to preview installation and skill links without downloading or changing anything.
 
-All repository-managed skills live under `agents/skills/`, including `conference-paper-review`, `doubt-driven-development`, `interview`, `paper-study-notes`, `pr-review`, `quiz`, and `test-audit`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. The Claude Code installer links the same skill directories directly into `~/.claude/skills`.
+Custom authored skills live under `agents/skills/`, including `conference-paper-review`, `doubt-driven-development`, `gavel`, `interview`, `paper-study-notes`, `pr-review`, `quiz`, and `test-audit`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. The Claude Code installer links the same skill directories directly into `~/.claude/skills`.
+
+Third-party plugins are declared once in [`agents/plugins/catalog.json`](agents/plugins/catalog.json). The shared installer verifies pinned upstream archives, stores complete packages under `~/.local/share/agent-plugins`, and configures the same local marketplace for Claude and Codex. Portable skills in both discovery directories point directly to those neutral packages. Run `python3 agents/plugins/manage.py doctor` for a read-only runtime health check. Understand-Anything, Gavel, frontend-design, Context7, Playwright, and Slack are covered; Pyright's Claude LSP integration is an explicit exception. See the [support matrix and update workflow](agents/plugins/README.md) for per-agent runtime requirements and authentication limits. This shared inventory covers dotfiles-managed capabilities; application-managed connectors and synced caches keep their own lifecycle.
 
 `doubt-driven-development` checks consequential assumptions with focused reproductions, fixtures, or source traces before relying on them. The shared global instructions require automatic use when a wrong assumption could invalidate results, lose data, waste an expensive run, or cause substantial rework. It reuses existing verification and does not initiate reviewer orchestration. The skill is a lightweight adaptation of [Addy Osmani's workflow](https://github.com/addyosmani/agent-skills/blob/main/skills/doubt-driven-development/SKILL.md).
 
@@ -83,6 +85,12 @@ agents/
 ├── AGENTS.md
 ├── install.sh
 ├── skills/
+├── plugins/
+│   ├── catalog.json
+│   ├── install.sh
+│   ├── manage.py
+│   ├── package_store.py
+│   └── health.py
 ├── jev-delegation/
 ├── claude-code/
 │   ├── install.sh

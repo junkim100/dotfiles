@@ -1,7 +1,9 @@
 {
   "pluginConfigs": {
     "cc-plugin-agents-md@builtin": {
-      "options": { "instructionFiles": "claude-md-and-agents-md" }
+      "options": {
+        "instructionFiles": "claude-md-and-agents-md"
+      }
     }
   },
   "permissions": {
@@ -176,33 +178,20 @@
     "command": "bash $HOME/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
-    "context7@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "slack@claude-plugins-official": true,
-    "understand-anything@understand-anything": true,
-    "gavel@gavel": true,
-    "frontend-design@claude-plugins-official": true
-  },
-  "extraKnownMarketplaces": {
-    "claude-plugins-official": {
-      "source": {
-        "source": "github",
-        "repo": "anthropics/claude-plugins-official"
-      }
-    },
-    "understand-anything": {
-      "source": {
-        "source": "github",
-        "repo": "Lum1104/Understand-Anything"
-      }
-    },
-    "gavel": {
-      "source": {
-        "source": "github",
-        "repo": "junkim100/gavel"
-      }
-    }
+    "context7@claude-plugins-official": false,
+    "pyright-lsp@claude-plugins-official": false,
+    "playwright@claude-plugins-official": false,
+    "slack@claude-plugins-official": false,
+    "understand-anything@understand-anything": false,
+    "gavel@gavel": false,
+    "frontend-design@claude-plugins-official": false,
+    "understand-anything@dotfiles": true,
+    "gavel@dotfiles": true,
+    "frontend-design@dotfiles": true,
+    "context7@dotfiles": true,
+    "playwright@dotfiles": true,
+    "slack@dotfiles": true,
+    "pyright-lsp@dotfiles": true
   },
   "syntaxHighlightingDisabled": false,
   "effortLevel": "high",

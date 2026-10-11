@@ -42,7 +42,7 @@ grep -q '\[FAIL\].*Download probe.*exit 7' "$TEMP_DIR/failure.log" || fail "fail
 # These commands must never execute in a preview, including nested installers.
 preview_bin="$TEMP_DIR/preview-bin"
 mkdir -p "$preview_bin"
-for tool in curl wget brew apt-get sudo git claude gh conda nvitop uv pipx tmux tic; do
+for tool in curl wget brew apt-get sudo git claude codex gh conda nvitop uv pipx tmux tic; do
   cat > "$preview_bin/$tool" <<'FORBIDDEN'
 #!/bin/sh
 printf 'unexpected command\n' >> "$HOME/unexpected-command"
@@ -50,7 +50,7 @@ exit 97
 FORBIDDEN
   chmod +x "$preview_bin/$tool"
 done
-installers=(macOS/install.sh ubuntu/install.sh agents/install.sh agents/codex/install.sh agents/claude-code/install.sh common/tmux/install.sh ubuntu/install_packages.sh ubuntu/setup_conda.sh profiles/backend-ai/install.sh)
+installers=(macOS/install.sh ubuntu/install.sh agents/install.sh agents/codex/install.sh agents/claude-code/install.sh agents/plugins/install.sh common/tmux/install.sh ubuntu/install_packages.sh ubuntu/setup_conda.sh profiles/backend-ai/install.sh)
 for installer in "${installers[@]}"; do
   preview_home=$(mktemp -d "$TEMP_DIR/preview-XXXXXX")
   HOME="$preview_home" PATH="$preview_bin:$PATH" NO_COLOR=1 bash "$DOTFILES_DIR/$installer" --dry-run > "$TEMP_DIR/preview.log" 2>&1 \
@@ -193,8 +193,8 @@ HOME="$conda_home" PATH="$package_bin:$agent_bin" bash "$DOTFILES_DIR/ubuntu/set
   || { cat "$TEMP_DIR/conda.log"; fail "existing managed Conda was not reused"; }
 [[ ! -e $conda_home/downloads ]] || fail "existing Conda was downloaded again"
 
-# Use the real JSON parser with a fake Claude CLI, so duplicate marketplace and
-# plugin detection is tested against the actual command output format.
+# Keep CLI-version and instruction migration checks independent of plugin setup.
+# The shared plugin tests below use isolated native CLI fixtures.
 if command -v jq >/dev/null 2>&1; then
   claude_bin="$TEMP_DIR/claude-bin"
   claude_home="$TEMP_DIR/claude-home"
@@ -204,18 +204,6 @@ if command -v jq >/dev/null 2>&1; then
 #!/bin/sh
 case "$*" in
   --version) printf '%s (Claude Code)\n' "${TEST_CLAUDE_VERSION:-2.1.294}" ;;
-  'plugin marketplace list --json')
-    cat <<'JSON'
-[{"name":"understand-anything","repo":"Lum1104/Understand-Anything"},{"name":"gavel","repo":"junkim100/gavel"}]
-JSON
-    ;;
-  'plugin list --json')
-    if [ "${TEST_MISSING_PLUGINS:-0}" = 1 ]; then echo '[]'; else
-      cat <<'JSON'
-[{"id":"understand-anything@understand-anything","scope":"user"},{"id":"gavel@gavel","scope":"user"}]
-JSON
-    fi
-    ;;
   *)
     printf '%s\n' "$*" >> "$HOME/claude-mutations"
     exit "${TEST_PLUGIN_EXIT:-91}"
@@ -225,7 +213,7 @@ CLAUDE
   chmod +x "$claude_bin/claude"
   for attempt in 1 2; do
     HOME="$claude_home" PATH="$claude_bin:$agent_bin" bash "$DOTFILES_DIR/agents/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1 \
-      || { cat "$TEMP_DIR/claude.log"; fail "Claude rerun failed on existing plugins"; }
+      || { cat "$TEMP_DIR/claude.log"; fail "Claude integration rerun failed"; }
   done
   [[ ! -e $claude_home/claude-mutations && ! -e $claude_home/downloads ]] || fail "Claude installer reinstalled existing tools or plugins"
   [[ $(readlink "$claude_home/.claude/skills/pr") == "$DOTFILES_DIR/agents/skills/pr-review" ]] || fail "Claude skill alias is incorrect"
@@ -243,13 +231,21 @@ CLAUDE
     bash "$DOTFILES_DIR/agents/install.sh" --dry-run > "$TEMP_DIR/combined.log" 2>&1 \
     || { cat "$TEMP_DIR/combined.log"; fail "combined migration preview failed"; }
   [[ -L $combined_home/.claude/CLAUDE.md && ! -e $combined_home/.claude/rules ]] || fail "migration preview changed instructions"
+  # The combined entrypoint must reconcile real catalog data with isolated CLIs.
+  combined_bin="$TEMP_DIR/combined-bin"
+  mkdir -p "$combined_bin" "$combined_home/.local/share/jev-delegation/venv/bin"
+  for tool in claude codex node npm pnpm pyright-langserver; do
+    ln -s "$DOTFILES_DIR/scripts/tests/plugin-cli.py" "$combined_bin/$tool"
+  done
+  ln -s "$(command -v python3)" "$combined_bin/python3"
+  ln -s "$(command -v python3)" "$combined_home/.local/share/jev-delegation/venv/bin/python"
+  HOME="$combined_home" python3 "$DOTFILES_DIR/scripts/tests/plugin-cli.py" seed
   for attempt in 1 2; do
-    HOME="$combined_home" CODEX_HOME="$custom_codex_home" PATH="$claude_bin:$agent_bin" \
+    HOME="$combined_home" CODEX_HOME="$custom_codex_home" PATH="$combined_bin:$claude_bin:$agent_bin" \
       bash "$DOTFILES_DIR/agents/install.sh" > "$TEMP_DIR/combined.log" 2>&1 \
       || { cat "$TEMP_DIR/combined.log"; fail "combined installation attempt $attempt failed"; }
   done
-  [[ $(cat "$combined_home/downloads") == download ]] || fail "combined installer redownloaded Codex"
-  [[ ! -e $combined_home/claude-mutations ]] || fail "combined installer changed existing Claude plugins"
+  [[ ! -e $combined_home/downloads ]] || fail "combined installer replaced the existing Codex"
   [[ ! -e $combined_home/.claude/CLAUDE.md && ! -L $combined_home/.claude/CLAUDE.md ]] || fail "old Claude instructions remain"
   for installed in "$combined_home/.codex/AGENTS.md" "$custom_codex_home/AGENTS.md" "$orca_home/AGENTS.md" "$combined_home/.claude/rules/agents.md"; do
     [[ $(readlink "$installed") == "$DOTFILES_DIR/agents/AGENTS.md" ]] || fail "global instructions do not share one source: $installed"
@@ -284,13 +280,9 @@ CLAUDE
   fi
   grep -q 'too old' "$TEMP_DIR/claude.log" || fail "old Claude version failed for an unrelated reason"
   [[ -L $old_claude_home/.claude/CLAUDE.md && ! -e $old_claude_home/.claude/rules ]] || fail "old Claude version lost its instructions"
-  status=0
-  HOME="$claude_home" PATH="$claude_bin:$agent_bin" TEST_MISSING_PLUGINS=1 TEST_PLUGIN_EXIT=42 \
-    bash "$DOTFILES_DIR/agents/claude-code/install.sh" > "$TEMP_DIR/claude.log" 2>&1 || status=$?
-  [[ $status -eq 42 ]] || fail "Claude installer ignored a plugin failure"
-  grep -q '\[FAIL\].*Plugins' "$TEMP_DIR/claude.log" || fail "Claude plugin failure lacks context"
+
 else
-  echo 'installer checks: jq unavailable; skipping Claude JSON integration checks'
+  echo 'installer checks: jq unavailable; skipping Claude integration checks'
 fi
 
 echo 'installer checks passed'

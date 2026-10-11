@@ -1,0 +1,144 @@
+{
+  "marketplace": "dotfiles",
+  "sources": {
+    "official": {
+      "repo": "anthropics/claude-plugins-official",
+      "revision": "f359d43b406057f1a8cdbc4ea93b827642c162e6",
+      "sha256": "7ce686e965dd07f5d9a49f2c4cf024d23482c6377c9eca156c171be64a144042"
+    },
+    "understand-anything": {
+      "repo": "Egonex-AI/Understand-Anything",
+      "revision": "6df3065f1d8ddc2ce3615314d1d493f36d6b1c80",
+      "sha256": "67cdd19ffecd4df2f572b5126d73071224f5e0f07f8c4c313538a70f63b99ea1"
+    },
+    "gavel": {
+      "repo": "junkim100/gavel",
+      "revision": "54787784e9d685bd0b2195abffd09f6caaca2c46",
+      "sha256": "61cbc96ec95a996aae446a2f07a4eeb8d99d227669953b90dff5b3c9f8c93a4f"
+    },
+    "slack": {
+      "repo": "slackapi/slack-mcp-plugin",
+      "revision": "b073ebc2fc500b52e781f5fd17ebb9ad462363dc",
+      "sha256": "84eed5214e68400f6aca0330f555c19ae4fe798bf0dc3cbef97a72151afb3c56"
+    }
+  },
+  "plugins": [
+    {
+      "id": "understand-anything@dotfiles",
+      "claude": true,
+      "codex": true,
+      "skills": [
+        "understand",
+        "understand-chat",
+        "understand-dashboard",
+        "understand-diff",
+        "understand-domain",
+        "understand-explain",
+        "understand-figma",
+        "understand-knowledge",
+        "understand-onboard"
+      ],
+      "root_link": ".understand-anything-plugin",
+      "limitations": "Portable skills include the complete upstream package. Claude's automatic graph-update hooks are not portable; other agents must request updates explicitly.",
+      "legacy_id": "understand-anything@understand-anything",
+      "source": "understand-anything",
+      "path": "understand-anything-plugin",
+      "pnpm_empty_importers": ["packages/viewer"],
+      "version": "2.9.7"
+    },
+    {
+      "id": "gavel@dotfiles",
+      "claude": true,
+      "codex": true,
+      "skills": [],
+      "root_link": ".local/share/agent-plugins/gavel",
+      "limitations": "Use the shared gavel skill outside Claude; its legacy commands are not exposed by Codex. The runner needs Node and authenticated advisor CLIs.",
+      "legacy_id": "gavel@gavel",
+      "source": "gavel",
+      "path": ".",
+      "version": "0.5.0"
+    },
+    {
+      "id": "frontend-design@dotfiles",
+      "claude": true,
+      "codex": true,
+      "skills": [
+        "frontend-design"
+      ],
+      "limitations": "Portable skill; no agent-specific runtime is required.",
+      "legacy_id": "frontend-design@claude-plugins-official",
+      "source": "official",
+      "path": "plugins/frontend-design",
+      "version": "0.0.0"
+    },
+    {
+      "id": "context7@dotfiles",
+      "claude": true,
+      "codex": true,
+      "skills": [],
+      "limitations": "MCP plugin, not a skill. Additional agents need an MCP adapter; authentication, when required, is local to each client.",
+      "legacy_id": "context7@claude-plugins-official",
+      "source": "official",
+      "path": "external_plugins/context7",
+      "version": "0.0.0",
+      "mcp": true
+    },
+    {
+      "id": "playwright@dotfiles",
+      "claude": true,
+      "codex": true,
+      "skills": [],
+      "limitations": "MCP plugin requiring Node and browser dependencies. Additional agents need an MCP adapter.",
+      "legacy_id": "playwright@claude-plugins-official",
+      "source": "official",
+      "path": "external_plugins/playwright",
+      "version": "0.0.0",
+      "mcp": true
+    },
+    {
+      "id": "slack@dotfiles",
+      "claude": true,
+      "codex": true,
+      "skills": [
+        "block-kit",
+        "create-slack-app",
+        "slack-api",
+        "slack-cli",
+        "slack-docs",
+        "slack-messaging",
+        "slack-search",
+        "test-slack-app"
+      ],
+      "limitations": "Skills are portable; messaging and search need Slack tools connected in the active agent. OAuth grants and app-managed connections are never copied.",
+      "legacy_id": "slack@claude-plugins-official",
+      "source": "slack",
+      "path": ".",
+      "version": "1.4.1",
+      "mcp": true
+    },
+    {
+      "id": "pyright-lsp@dotfiles",
+      "claude": true,
+      "codex": false,
+      "skills": [],
+      "limitations": "Claude LSP integration. Installing its metadata in another client does not add an LSP tool; use that client's language support or the Pyright CLI.",
+      "legacy_id": "pyright-lsp@claude-plugins-official",
+      "source": "official",
+      "path": "plugins/pyright-lsp",
+      "version": "1.0.0",
+      "lspServers": {
+        "pyright": {
+          "command": "pyright-langserver",
+          "args": [
+            "--stdio"
+          ],
+          "extensionToLanguage": {
+            ".py": "python",
+            ".pyi": "python"
+          }
+        }
+      }
+    }
+  ],
+  "package_format": 2
+}

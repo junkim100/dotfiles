@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$DOTFILES_DIR/scripts/lib/install.sh"
-install_init "Claude Code" 6 "$@"
+install_init "Claude Code" 4 "$@"
 
 # Only retire the link installed by this repository. Preserve independently
 # authored instructions and refuse to silently discard them during migration.
@@ -87,39 +87,5 @@ for skill in "$DOTFILES_DIR"/agents/skills/*/; do
 done
 link_file "$DOTFILES_DIR/agents/skills/pr-review" "$HOME/.claude/skills/pr"
 
-step "Plugin marketplaces"
-marketplace_names=(understand-anything gavel)
-marketplace_sources=(Lum1104/Understand-Anything junkim100/gavel)
-if ! $DRY_RUN; then
-  marketplaces=$("$claude_bin" plugin marketplace list --json)
-  jq -e 'type == "array"' <<< "$marketplaces" >/dev/null || die "Claude returned an unexpected marketplace list; update Claude Code and retry."
-fi
-for i in 0 1; do
-  name=${marketplace_names[$i]}
-  source=${marketplace_sources[$i]}
-  if $DRY_RUN; then
-    info "Would add marketplace $source if $name is missing."
-  elif jq -e --arg name "$name" 'any(.[]; .name == $name)' <<< "$marketplaces" >/dev/null; then
-    jq -e --arg name "$name" --arg repo "$source" 'any(.[]; .name == $name and .repo == $repo)' <<< "$marketplaces" >/dev/null \
-      || die "Marketplace $name already uses a different source. Check 'claude plugin marketplace list' before changing it."
-    skip "Marketplace $name already configured"
-  else
-    run "$claude_bin" plugin marketplace add "$source"
-  fi
-done
-
-step "Plugins"
-if ! $DRY_RUN; then
-  plugins=$("$claude_bin" plugin list --json)
-  jq -e 'type == "array"' <<< "$plugins" >/dev/null || die "Claude returned an unexpected plugin list; update Claude Code and retry."
-fi
-for plugin in understand-anything@understand-anything gavel@gavel; do
-  if $DRY_RUN; then
-    info "Would install user plugin $plugin if missing."
-  elif jq -e --arg id "$plugin" 'any(.[]; .id == $id and .scope == "user")' <<< "$plugins" >/dev/null; then
-    skip "$plugin already installed"
-  else
-    run "$claude_bin" plugin install "$plugin" --scope user
-  fi
-done
+info "Run agents/install.sh for the shared plugin catalog, or agents/plugins/install.sh when both CLIs are installed."
 finish
