@@ -155,7 +155,7 @@ Loop while any review is `running`:
    - `heartbeat`: nothing to do.
 3. A wait that returns no batch is a checkpoint, not a failure. Whenever the last Slack poll is more than 9 minutes old, refresh the heartbeat (`S claim`) and run steps 1 to 4 and 6 again for new requests. After three consecutive empty waits, run `ORCA orchestration worker-list --run "$(S run)" --include-remote --json` and act on each row's `projection.attention` and `projection.nextAction` as the orchestration guide says. Stop, abandon, or retry a reviewer only on positive proof that it exited without `worker_done`; then mark it `failed` and send the failure DM.
 
-Leave the wait loop only when no review is `running` or `queued` and `ORCA orchestration worker-list --run "$(S run)" --terminal-state reclaimable --json` returns no rows. Then, for each `gate_flat` review, run the pr-review skill on that PR yourself in this session, write the same `report.md` and `summary.json` into its report directory, mark it `done` or `failed`, and say in its DM that it was reviewed in-session by Claude because the delegation gate returned FLAT.
+Leave the wait loop only when no review is `running` or `queued` and `ORCA orchestration worker-list --run "$(S run)" --terminal-state reclaimable --json` returns no rows. Then, for each `gate_flat` review, run the pr-review skill on that PR yourself in this session with `report-dir=<REPORT_DIR>`, write the same `report.md` and `summary.json` into its report directory, mark it `done` or `failed`, and say in its DM that it was reviewed in-session by Claude because the delegation gate returned FLAT.
 
 ### 8. DMs
 
@@ -167,7 +167,7 @@ Ready:
 **PR review ready:** [<owner/repo#N>](<url>) <title>
 Requested by <name> in [<#channel or DM>](<permalink>) at <YYYY-MM-DD HH:MM KST>
 Reviewed head `<sha7>`. Verdict: <verdict>
-Findings: <h> High, <m> Medium, <n> Note, <t> Nit. Inline comment drafts: <c>
+Findings: <h> High, <m> Medium, <n> Note, <t> Nit. Inline comment drafts: <c> recommended, <k> held
 Earlier comments: <r> resolved, <p> partly resolved, <u> unresolved   (only for a follow-up review)
 Report: `<REPORT_DIR>/report.md`
 ```
