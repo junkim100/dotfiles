@@ -99,3 +99,6 @@ unset _d
 if command -v oh-my-posh > /dev/null 2>&1; then
   eval "$(oh-my-posh init zsh --config "$DOTFILES_DIR/macOS/.ohmyposh-nord-theme.json")"
 fi
+
+# bun completions
+[ -s "/Users/junkim/.bun/_bun" ] && source "/Users/junkim/.bun/_bun"
