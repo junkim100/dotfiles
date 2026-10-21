@@ -1,6 +1,6 @@
 # Writing inline comments
 
-Read this before Phase 7.4. The goal is a body the user can post unchanged. In the study behind this skill, only about a third of drafts were already in their final wording, and most edits were the same few corrections: softer endings, fewer rule labels, shorter removal requests, plainer words, and claims narrowed to what was shown. The house rules (G2 to G7) are binding; this file shows how to apply them.
+Read this before Phase 7.4. The goal is a body the user can post unchanged. In the study behind this skill, only about a third of drafts were already in their final wording, and most edits were the same few corrections: softer endings, rule labels removed from findings the rule did not actually cover, shorter removal requests, plainer words, and claims narrowed to what was shown. The house rules (G2 to G7) are binding; this file shows how to apply them.
 
 If `~/.local/state/pr-review/examples.md` exists, read it too. It holds real comments the user posted unchanged and comments by a reviewer whose style the user wants to match. It is private: never copy its content into this skill, a commit, or any public file.
 
@@ -19,6 +19,7 @@ Usually 2 to 3 sentences. Length follows the evidence: a compound-state bug may 
 - Offer a sibling's remedy only after checking it handles the same mechanism, and point at it with `path:line`.
 - Ask whether a test could fail for the bug when a test is cited as coverage: `이 test의 fixture에는 중간 응답에 text가 없어서 이 경우를 잡지 못할 것 같습니다.`
 - Questions carry the diagnosis. Verify the facts first, put them in the question, and leave the decision with the author: fact, pinned permalink, `혹시 ~한 이유가 있었을까요?`, conditional fix.
+- Name the guideline item when the code violates it. The item is the argument the author cannot dispute, so put it next to the mechanism: `GUIDELINE item 7에 따라 ...`, `GUIDELINE P9와 item 15f에 따라 ...`. Use the item's own id as the guideline writes it.
 - One comment per fix site. Several symptoms with one fix share a comment; one finding whose parts need fixes in different files becomes several comments.
 
 ## Examples (synthetic; names are illustrative)
@@ -47,6 +48,10 @@ Unchanged code whose consequence changed:
 
 > 이번 변경으로 scratch를 항상 지우게 되면서, 채점하지 않는 job의 최종 snapshot도 받은 직후 바로 지워집니다(`worker.py:402`). 이전에는 디버깅용으로 남았지만 이제는 시간과 디스크만 쓰므로, snapshot 호출을 채점 분기(`worker.py:417`) 안으로 옮기는 것이 어떨까요?
 
+Guideline violation:
+
+> `top_p`와 `max_tokens`를 agent config에만 쓰고 실제 request kwargs에는 넘기지 않아서, profile의 `max_tokens: 65536`이 client default인 16384로 요청되는 것을 고정된 client로 확인했습니다(`runner.py:212`). GUIDELINE item 7에 따라 profile의 `parameters` 전체를 실제 request까지 전달해야 할 것 같습니다.
+
 Removal:
 
 > 이 파일은 삭제해야 할 것 같습니다.
@@ -58,9 +63,9 @@ Follow-up reminder:
 ## Anti-examples
 
 - Outsourcing a check: `혹시 이 provider 이름이 고정된 값인지 확인 부탁드립니다.` A grep answers it (R6). Check, then either drop it or state the finding.
-- Rule decoration: `GUIDELINE P4에 따라 ...` when the problem and consequence already make the case (G2).
+- Rule decoration: a guideline number attached to a finding that no specific item covers, or a principle number used as a label for a plain bug (G2). When the code does violate an item, citing it is required, not decoration.
 - Restating what is right: `다른 config는 이미 갱신돼 있습니다. 다만 ...` (G3).
-- A bundle: one comment carrying many unrelated issues hides priority. Split by fix site, and hold the low-value ones.
+- A bundle: one comment carrying many unrelated issues hides priority. Split by fix site, and leave the low-value ones out of the recommended set.
 - An unbounded claim: `이 경로는 항상 실패합니다` when it fails only for one provider. Name the condition.
 - Speculation without a mechanism: `혹시 성능 문제가 있을 수도 있을 것 같습니다.` No trigger, no consequence, no comment.
 - Platform portability in a Linux-only repository (house rule W1).

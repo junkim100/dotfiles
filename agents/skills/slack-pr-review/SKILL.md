@@ -167,7 +167,7 @@ Ready:
 **PR review ready:** [<owner/repo#N>](<url>) <title>
 Requested by <name> in [<#channel or DM>](<permalink>) at <YYYY-MM-DD HH:MM KST>
 Reviewed head `<sha7>`. Verdict: <verdict>
-Findings: <h> High, <m> Medium, <n> Note, <t> Nit. Inline comment drafts: <c> recommended, <k> held
+Findings: <h> High, <m> Medium, <n> Note, <t> Nit. Inline comment drafts: <c> recommended, <k> not recommended
 Earlier comments: <r> resolved, <p> partly resolved, <u> unresolved   (only for a follow-up review)
 Report: `<REPORT_DIR>/report.md`
 ```

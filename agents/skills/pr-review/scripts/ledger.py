@@ -18,7 +18,7 @@ review.json (input to `save`, JSON on stdin or already in <dir>/review.json):
     ],
     "base": "main", "target_sha": "<sha>", "mode": "standard" | "blocking" | "all", "followup": false,
     "agent": "claude-code" | "codex", "model": "...", "started_at": "<ISO 8601 UTC>",
-    "gaps": ["..."]
+    "gaps": ["..."], "checklist": [{"item": "item 7", "result": "violation", "evidence": "path:line"}]
   }
 `save` adds saved_at and skill_version, keeps earlier feedback, and keeps each draft's first wording as first_body when a later save changes it.
 """

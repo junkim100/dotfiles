@@ -14,11 +14,11 @@ Sources point at the 2026-10-21 review study kept locally under `~/.local/state/
 - Limit: a validator or test that CI does not run, a failure that appears only after merging with the base, or a check that passes for the wrong reason is not visible; comment it.
 - Source: user feedback 2026-08 (W2 follow-up H1241); counterexample of a posted local-validator finding in W2 (S17).
 
-### G2. Cite rules and documents only when the rule is the argument
-- Scope: any repository. Phase: writing.
-- Rule: state the problem and its consequence in plain words. Name a guideline item or rule number only when the rule itself is what makes the code wrong (an unauthorized policy change, a documented contract the author must follow) and the comment would not be actionable without it. Never cite internal knowledge bases (a wiki, meeting notes) in a comment; cite code, pinned upstream permalinks, or the PR itself.
-- Limit: the report to the user still cites rules and wiki pages in full.
-- Source: user feedback 2026-08 and 2026-09 (W2 follow-ups H787, H855, H1088, S14-T9, S32-T47).
+### G2. Cite the guideline item when the code violates it
+- Scope: repositories with a review guideline. Phase: writing.
+- Rule: when a finding is a violation of a specific guideline item, name the item in the comment (`GUIDELINE item 7에 따라 ...`). The item is what lets the author act without debate. Do not attach item numbers to findings that no specific item covers, and never cite internal knowledge bases (a wiki, meeting notes) in a comment; cite code, pinned upstream permalinks, or the PR itself.
+- Limit: when the user settles a point outside the guideline for one PR (a team decision, an accepted exception) or asks for a comment without guideline references, follow that for that PR.
+- Source: user feedback 2026-10-22 ("the most important thing is following the repo guideline properly when reviewing"). In the W2 ledger most posted-unchanged drafts that reported a violation cited the item (S25-T10, S17-T39, S12-T34); citations were removed only where the item was not the point (S32-T47, H855, H1088, S14-T9). This replaces the earlier rule that cited items only "when the rule is the argument", which suppressed citations on real violations.
 
 ### G3. Tone and words
 - Scope: Korean comments. Phase: writing.

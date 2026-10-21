@@ -2,7 +2,7 @@
 name: pr-review
 description: >
   Perform a verification-first pull request review when the user asks to review a GitHub PR or provides a PR number or URL.
-  Materializes the exact head, maps the risky boundaries the change touches, applies review lenses that must produce evidence, adversarially verifies candidates, routes verified findings into post-ready inline comment drafts and held drafts by value, and records the review in a local ledger. Never posts.
+  Materializes the exact head, maps the risky boundaries the change touches, applies review lenses that must produce evidence, adversarially verifies candidates, follows the repository's own review guideline item by item, routes verified findings into post-ready inline comment drafts (and a short list of findings not recommended to post), and records the review in a local ledger. Never posts.
 argument-hint: "<PR number or URL> [mode=standard|blocking|all] [report-dir=<path>]"
 ---
 
@@ -10,16 +10,18 @@ argument-hint: "<PR number or URL> [mode=standard|blocking|all] [report-dir=<pat
 
 Reviews the requested change in Phases 0-6, then routes and drafts comments in Phase 7. Steps are normative. Follow them in order and take each branch literally.
 
-Workflow: **materialize head and context → map risky boundaries → apply lenses until each boundary has evidence → adversarially verify → sweep → CI and integration → report → route, draft, record**.
+Workflow: **materialize head and context → run the repository's review guideline item by item → map risky boundaries → apply lenses until each boundary has evidence → adversarially verify → sweep → CI and integration → report → route, draft, record**.
 
-Find for recall, report for precision, post for value. Those are three different bars. Discovery runs on a risk map whose boundaries are covered only by evidence, not by having opened a file. Verification decides what is true. The value gate in Phase 7 decides what is worth the author's attention, and it routes a true finding it does not recommend into `Held drafts` instead of deleting it, so the user can still promote it.
+The repository's own review guideline comes first. When a repository has one (for wbl-eval, `docs/GUIDELINE.md`), the review follows its procedure and walks its checklist item by item, prints the result as a checklist, and cites the item in every comment that reports a violation. The generic lenses below find what the guideline does not cover; they never replace it.
+
+Find for recall, report for precision, post for value. Those are three different bars. Discovery runs on a risk map whose boundaries are covered only by evidence, not by having opened a file. Verification decides what is true. The value gate in Phase 7 decides what is worth the author's attention, and it lists a true finding it does not recommend under `Not recommended to post` instead of deleting it, so the user can still promote it.
 
 This version was rebuilt from a study of the user's own review history. Reviews missed concerns a strong human reviewer caught: outputs never traced to their real readers, states that only fail in combination, config that never reached the key the code actually reads, and upstream runtime differences. They also drafted comments the user did not post: inherited or cosmetic issues, house rules the skill did not know, and wording the user had to rewrite. The risk map, the value gate, the house rules, and the writing guide each answer one of those.
 
 ## Arguments
 
 - PR number or URL (required). A URL also gives `owner/repo`; otherwise use the current repository.
-- `mode=standard` (default): recommend findings whose impact is `primary` or `edge` and that pass the value gate; hold `auxiliary` ones. `mode=blocking`: recommend only blocking findings and hold the rest. `mode=all`: recommend every finding that passes the value gate, auxiliary ones included.
+- `mode=standard` (default): recommend findings whose impact is `primary` or `edge` and that pass the value gate; list `auxiliary` ones as not recommended. `mode=blocking`: recommend only blocking findings and list the rest as not recommended. `mode=all`: recommend every finding that passes the value gate, auxiliary ones included.
 - The user can switch mode mid-session: "only merge blockers", "critical only, no nitpicks" → `blocking`; "no nits", "medium and above" → `standard`; "the less severe ones too", "everything" → `all`. A switch is a local decision for this PR, recorded in the ledger (R12), never a house rule. Re-route the existing findings when the mode changes; do not re-review.
 - `report-dir=<path>`: where the ledger record goes. A caller such as slack-pr-review passes its own report directory. Without it, `scripts/ledger.py dir` creates one.
 
@@ -42,9 +44,10 @@ This version was rebuilt from a study of the user's own review history. Reviews 
 - R7. A value that is dropped, defaulted, or rewritten between layers is a finding even when nothing crashes. Warnings, log lines, and comments do not neutralize it; they are how it hides.
 - R8. No silent caps. Whenever you bound the work (a boundary without evidence, a lens not run, candidates deferred, a changed file nobody opened, a probe that failed, a follow-up that reviewed only the fix diff), say so in the report. A review that quietly narrowed its scope reads to the user as full coverage.
 - R9. Keep reviewed code and shared environments unchanged. Do not edit project files, commit, push, or post. Run probes inside `WT` or a scratch directory with a scratch environment (`uv venv` under scratch, or `UV_PROJECT_ENVIRONMENT` pointing there). Never run project code with the user's own checkout or its `.venv`: imports can download models or data into shared environments and caches. Skip live, paid, or credentialed tests (`-k "not smoke"`, and deselect integration tests that start real evaluations).
-- R10. Every completed review ends with `Inline comment drafts` (recommended to post) followed by `Held drafts` (true findings below the bar, with the reason each is held; their post-ready bodies live in the ledger record). Print `No inline comments recommended.` under the first heading when it is empty and `None.` under the second. Never silently drop a verified finding.
+- R10. Every completed review ends with `Inline comment drafts` (recommended to post); print `No inline comments recommended.` under it when it is empty. Verified findings that did not pass the value gate follow under `Not recommended to post`, one line each with the reason; leave that heading out entirely when there are none. Never silently drop a verified finding.
 - R11. Apply the house rules (`references/house-rules.md`) only within their stated scope. A decision the user makes about one PR (accepting an exception, asking for blocking-only comments, calling a gap not severe) is local to that PR: record it in the ledger, and never generalize it.
 - R12. Record every completed review with `scripts/ledger.py` (Phase 7.6), and record the user's later corrections in the same record (Session feedback).
+- R13. Follow the repository's review guideline before anything generic. Read it in full, follow its review procedure in its order, run the Verify step of every checklist item that applies to this PR, and run the checks it marks as review-only or not machine-enforced. Print the result as the Guideline checklist (Phase 6). A violation of a guideline item is a finding that cites the item; a clean lint or green CI never waives an item the guideline says the lint does not check.
 
 ## Review records
 
@@ -61,6 +64,7 @@ BRIEF = {                       # built in Phases 0-1, shared by every pass
   convention_drift: str[],      # rules this PR adds or changes, and rules that landed on the
                                 # base after merge_base that the merged code must satisfy
   house_rules: str[],           # ids from references/house-rules.md whose scope matches
+  checklist: CHECK[],           # Phase 1.4: every applicable guideline item and its result
   context: str[],               # linked PRs, decisions, requester notes; each is a claim
   threads: THREAD[],            # everything already said on the PR
   prior_records: str[],         # ledger directories of earlier reviews of this PR
@@ -69,16 +73,20 @@ BRIEF = {                       # built in Phases 0-1, shared by every pass
   followup: bool
 }
 
+CHECK = { item: str,           # the guideline's own id: "item 7", "25c", "P9"
+          result: "pass" | "violation" | "n/a" | "not-checked",
+          evidence: str }        # path:line, command output, or why it does not apply / could not run
+
 THREAD = { author, kind: "inline" | "review" | "issue", commit, file, line, gist,
            state: "open" | "resolved" | "outdated", author_reply: str | null }
 
-RISK = {                        # one changed boundary from the Phase 1.4 risk map
+RISK = {                        # one changed boundary from the Phase 1.5 risk map
   id: str,                      # "B1", "B2", ...
   kind: "consumer" | "state" | "config" | "consequence" | "variant"
-      | "upstream" | "contract" | "test" | "policy" | "scope",
+      | "upstream" | "secrets" | "contract" | "test" | "policy" | "scope",
   where: str,                   # file:line@HEAD
   why: str,                     # what goes wrong for whom if this boundary is wrong
-  evidence_required: str,       # from the Phase 1.4 table
+  evidence_required: str,       # from the Phase 1.5 table
   evidence: str | null,         # what was actually produced; null means not covered (R8)
   lens: str
 }
@@ -128,9 +136,9 @@ FINDING = {
 }
 
 DRAFT = {
-  id: str,                      # "D1", "D2", ...
+  id: str,                      # internal id for the ledger only; never printed
   finding: int,
-  channel: "post" | "held",     # findings that fail the truth gate get no draft (Phase 7.1)
+  channel: "post" | "held",     # held = printed under Not recommended to post; findings that fail the truth gate get no draft (Phase 7.1)
   held_reason: str | null,      # one code from Phase 7.2 when channel is held
   kind: "defect" | "question",  # question = intent or policy, asked after the facts are verified
   blocking: bool,
@@ -151,7 +159,7 @@ Severity says how bad the outcome is:
 
 Impact says whose work it touches, and it is what the user's posting decisions follow most closely:
 
-- `primary`: changes what the evaluation reports, or whether it runs, in a configuration people actually use (the default or documented path, official specs, and any provider, model, or option that a profile or spec in the repository selects); breaks shared infrastructure, other benchmarks, other users' resources, or the repository's own CI and build checks; leaks credentials or data; or loses completed work.
+- `primary`: changes what the evaluation reports, or whether it runs, in a configuration people actually use (the default or documented path, official specs, and any provider, model, or option that a profile or spec in the repository selects); breaks shared infrastructure, other benchmarks, other users' resources, or the repository's own CI and build checks; leaks credentials or data; or loses completed work. A guideline violation whose purpose is the reported number (a generation parameter dropped or overridden, a score invented for missing input, a wrong denominator) is primary when a checked-in spec or profile hits it.
 - `edge`: wrong results or failures only under a specific reachable condition that no checked-in configuration selects yet (an unused provider path, a partial failure, resume, an optional flag); misleading recorded metadata or diagnostics; a violated rule of the repository's contract; user-facing docs or help that would make a reader do or conclude something wrong; a test the PR adds or relies on that cannot fail for its bug, or whose branch never runs in CI; anything that breaks the shared developer workflow (lint, build, test collection).
 - `auxiliary`: defects in optional developer tooling around the change that neither the evaluation, its results, nor CI depend on (generators, preflight or checker scripts, patch tooling, helpers of a single test), stale wording with no wrong action behind it, and other polish.
 
@@ -162,7 +170,7 @@ A finding is **blocking** when its impact is `primary` and its trigger is not `u
 ## PHASE 0: TARGET, HEAD, AND CONTEXT
 
 1. Parse the arguments. Without a PR, stop and ask for one.
-2. `META ← gh pr view <PR> --repo <owner/repo> --json title,body,author,state,isDraft,url,headRefName,headRefOid,baseRefName,baseRefOid,additions,deletions,changedFiles,mergeable,mergeStateStatus,commits`. `HEAD ← META.headRefOid`. `FILES ← gh pr diff <PR> --name-only`. `DIFF ← gh pr diff <PR>`.
+2. `META ← gh pr view <PR> --repo <owner/repo> --json title,body,author,state,isDraft,url,headRefName,headRefOid,baseRefName,baseRefOid,additions,deletions,changedFiles,mergeable,mergeStateStatus,commits`. `HEAD ← META.headRefOid`. `DIFF ← gh pr diff <PR>`. After step 7, `FILES ← git -C "$WT" diff --name-status <merge_base> HEAD`, which is the authoritative list: `gh pr view --json files` stops at 100 files and the diff API refuses very large diffs.
 3. `COMMITS ← META.commits` (oid[:9] + headline). `churn_suspected ← len(COMMITS) > 4` or any headline matches `/merge|revert|remove|되돌|제거|원복/`.
 4. TARGET. Fetch the head and the base branch. `target_sha ← git rev-parse origin/<baseRefName>`, `merge_base ← git merge-base HEAD target_sha`. When the base is not the repository's default branch, the PR is stacked: `gh pr list --repo <owner/repo> --head <baseRefName> --json number,title,state` names the parent, which goes in `context`. The net diff is `merge_base..HEAD`.
 5. HOUSE RULES. Read `references/house-rules.md` and keep the ids whose scope matches this repository and these paths.
@@ -179,12 +187,13 @@ A finding is **blocking** when its impact is `primary` and its trigger is not `u
 - zsh gotcha: `git show "$SHA:eval/x.py"` applies the `:e` history modifier and mangles the path. Write `git show "${SHA}:eval/x.py"`.
 - Say in the report that the review ran degraded and which lenses that cost (L6 and L8 need real files on disk).
 
-## PHASE 1: BRIEF, SCOPE, RISK MAP, LENSES
+## PHASE 1: BRIEF, SCOPE, GUIDELINE CHECKLIST, RISK MAP, LENSES
 
 1. Read the diff once, end to end. Note what each file is for and which layers the change crosses.
 2. `body_claims` ← the PR body decomposed into individually checkable assertions ("vendored at pin X", "params are forwarded", "matches the sibling benchmark", "validated on N tasks"). A claim no lens lands on is a gap you own.
-3. SCOPE. For every changed file, state why this PR needs it, from the body, the linked context, or the diff. Candidates of type `scope`: shared policy or docs edited by a feature PR (guidelines, top-level READMEs, contribution rules) when the PR's purpose is not that policy; stray files (notes, runbooks, credentials, scratch scripts, generated outputs, logs); unexplained edits to unrelated tests or fixtures. When the purpose cannot be found anywhere, the comment asks why or asks to remove or split.
-4. RISK MAP. List the boundaries this change creates or changes, plus unchanged code whose consequence it changes, where a mistake would change a score or metric, record wrong metadata, lose or leak data or credentials, break or silently shorten a run, waste paid resources, or mislead a reader of results. Pure refactors with proven equivalence and docs-only changes get a short map. For each boundary record a `RISK` with the evidence this table requires:
+3. SCOPE. For every changed file, state why this PR needs it, from the body, the linked context, or the diff. Candidates of type `scope`: shared policy or docs edited by a feature PR (guidelines, top-level READMEs, contribution rules) when the PR's purpose is not that policy; stray files (notes, runbooks, credentials, scratch scripts, generated outputs, logs); unexplained edits to unrelated tests or fixtures. When the purpose cannot be found anywhere, the comment asks why or asks to remove or split. When the repository's guideline puts a scope check first (wbl-eval item 0), this step is that check, run on the complete file list before any implementation detail.
+4. GUIDELINE CHECKLIST (R13). From the guideline and the repo hook, list every checklist item that applies to this PR's type and paths, and the guideline's own review-only checks. For each, run its Verify step as the guideline words it, on every execution path the change adds or touches (host Docker and sandbox, local data and a mirrored dataset, API and self-hosted serving, single and multi node), and record a `CHECK`; an item that holds on one path and fails on another is a violation, not a pass: `pass` with evidence, `violation` (a candidate for L5 that names the item), `n/a` with the reason, or `not-checked` with what blocked it (R8). Also check that the PR body states the proofs the guideline asks authors to state. This step is not optional and not satisfied by "read the guideline in full"; the checklist is the evidence that the guideline was followed.
+5. RISK MAP. List the boundaries this change creates or changes, plus unchanged code whose consequence it changes, where a mistake would change a score or metric, record wrong metadata, lose or leak data or credentials, break or silently shorten a run, waste paid resources, or mislead a reader of results. Pure refactors with proven equivalence and docs-only changes get a short map. For each boundary record a `RISK` with the evidence this table requires (the risk map comes after the guideline checklist and covers what the checklist does not):
 
 | kind | look for | evidence required before the boundary counts as covered |
 |---|---|---|
@@ -193,20 +202,21 @@ A finding is **blocking** when its impact is `primary` and its trigger is not `u
 | config | a knob from a config file, profile, CLI flag, or env var | the chain to the native consumer key (the key the SDK, harness, or child process actually reads), including unset and explicit null; recorded metadata equals the effective value |
 | consequence | unchanged code whose purpose or failure consequence the diff changes | the old role of that code versus its new role: a guard whose only user was removed, a step that became pure cost, an exception that now escapes a narrower handler |
 | variant | a call through an interface with several implementations | every implementation enumerated by grep (subclasses, registrations, provider maps), never one guessed file; representative real inputs (dataset rows, upstream fixtures), not only synthetic ones |
-| upstream | a port or wrapper of upstream code, a vendored tree, an external service | byte fidelity (L6) and execution policy: entrypoint, denominator, failure and retry policy, timezone, network and tool availability, dependency state |
+| upstream | a port or wrapper of upstream code, a vendored tree, an external service | byte fidelity (L6) and execution policy: entrypoint, denominator, failure and retry policy, timezone, network and tool availability, dependency state; and, whenever the diff maps an external field, metric, status, or usage counter onto its own name, the upstream definition of that value: what it counts (which memory pools, whether reasoning tokens are included) and when it updates (every token or only when a request finishes) |
+| secrets | credentials, tokens, keys, or env vars that the change reads, copies, mounts, forwards, logs, or redacts | every place each credential can end up (files inside a sandbox or container the evaluated agent can read, logs, traces, artifacts, uploaded results), limited to what the task needs; redaction tested on realistic payloads (JSON with booleans and nested strings, not only the secret itself), because a pattern applied to serialized text can break the output or miss the value |
 | contract | a new public contract: error type, parameter name, tags or attribution, retry behavior, result shape | how sibling modules implement the same contract, quoted |
 | test | a test the PR adds or changes, or one cited as coverage | whether the branch under test actually runs where CI runs it (a stub that makes an import fail, a skip marker, a path filter); whether its assertions could fail for the bug (an always-true check, a fixture that never reaches the code); fixture shape versus real data |
 | policy | a rule, threshold, or documented exception the code relies on or enforces | where the rule comes from: older than this PR, or added by this PR, its stack, or `convention_drift`; if new, whether it is authorized (a linked decision or owner) and consistent with the rest of the contract; when the code enforces a rule, whether its definitions (which paths, cases, or names count) match every place the contract defines the same concept |
 | scope | from step 3 | the purpose of each changed file |
 
-5. SELECT LENSES by the risk map and the diff:
-   - always: L1 (references and consumers), L3 (invariants and units), L4 (failure and state).
+6. SELECT LENSES by the risk map and the diff:
+   - always: L1 (references and consumers), L3 (invariants and units), L4 (failure, state, and secrets).
    - L2 (argument flow) for any config boundary, and whenever the change touches a wrapper, runner, registry or config spec, job launcher, or anything carrying a value from config toward a process or request. It is the highest-yield lens; run it whenever it plausibly applies.
    - L5 (contract conformance and provenance) when `conventions` or `convention_drift` is non-empty, or any policy boundary exists.
    - L6 (vendored and upstream fidelity) for upstream boundaries and any added or touched vendor tree, dataset, image, endpoint, or pin.
    - L7 (churn and siblings) for every contract boundary, when `churn_suspected`, or when the change mirrors an existing sibling.
    - L8 (execution proof) when the diff contains logic that runs without a cluster, GPU, or paid API (aggregation, limits and sampling, resume filters, parsing, scoring, path building, state machines), and for every state boundary.
-6. Print the risk map (one line per boundary: id, kind, where, why), the selected lenses, and the lenses skipped with the reason (R8). Then run Phase 2.
+7. Print the risk map (one line per boundary: id, kind, where, why), the selected lenses, and the lenses skipped with the reason (R8). Then run Phase 2.
 
 ## PHASE 2: APPLY LENSES
 
@@ -266,12 +276,14 @@ For new or changed error handling, retries, cleanup, concurrency, external calls
 - Recovery usefulness: does the retry budget cover the exceptions that actually occur (provider errors, not only schema errors)? Multiply inner and outer concurrency. Is a 100% gate plus a common recoverable failure a total-loss mode?
 - How errors are scored, and whether an all-failed or zero-coverage run is valid, is repository policy. Read it in the contract (for wbl-eval, `references/wbl-eval.md`); never assume a scoring rule.
 - Unbounded concurrency or a missing timeout on an external call → `Medium`, `robustness`.
+- Secrets (the secrets boundary): a credential copied, mounted, or forwarded beyond what the task needs, or readable by the evaluated agent → `High`. Redaction that rewrites serialized text by pattern instead of replacing known secret values or parsed fields → probe it with a realistic payload; corrupted output or a leaked value → `High`.
 
 ### L5: Contract conformance and provenance
 
 You have the repository's rules in `conventions`, quoted with their ids, and the drift in `convention_drift`. Walk the diff against them item by item.
 
 - Flag only a violation you can pin to an exact rule and an exact line. Quote both. No style preferences, no "spirit of the doc" inferences.
+- Start from the Phase 1.4 checklist: every `violation` there is a candidate here, anchored at the violating line, with the item quoted.
 - The rule that binds is the one at `target_sha`. A rule that landed on the base after `merge_base` (a new result field, an error-handling rule, a documentation requirement) and that the PR has not adopted is a finding of type `integration` when merging would violate it.
 - Provenance: a rule this PR, its stack, or `convention_drift` adds or changes cannot by itself clear the code that follows it. Check that the rule is authorized (a linked decision, an owner, a record in the migration log) and consistent with the rest of the contract. A documented case-specific exception can be legitimate. Raise a `policy` question only when the authority is missing or the rule contradicts another rule; a PR that generalizes a one-off exception into global policy is the common case.
 - If the diff follows an older, established rule that someone might think it breaks, put that in `cleared` so a later phase does not re-raise it.
@@ -361,20 +373,21 @@ Pure logic can be exercised without the cluster, the GPUs, or a paid API. Do tha
 
 Print, in this order:
 
-1. Verdict, one line: mergeable or not, and what blocks it. Then one line of counts: drafts recommended (blocking / non-blocking / questions) and drafts held.
-2. What ran: the risk map with each boundary's evidence status, the lenses applied, the verify count (n candidates → n confirmed / n plausible / n refuted), and the sweep result.
-3. Findings table: severity | impact | blocking | introduced | file:line@HEAD | problem | consequence | verdict | channel (post, held, or report-only).
-4. Verified clean: the pooled `cleared` lines, especially L6 probes, L8 executions with their inputs, and executed refutations. This is what justifies not commenting there.
-5. Gaps (R8): boundaries without evidence and the missing input, lenses skipped, candidates deferred, files nobody opened, body claims nobody landed on, blocked probes, and degraded mode.
-6. CI, integration, and mergeability (`mergeable`, `mergeStateStatus`).
-7. Follow-up status, in follow-up mode: each earlier thread as resolved, partly resolved, or unresolved, with evidence.
+1. Verdict, one line: mergeable or not, and what blocks it. Then one line of counts: drafts recommended (blocking / non-blocking / questions) and findings not recommended to post.
+2. Guideline checklist, when the repository has a review guideline (R13): one row per applicable item, `item | result | evidence`, violations and not-checked items first, then passes, then a single line naming the items that do not apply and why. Start with the reading record ("read docs/GUIDELINE.md in full at <sha>") and the scope check. This table is how the user sees that the guideline was followed; do not replace it with a sentence saying it was.
+3. What ran: the risk map with each boundary's evidence status, the lenses applied, the verify count (n candidates → n confirmed / n plausible / n refuted), and the sweep result.
+4. Findings table: severity | impact | blocking | introduced | file:line@HEAD | problem | consequence | guideline item (or -) | verdict | channel (post, not recommended, or report-only).
+5. Verified clean: the pooled `cleared` lines, especially L6 probes, L8 executions with their inputs, and executed refutations. This is what justifies not commenting there.
+6. Gaps (R8): boundaries without evidence and the missing input, lenses skipped, candidates deferred, files nobody opened, body claims nobody landed on, blocked probes, and degraded mode.
+7. CI, integration, and mergeability (`mergeable`, `mergeStateStatus`).
+8. Follow-up status, in follow-up mode: each earlier thread as resolved, partly resolved, or unresolved, with evidence.
 
 Then proceed to Phase 7. Do not ask first and do not end the response before Phase 7.
 
 ## PHASE 7: ROUTE, DRAFT, RECORD
 
 1. TRUTH GATE. A finding can become a draft only when its verdict is CONFIRMED, PLAUSIBLE with method `executed`, or PLAUSIBLE with method `read` where the mechanism is proven and only the trigger is uncertain. Other findings stay in the report as `report-only` with no draft. So does a finding that could only be settled by a fact you could not check (an organization-private resource, a remote API contract you cannot call): name the missing check to the user instead of asking the author to verify it (R6).
-2. VALUE GATE. Route each draft-eligible finding to `post` unless one of these holds, in which case route it to `held` with that code as `held_reason`:
+2. VALUE GATE. Route each draft-eligible finding to `post` unless one of these holds, in which case it is not recommended: its channel is `held` in the record, with that code as `held_reason`, and it prints under `Not recommended to post`:
    - `unreachable-in-practice`: its trigger is `unreachable-in-practice` and it is not High.
    - `inherited`: `introduced` is `inherited`, it is not High, and it lies outside the code the PR adds or edits. An inherited defect inside a function, test, or block the PR edits is posted as non-blocking: the author is already there and the fix is cheap. Say so in the comment.
    - `cosmetic`: naming, wording, formatting, or dead-but-harmless code with no effect on behavior and no wrong action or conclusion for a reader. Not cosmetic: a violation of an explicit rule in the repository's contract (a required name, prefix, or field), docs or help text that would make a reader do or conclude something wrong, and a test that cannot fail for its bug.
@@ -387,13 +400,13 @@ Then proceed to Phase 7. Do not ask first and do not end the response before Pha
    - `mode`: `mode=blocking` and the finding is not blocking; or the user selected drafts by the labels you showed them ("medium only") and this one is outside the selection. The label the user saw wins over a re-derived one.
    When several codes apply, record the first that holds in this order: `house-rule`, `accepted`, `ci-visible`, `duplicate`, `mode`, then the rest.
    Split a compound finding before routing: each claim becomes its own finding with its own verdict, so a draft never bundles a verifiable claim with one you could not check.
-   One comment per fix site, where a fix site is one edit or one shared cause. When the same mechanical issue repeats inside one file or one fix (the same rename at four adjacent lines), draft one comment at the first site and list the others; when independent sites need separate edits in different files, keep separate short comments. A user request that names a held draft, or an unambiguous set of them, promotes it to `post`; a generic request to draft comments uses the current routing.
-3. Re-anchor each draft against `WT`. If the PR moved during the review, rerun Phase 0.7 and re-anchor.
-4. COMPOSE each body following `references/writing.md` (and the private examples file when it exists) and the writing house rules. The short version: mechanism with `path:line`, then the trigger and consequence, then the fix or the question; usually 2 to 3 sentences, longer only when the evidence needs it; Korean `~해야 할 것 같습니다` style with English technical terms; questions only for intent or policy and only after the facts are verified; no rule numbers unless the rule is the argument. Write `why` for every draft: one plain-English line for the user stating the consequence.
-5. PRINT:
-   - Heading `Inline comment drafts`. Drafts with channel `post`, blocking ones first, then by severity. Each as `file · Line N · [blocking|non-blocking][, question]`, the `why` line, then the body in its own block. If empty, `No inline comments recommended.`
-   - Heading `Held drafts`. One line each: `file · Line N · held: <held_reason>`, then the `why` line. Held drafts cost the user reading time, so their bodies are not printed in the terminal; print a body when the user asks for it ("show D7", "post the held ones"). When the output is a report file that the user reads later (for example a delegated reviewer's report.md), append the held bodies at the end of the file under the same ids. If empty, `None.`
-6. RECORD. Save the review to the ledger: write the review JSON (schema in `ledger.py --help`: repo, PR, head, base, target SHA, mode, agent, start time, verdict, gaps, and every draft with its channel, held reason, kind, blocking flag, severity, `why`, and mechanism) to a scratch file and pipe it in: `python3 <this skill's directory>/scripts/ledger.py save <dir> < <file>`. `<dir>` is `report-dir` when given, otherwise the output of `ledger.py dir --repo <owner/repo> --pr <N> --head <HEAD>`. Re-save through stdin after every revision in the session so the ledger keeps each draft's first wording. Print the record path. A failed save is reported, not hidden.
+   One comment per fix site, where a fix site is one edit or one shared cause. When the same mechanical issue repeats inside one file or one fix (the same rename at four adjacent lines), draft one comment at the first site and list the others; when independent sites need separate edits in different files, keep separate short comments. A user request that names a not-recommended finding, or an unambiguous set of them, promotes it to `post`; a generic request to draft comments uses the current routing. A guideline violation is never `cosmetic` and never `low-priority`.
+3. Re-anchor each draft against `WT`, and re-check every `path:line` the body cites, not only the anchor. Anchor the comment at the line that has to change. If the PR moved during the review, rerun Phase 0.7 and re-anchor.
+4. COMPOSE each body following `references/writing.md` (and the private examples file when it exists) and the writing house rules. The short version: mechanism with `path:line`, then the trigger and consequence, then the fix or the question; usually 2 to 3 sentences, longer only when the evidence needs it; Korean `~해야 할 것 같습니다` style with English technical terms; questions only for intent or policy and only after the facts are verified; when the finding violates a guideline item, name the item (`GUIDELINE item 7에 따라 ...`), and do not attach item numbers to findings that no specific item covers. Write `why` for every draft: one plain-English line for the user stating the consequence.
+5. PRINT. Drafts carry no numbers or ids in the output; ids exist only in the ledger record.
+   - Heading `Inline comment drafts`. Drafts with channel `post`, blocking ones first, then by severity. Each starts with a header line in exactly this form: `<repo-relative path> · Line <N> · blocking` (or `non-blocking`, and `· question` for an intent question), using the path from the repository root, never a scratch, checkout, or absolute path, and never only a line number. Then the `why` line, then the body in its own quote block. If there are none, print `No inline comments recommended.`
+   - Heading `Not recommended to post`, only when such findings exist. One line each: `<repo-relative path> · Line <N> · <reason>: <why>`, where the reason is the `held_reason` in plain words (inherited, auxiliary tooling, already raised, outside the requested mode, ...). Their bodies are not printed in the terminal, because they cost the user reading time; print one when the user asks for it by file or topic, or asks to post them. When the output is a report file the user reads later (for example a delegated reviewer's report.md), append those bodies at the end of the file under the same headers.
+6. RECORD. Save the review to the ledger: write the review JSON (schema in `ledger.py --help`: repo, PR, head, base, target SHA, mode, agent, start time, verdict, gaps, the guideline checklist, and every draft with its channel, held reason, kind, blocking flag, severity, `why`, and mechanism) to a scratch file and pipe it in: `python3 <this skill's directory>/scripts/ledger.py save <dir> < <file>`. `<dir>` is `report-dir` when given, otherwise the output of `ledger.py dir --repo <owner/repo> --pr <N> --head <HEAD>`. Re-save through stdin after every revision in the session so the ledger keeps each draft's first wording. Print the record path. A failed save is reported, not hidden.
 7. Do not call gh to post. Clean up with `git worktree remove --force "$WT"` (or delete the scratch clone) only when the user has what they need; if follow-ups are likely, keep it and say where it is.
 
 ## Follow-up mode
@@ -403,7 +416,7 @@ Applies when `followup` is true: the user reviewed this PR before, a prior recor
 1. For each earlier thread by `GH_LOGIN`, and each open thread by anyone, decide at HEAD whether it is resolved, partly resolved, or unresolved, with evidence. The author's "fixed" is a claim (R2).
 2. Review the fix as new code. Diff the previously reviewed head (from the prior record or the thread's commit) to HEAD and run the risk map on that diff: a fix can be overstrict, move the bug, or break a sibling path.
 3. Scale to the change. When the new commits are a small fix, review the fix diff and its consequences rather than the whole PR again, and say so (R8). Re-run the full review only when the new commits change behavior broadly.
-4. Do not re-raise what the user accepted or declined: prior records' feedback, the user's own replies in threads, and earlier recommended drafts the user chose not to post (run `ledger.py outcomes --repo <owner/repo> --pr <N>` first; a finding whose earlier draft is marked `not_posted` is held with `accepted` unless new evidence makes it more severe). Do not repeat resolved items.
+4. Do not re-raise what the user accepted or declined: prior records' feedback, the user's own replies in threads, and earlier recommended drafts the user chose not to post (run `ledger.py outcomes --repo <owner/repo> --pr <N>` first; a finding whose earlier draft is marked `not_posted` goes under Not recommended to post with reason `accepted` unless new evidence makes it more severe). Do not repeat resolved items.
 5. Refresh every pending finding at the new HEAD before drafting it again; a finding fixed in the meantime is dropped with its evidence.
 6. Unresolved items from earlier rounds get one short reminder draft without bullets, naming each `file:line` (house rules).
 
@@ -428,7 +441,7 @@ When the user reacts to the drafts in the same session:
 - N1. If the primary working tree shows different content than `WT`, trust `WT` (R1) and say so.
 - N2. The user lands out-of-band fixes on related PRs without mentioning them. If a premise looks already fixed, re-check git and PR state before reporting it as broken.
 - N3. Distinguish "looks like a bug" from "dead, overwritten, or intended". That is what Phase 3 is for; do not pre-empt it during discovery by suppressing the candidate.
-- N4. The author's attention is the scarce resource, and so is the user's. A strong review usually has a few comments, each with a verified mechanism, a concrete consequence, and a clear ask. Inspect broadly; let the value gate keep the recommended set focused, and let `Held drafts` carry the rest.
+- N4. The author's attention is the scarce resource, and so is the user's. A strong review usually has a few comments, each with a verified mechanism, a concrete consequence, and a clear ask. Inspect broadly; let the value gate keep the recommended set focused, and let `Not recommended to post` carry the rest.
 - N5. When the user asks a follow-up ("does anything override X?", "is Y normal?", "did I miss anything?"), treat it as a missing lens, not a one-off answer: trace it against `WT` and fold the result back into findings and drafts.
 - N6. When several lenses find distinct evidence for the same problem, keep all of it and judge severity by the concrete impact.
 - N7. A lens with no candidates is a valid result. Its `cleared` list is what lets the report say an area was checked; empty `cleared` and empty `blocked` together mean nothing was recorded.
