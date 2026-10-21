@@ -1,0 +1,4 @@
+interface:
+  display_name: "Eval Weekly"
+  short_description: "Write eval weeklies from sessions, PRs, and Slack"
+  default_prompt: "Use $eval-weekly to write my eval weekly for the requested dates in the linked Notion meeting page, using local sessions, worktrees, Slack, GitHub, and my previous entries."
