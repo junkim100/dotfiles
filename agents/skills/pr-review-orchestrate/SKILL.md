@@ -27,7 +27,7 @@ With one reviewer there is no merge: review ─▶ audit.
 - `harness` is `claude` (Claude Code) or `codex` (Codex); `model` and `effort` are passed through as the orchestration method expects them.
 - The user may say it in words instead ("two Codex reviewers on gpt-6-astra, Claude Code merges"); map that onto these fields and print the result in the plan.
 
-Choosing the number of reviewers: two (or more) for a large or risky PR, about 20+ changed files or 1000+ changed lines, or any change to a shared harness, provider, runtime, or launcher; one for a small PR. Different model families find different issues, so mix harnesses when two reviewers are used.
+Choosing the number of reviewers: two (or more) for a large or risky PR, about 20+ changed files or 1000+ changed lines, or any change to a shared harness, provider, runtime, or launcher; one for a small PR. Different model families find different issues, so mix harnesses when two reviewers are used. In the blind comparison behind these defaults, the Claude Code reviews were short and precise and caught environment-level breaks by building the affected installs, while the Codex reviews covered more ground, mostly whether profile settings reach the request, with more low-value drafts; the two found almost disjoint sets of blockers. That is also why the default merger keeps the recommended set focused and the default auditor comes from the other family.
 
 ## Rules
 
