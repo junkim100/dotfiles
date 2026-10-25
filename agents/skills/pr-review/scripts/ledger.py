@@ -53,6 +53,7 @@ HELD_REASONS = {
     "house-rule",
     "accepted",
     "not-actionable",
+    "fixed-on-target",
 }
 FEEDBACK_ACTIONS = {"edit", "drop", "accept", "missed", "wrong", "rule"}
 # Share of a draft's characters found in one post. Calibrated on the 141 drafts of the 2026-10-21 study:
