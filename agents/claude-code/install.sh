@@ -81,11 +81,15 @@ if $remove_legacy_instructions; then
   run rm -- "$legacy_instructions"
 fi
 
-step "Shared skills and aliases"
+step "Shared skills"
 for skill in "$DOTFILES_DIR"/agents/skills/*/; do
   link_file "${skill%/}" "$HOME/.claude/skills/$(basename "$skill")"
 done
-link_file "$DOTFILES_DIR/agents/skills/pr-review" "$HOME/.claude/skills/pr"
+# The old `pr` alias duplicated pr-review; remove it when it still points at the shared skill.
+retired_alias="$HOME/.claude/skills/pr"
+if [[ -L $retired_alias && $(readlink "$retired_alias") == "$DOTFILES_DIR/agents/skills/pr-review" ]]; then
+  run rm -- "$retired_alias"
+fi
 
 info "Run agents/install.sh for the shared plugin catalog, or agents/plugins/install.sh when both CLIs are installed."
 finish

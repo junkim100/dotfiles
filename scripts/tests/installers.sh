@@ -216,7 +216,7 @@ CLAUDE
       || { cat "$TEMP_DIR/claude.log"; fail "Claude integration rerun failed"; }
   done
   [[ ! -e $claude_home/claude-mutations && ! -e $claude_home/downloads ]] || fail "Claude installer reinstalled existing tools or plugins"
-  [[ $(readlink "$claude_home/.claude/skills/pr") == "$DOTFILES_DIR/agents/skills/pr-review" ]] || fail "Claude skill alias is incorrect"
+  [[ ! -e $claude_home/.claude/skills/pr && ! -L $claude_home/.claude/skills/pr ]] || fail "Claude installer still links the retired pr alias"
 
   # Exercise the combined installer against dangling links left by a git pull.
   combined_home="$TEMP_DIR/combined-home"
@@ -227,6 +227,7 @@ CLAUDE
   printf 'shared local skill\n' > "$combined_home/.agents/skills/local-skill/SKILL.md"
   ln -s "$DOTFILES_DIR/claude-code/CLAUDE.md" "$combined_home/.claude/CLAUDE.md"
   ln -s "$DOTFILES_DIR/claude-code/settings.json" "$combined_home/.claude/settings.json"
+  ln -s "$DOTFILES_DIR/agents/skills/pr-review" "$combined_home/.claude/skills/pr"
   HOME="$combined_home" CODEX_HOME="$custom_codex_home" PATH="$claude_bin:$agent_bin" \
     bash "$DOTFILES_DIR/agents/install.sh" --dry-run > "$TEMP_DIR/combined.log" 2>&1 \
     || { cat "$TEMP_DIR/combined.log"; fail "combined migration preview failed"; }
@@ -260,7 +261,7 @@ CLAUDE
       [[ $(readlink "$combined_home/$destination/skills/$(basename "$skill")") == "${skill%/}" ]] || fail "combined installer did not link $skill into $destination"
     done
   done
-  [[ $(readlink "$combined_home/.claude/skills/pr") == "$DOTFILES_DIR/agents/skills/pr-review" ]] || fail "Claude pr alias lost its canonical target"
+  [[ ! -e $combined_home/.claude/skills/pr && ! -L $combined_home/.claude/skills/pr ]] || fail "combined installer kept the retired pr alias"
 
   unmanaged_home="$TEMP_DIR/unmanaged-instructions"
   mkdir -p "$unmanaged_home/.claude"
