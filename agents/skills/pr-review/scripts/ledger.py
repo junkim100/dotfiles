@@ -19,7 +19,7 @@ review.json (input to `save`, JSON on stdin or already in <dir>/review.json):
        "asks": ["one change or decision"] (optional; a post draft may list only one)}
     ],
     "report_only": [{"mechanism": "kebab-slug", "items": ["10b"]}] (verified findings with no draft; optional),
-    "base": "main", "target_sha": "<sha>", "mode": "standard" | "blocking" | "all", "followup": false,
+    "base": "main", "target_sha": "<sha>", "followup": false,
     "agent": "claude-code" | "codex", "model": "...", "started_at": "<ISO 8601 UTC>",
     "gaps": ["..."], "checklist": [{"item": "item 7", "result": "violation", "evidence": "path:line"}]
   }
@@ -53,7 +53,6 @@ HELD_REASONS = {
     "house-rule",
     "accepted",
     "not-actionable",
-    "mode",
 }
 FEEDBACK_ACTIONS = {"edit", "drop", "accept", "missed", "wrong", "rule"}
 # Share of a draft's characters found in one post. Calibrated on the 141 drafts of the 2026-10-21 study:

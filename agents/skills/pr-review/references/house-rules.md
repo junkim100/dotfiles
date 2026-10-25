@@ -14,11 +14,11 @@ Sources point at the 2026-10-21 review study kept locally under `~/.local/state/
 - Limit: a validator or test that CI does not run, a failure that appears only after merging with the base, or a check that passes for the wrong reason is not visible; comment it.
 - Source: user feedback 2026-08 (W2 follow-up H1241); counterexample of a posted local-validator finding in W2 (S17).
 
-### G2. Cite the guideline item when the code violates it
+### G2. State the guideline rule in words, not its number
 - Scope: repositories with a review guideline. Phase: writing.
-- Rule: when a finding is a violation of a specific guideline item, name the item in the comment (`GUIDELINE item 7에 따라 ...`). The item is what lets the author act without debate. Do not attach item numbers to findings that no specific item covers, and never cite internal knowledge bases (a wiki, meeting notes) in a comment; cite code, pinned upstream permalinks, or the PR itself.
+- Rule: when a finding violates the guideline, the comment says what the guideline requires and what the code does instead, in words: `내부 가이드라인에서는 profile의 parameters를 전부 실제 request까지 전달하도록 되어 있는데, 여기서는 ...`. Never write item numbers (`item 7`, `P9`, `25c`) in a comment; they stay in the report and the checklist table, which are for the user. Do not invoke the guideline for a finding no rule covers, and never cite internal knowledge bases (a wiki, meeting notes) in a comment; cite code, pinned upstream permalinks, or the PR itself.
 - Limit: when the user settles a point outside the guideline for one PR (a team decision, an accepted exception) or asks for a comment without guideline references, follow that for that PR.
-- Source: user feedback 2026-10-22 ("the most important thing is following the repo guideline properly when reviewing"). In the W2 ledger most posted-unchanged drafts that reported a violation cited the item (S25-T10, S17-T39, S12-T34); citations were removed only where the item was not the point (S32-T47, H855, H1088, S14-T9). This replaces the earlier rule that cited items only "when the rule is the argument", which suppressed citations on real violations.
+- Source: user feedback 2026-10-25 ("I don't want the reviews to mention specific guideline numbers ... just mention according to the guideline"). This replaces the 2026-10-22 version that put item numbers in comments; the guideline-first review itself (2026-10-22, "the most important thing is following the repo guideline properly") is unchanged.
 
 ### G3. Tone and words
 - Scope: Korean comments. Phase: writing.
