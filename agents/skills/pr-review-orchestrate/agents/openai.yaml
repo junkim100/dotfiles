@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Review Orchestrate"
+  short_description: "Run independent pr-review workers, then a merge, then an audit, in that order"
+  default_prompt: "Use $pr-review-orchestrate to review this pull request with independent reviewers, a merge, and an audit."
