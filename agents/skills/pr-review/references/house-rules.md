@@ -51,6 +51,7 @@ Sources point at the 2026-10-21 review study kept locally under `~/.local/state/
 - Scope: ports, migrations, and wrappers of upstream code. Phase: discovery and selection.
 - Rule: if the PR does what the upstream implementation does, it is fine. Point out only what keeps the evaluation from completing or measuring as upstream designed: a dropped parameter, a missing step, a changed denominator, a different execution environment.
 - Limit: the repository's own contract can still require a deviation from upstream (a documented override, an error-handling policy); that is a contract finding, not an upstream-parity one.
+- Limit (order): G8 applies only after showing the behavior matches upstream. Before proposing stricter preflight, retries, or failure handling around a vendored harness, compare its native failure behavior; if the change would disable an upstream fallback, name the repository rule or authorized policy that requires it, otherwise keep it a question.
 - Source: user feedback 2026-09 (W2 follow-up H1636).
 
 ## wbl-eval (`eval/wbl-eval/**` in the solar-system monorepo)
@@ -68,9 +69,10 @@ Sources point at the 2026-10-21 review study kept locally under `~/.local/state/
 ### W3. Deliberate presets are not copied defaults
 - Phase: discovery.
 - Rule: an explicit spec value that differs from the constructor default is a deliberate preset, even for a provider or mode that is not selected right now. The exhaustive-null rule (GUIDELINE P2) targets copied defaults, not intended presets; do not ask to null them.
+- Limit: W3 covers values, not file shape: a deliberate preset does not excuse a profile's line-shape rule (GUIDELINE item 24). W3 only rules out asking to null an intentional preset. It does not answer why the preset differs from a pinned upstream value; that stays a G5 question when no decision is linked.
 - Source: user feedback 2026-09 (W2 S10-T13, S10-T14).
 
 ### W4. Benchmark PRs do not change shared policy on the side
 - Phase: discovery (scope boundary).
-- Rule: a benchmark migration or fix that also edits shared policy (GUIDELINE, registry READMEs, common sections of migration docs, official-promotion rules) gets a request to remove those edits and propose them in a separate PR, unless the PR's stated purpose is that policy. Keep any change CI needs. A PR that generalizes its own one-off exception into global policy is the common case.
+- Rule: a benchmark migration or fix that also edits shared policy (GUIDELINE, registry READMEs, common sections of migration docs, official-promotion rules) gets a request to remove those edits and propose them in a separate PR, unless the PR's stated purpose is that policy. Keep any change CI needs, including a narrow CI selection change that makes the tests this PR adds run. A PR that generalizes its own one-off exception into global policy is the common case.
 - Source: user feedback 2026-09 and 2026-10 (W2 S13-T6 and the posted comments that followed; S24-T27).

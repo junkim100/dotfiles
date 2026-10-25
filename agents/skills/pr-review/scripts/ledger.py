@@ -14,13 +14,16 @@ review.json (input to `save`, JSON on stdin or already in <dir>/review.json):
        "file": "path" | null, "line": 12 | null,
        "held_reason": "<code>" (required when channel is held; see HELD_REASONS),
        "kind": "defect" | "question", "blocking": true, "severity": "High", "impact": "primary",
-       "why": "one plain-English line", "mechanism": "kebab-slug"}
+       "why": "one plain-English line", "mechanism": "kebab-slug",
+       "items": ["26", "P2"] (guideline items the finding violates; optional),
+       "asks": ["one change or decision"] (optional; a post draft may list only one)}
     ],
+    "report_only": [{"mechanism": "kebab-slug", "items": ["10b"]}] (verified findings with no draft; optional),
     "base": "main", "target_sha": "<sha>", "mode": "standard" | "blocking" | "all", "followup": false,
     "agent": "claude-code" | "codex", "model": "...", "started_at": "<ISO 8601 UTC>",
     "gaps": ["..."], "checklist": [{"item": "item 7", "result": "violation", "evidence": "path:line"}]
   }
-`save` adds saved_at and skill_version, keeps earlier feedback, and keeps each draft's first wording as first_body when a later save changes it.
+`save` rejects a post draft with more than one ask and a checklist row whose result is pass when a draft or report-only finding lists that item; it adds saved_at and skill_version, keeps earlier feedback, and keeps each draft's first wording as first_body when a later save changes it.
 """
 
 from __future__ import annotations
@@ -100,6 +103,13 @@ def write(path: Path, data: dict) -> None:
     tmp.replace(path)
 
 
+ITEM_ID = re.compile(r"\b(P\d+|\d+[a-z]?)\b")
+
+
+def item_ids(text: str) -> set[str]:
+    return set(ITEM_ID.findall(str(text)))
+
+
 def validate(rec: dict) -> list[str]:
     errors = []
     for key in ("repo", "pr", "head", "verdict", "drafts"):
@@ -131,6 +141,19 @@ def validate(rec: dict) -> list[str]:
             errors.append(f"{where} held_reason must be one of {sorted(HELD_REASONS)}")
         if d.get("line") is not None and not isinstance(d.get("line"), int):
             errors.append(f"{where} line must be an integer or null")
+        if d.get("channel") == "post" and len(d.get("asks") or []) > 1:
+            errors.append(f"{where} asks for {len(d['asks'])} changes; split it into one draft per ask")
+    violated: dict[str, str] = {}
+    findings = [(d.get("id"), d) for d in rec.get("drafts", []) if isinstance(d, dict)]
+    findings += [(f"report_only[{i}]", f) for i, f in enumerate(rec.get("report_only", [])) if isinstance(f, dict)]
+    for name, f in findings:
+        for item in f.get("items") or []:
+            for i in item_ids(item):
+                violated.setdefault(i, f"{name} ({f.get('mechanism') or 'no mechanism'})")
+    for row in rec.get("checklist") or []:
+        if isinstance(row, dict) and str(row.get("result", "")).strip().lower().startswith("pass"):
+            for i in sorted(item_ids(row.get("item", "")) & violated.keys()):
+                errors.append(f"checklist row {row.get('item')!r} is pass but {violated[i]} violates item {i}")
     return errors
 
 

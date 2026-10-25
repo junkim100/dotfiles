@@ -10,7 +10,7 @@ If `~/.local/state/pr-review/examples.md` exists, read it too. It holds real com
 2. Trigger and consequence: the concrete input or state, and what goes wrong for whom (a wrong score, a lost artifact, a crash that takes other work with it, misleading metadata). Say how you know when it matters (`실행해서 확인했습니다`, a reproducing input).
 3. The ask: the fix when it is not obvious, or a question when the decision belongs to the author.
 
-Usually 2 to 3 sentences. Length follows the evidence: a compound-state bug may need a short code excerpt or a sibling reference, and a removal request needs one sentence. Never pad to look thorough, and never cut the consequence to look short.
+Usually 2 to 3 sentences. Cut sentences that reassure about paths that already work; keep only what narrows the trigger or proves the mechanism. Length follows the evidence: a compound-state bug may need a short code excerpt or a sibling reference, and a removal request needs one sentence. Never pad to look thorough, and never cut the consequence to look short.
 
 ## Moves that make a comment land
 
