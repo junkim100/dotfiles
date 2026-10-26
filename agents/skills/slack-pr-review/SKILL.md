@@ -55,7 +55,7 @@ This skill composes the `orchestration` skill (Orca coordinator loop), the `pr-r
 
 ### 0. Prepare
 
-1. Parse the arguments. Resolve `S`, `GH`, `ME`, and `ORCA`; load the orchestration guide if this session has not. If `ORCA` cannot reach a running Orca, say so and end the tick. Resolve `COORD`: take `S coordinator`, and when it is empty or `ORCA terminal show --terminal "$COORD" --json` reports it not `connected`, create one with `ORCA terminal create --title "slack-pr-review coordinator" --json` (in this session's worktree) and store its handle with `S coordinator --set <handle>`. In `dry-run`, report the handle that would be used and create nothing.
+1. Parse the arguments. Resolve `S`, `GH`, `ME`, and `ORCA`; load the orchestration guide if this session has not. If `ORCA` cannot reach a running Orca, say so and end the tick. Resolve `COORD`: take `S coordinator`, and when it is empty or `ORCA terminal show --terminal "$COORD" --json` reports it not `connected`, create one with `ORCA terminal create --title "slack-pr-review coordinator" --json` in this session's worktree (when the current directory is not an Orca worktree, add `--worktree path:<the solar-system clone from S repo>`) and store its handle with `S coordinator --set <handle>`. In `dry-run`, report the handle that would be used and create nothing.
 2. Unless `dry-run`, claim the loop with `S claim --terminal "$SESSION"`. Exit status 3 means another live session owns it (heartbeat under 30 minutes old): print the owner and end the tick. Every later `S claim` from the same terminal refreshes the heartbeat.
 3. Resume with `S list --active`. For `running` reviews, bind their Run with `ORCA orchestration run-use --id "$(S run)" --from "$COORD" --json` unless `ORCA orchestration run-current --from "$COORD" --json` already names it; step 7 supervises them, and they are never redispatched. Step 6 dispatches `queued` reviews, and step 7 finishes `gate_flat` ones.
 
@@ -216,6 +216,7 @@ Refresh the heartbeat and end with the status board: one line with the tick time
 ## Notes
 
 - A single review takes roughly 20 to 40 minutes, and an orchestrated one roughly 1.5 to 2.5 hours (reviews in parallel, then the merge, then the audit), so a tick that dispatched something lasts at least that long.
+- Put `since=` only on a one-off tick, never inside `/loop`: every tick would reset the watermark and could skip messages. To review an older request once, run `/slack-pr-review review=<PR URL>`.
 - Usage limits are remembered in the state until their reset time, so later ticks route around an exhausted harness without retrying it first; `S harness <name> --clear` lifts one early.
 - Each reviewer keeps its scratch checkout (`/tmp/slack-pr-review/<slug>`) for follow-up questions. Remove old ones with `git -C <local clone> worktree remove --force <path>` when they are no longer needed.
 - To start over, delete `~/.local/state/slack-pr-review/state.json`. Reports under `reviews/` do not depend on it.

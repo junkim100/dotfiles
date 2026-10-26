@@ -44,7 +44,7 @@ JEV gate: {{JEV}}. The coordinator only coordinates and edits no project files; 
 
 ## Orchestrated PRs
 
-For `plan: orchestrate`, build each stage's spec from the pr-review-orchestrate skill's worker briefs: its review brief for `review-a` and `review-b`, its merge brief, and its audit brief, each followed by its shared constraints block. Fill them with `{RUN}` = `{{REPORT_DIR}}`, `{WORK}` = `{{REPORT_DIR}}/<stage>`, `{HEAD}` and `{BASE_TIP}` = the SHAs pinned in step 4, `{HARNESS}` = the harness name only (never a model name), and `{INPUTS}` = the finished stage folders. Then append these parts of the template above, in this order, and save the result as `{{REPORT_DIR}}/specs/<stage>.txt`:
+For `plan: orchestrate`, build each stage's spec from the worker briefs in the pr-review-orchestrate skill (`~/.agents/skills/pr-review-orchestrate/SKILL.md`, section "Worker briefs"): its review brief for `review-a` and `review-b`, its merge brief, and its audit brief, each followed by its shared constraints block. Fill them with `{RUN}` = `{{REPORT_DIR}}`, `{WORK}` = `{{REPORT_DIR}}/<stage>`, `{HEAD}` and `{BASE_TIP}` = the SHAs pinned in step 4, `{HARNESS}` = the harness name only (never a model name), and `{INPUTS}` = the finished stage folders. Then append these parts of the template above, in this order, and save the result as `{{REPORT_DIR}}/specs/<stage>.txt`:
 
 1. The Repository paragraph, with two changes: the checkout is the shared clone of `{{LOCAL_REPO}}` under `{WORK}/repo` that the brief describes, not `/tmp/slack-pr-review/{{SLUG}}`; and the head is pinned, so a worker that sees the PR move reviews the pinned head and says so instead of switching.
 2. The wbl-eval block, when it applies (every stage).
