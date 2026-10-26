@@ -21,13 +21,13 @@ With one reviewer there is no merge: review ─▶ audit.
 ## Arguments
 
 - PR number or URL (required). A number uses the current repository.
-- `reviewers=`: one entry per independent review, comma separated, each `<harness>:<model>:<effort>`. Default: `claude:claude-opus-5-5:xhigh,codex:gpt-6-astra:xhigh`.
-- `merger=`: the worker that merges the reviews. Default: `claude:claude-opus-5-5:xhigh`.
-- `auditor=`: the worker that audits the merged review. Default: `codex:gpt-6-astra:xhigh`. Prefer a different model family from the merger, so the final check is not done by the model that wrote the text.
+- `reviewers=`: one entry per independent review, comma separated, each `<harness>:<model>:<effort>`. Default: `codex:gpt-6-astra:xhigh,codex:gpt-6-astra:xhigh`.
+- `merger=`: the worker that merges the reviews. Default: `codex:gpt-6-astra:xhigh`.
+- `auditor=`: the worker that audits the merged review. Default: `codex:gpt-6-astra:xhigh`. It must be a fresh worker, never the merger itself.
 - `harness` is `claude` (Claude Code) or `codex` (Codex); `model` and `effort` are passed through as the orchestration method expects them.
 - The user may say it in words instead ("two Codex reviewers on gpt-6-astra, Claude Code merges"); map that onto these fields and print the result in the plan.
 
-Choosing the number of reviewers: two (or more) for a large or risky PR, about 20+ changed files or 1000+ changed lines, or any change to a shared harness, provider, runtime, or launcher; one for a small PR. Different model families find different issues, so mix harnesses when two reviewers are used. In the blind comparison behind these defaults, the Claude Code reviews were short and precise and caught environment-level breaks by building the affected installs, while the Codex reviews covered more ground, mostly whether profile settings reach the request, with more low-value drafts; the two found almost disjoint sets of blockers. That is also why the default merger keeps the recommended set focused and the default auditor comes from the other family.
+Choosing the number of reviewers: two (or more) for a large or risky PR, about 20+ changed files or 1000+ changed lines, or any change to a shared harness, provider, runtime, or launcher; one for a small PR. In blind tests on two large PRs with a Codex merger and auditor, two Codex reviewers were the only setup that met the acceptance bar on both; one Claude Code plus one Codex reviewer found the most issues but once let low-value drafts through the merge; two Claude Code reviewers were last. Use a mixed pair when coverage matters more than edit burden, and expect to prune more.
 
 ## Rules
 
@@ -39,7 +39,7 @@ Choosing the number of reviewers: two (or more) for a large or risky PR, about 2
    - Start the audit only after the merger has reported done and its folder holds the same two files.
    - A worker's "almost done" message, a partial report, or a timeout is not done. The merge and the audit save their records more than once while they revise, so a stage that starts early reads an unfinished record.
 5. Independence: reviewers never read each other's folders. The merger reads only the reviewers' folders. The auditor reads only the merger's and the reviewers' folders. Nobody reads earlier reviews of the same PR in the review ledger.
-6. Failure: if a worker fails, read its reason, fix what is in the coordinator's power (a wrong path, a missing input), and restart it once. If a reviewer fails twice, continue with the reviews that finished: two or more go to the merge, one goes straight to the audit. If the merger or auditor fails twice, stop and give the user the best finished stage with what is missing.
+6. Failure: if a worker fails, read its reason, fix what is in the coordinator's power (a wrong path, a missing input), and restart it once. If a reviewer fails twice, continue with the reviews that finished: two or more go to the merge, one goes straight to the audit. If the merger or auditor fails twice, stop and give the user the best finished stage with what is missing. A worker that never becomes ready counts as failed: check each new worker's state within a few minutes of starting it, because an agent can sit at an interactive prompt (a trust or hooks review screen, a login) forever; report that prompt to the user instead of answering it for them, and run that stage another way the orchestration method offers.
 7. While workers run, supervision is the coordinator's only job: answer questions, watch for done and failure, and do no review work of its own. Worker status messages arrive in the coordinator's session, so run it in a session the user is not typing in.
 
 ## Steps
