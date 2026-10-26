@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 HOME = os.environ.get("SLACK_PR_REVIEW_HOME") or os.path.expanduser("~/.local/state/slack-pr-review")
 STATE = os.path.join(HOME, "state.json")
 LOCK = os.path.join(HOME, "state.lock")
-EMPTY = {"watermark": None, "owner": None, "run": None, "repos": {}, "messages": {}, "reviews": {}, "harness_limits": {}}
+EMPTY = {"watermark": None, "owner": None, "run": None, "repos": {}, "messages": {}, "reviews": {}, "harness_limits": {}, "coordinator": None}
 HARNESSES = ("codex", "claude")
 REVIEW_ACTIVE = ("queued", "running", "gate_flat")
 
@@ -183,6 +183,15 @@ def cmd_report_dir(args):
     return 0
 
 
+def cmd_coordinator(args):
+    if args.set is None and not args.clear:
+        print(load()["coordinator"] or "")
+        return 0
+    with locked() as data:
+        data["coordinator"] = None if args.clear else args.set
+    return 0
+
+
 def cmd_harness(args):
     """Print which harnesses are usable now, or record that one is out of usage credits until a time."""
     if args.name is None:
@@ -267,6 +276,11 @@ def main():
     p.add_argument("head")
     p.add_argument("--dry", action="store_true", help="print the path without creating it")
     p.set_defaults(func=cmd_report_dir)
+
+    p = sub.add_parser("coordinator", help="print, set, or clear the loop's own Orca coordinator terminal handle")
+    p.add_argument("--set")
+    p.add_argument("--clear", action="store_true")
+    p.set_defaults(func=cmd_coordinator)
 
     p = sub.add_parser("harness", help="print harness availability, list usable harnesses with --available, or mark one out of usage credits")
     p.add_argument("name", nargs="?")

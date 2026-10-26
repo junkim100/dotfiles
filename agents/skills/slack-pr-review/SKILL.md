@@ -23,6 +23,8 @@ This skill composes the `orchestration` skill (Orca coordinator loop), the `pr-r
 | `GH` | `gh api user --jq .login` |
 | `S` | `python3 <this skill's directory>/scripts/state.py`. State lives in `~/.local/state/slack-pr-review/` (`state.json`, plus `reviews/<owner>-<repo>-<N>-<sha7>/` per review). `S --help` lists the subcommands; JSON payloads go on stdin. |
 | `ORCA` | The Orca executable chosen as the orchestration skill describes (`orca` on this Mac). |
+| `COORD` | The loop's own Orca coordinator terminal, stored with `S coordinator`. Every Orca orchestration command passes it (`--from "$COORD"`, or `--terminal "$COORD"` for `check`), so worker status messages land in that background terminal and never in the session where the user typed the command. |
+| `SESSION` | `$ORCA_TERMINAL_HANDLE` when set, otherwise `local-$PPID`; it identifies this session for the loop claim. |
 | Worker | `--worktree current --agent <harness>`, with no `--model` or `--effort`: every worker runs on its harness's configured model and effort, so a newer model needs no edit here. Never write a model name into a command, spec, or gate. |
 | `CURRENT` | The harness this session runs in: `claude` under Claude Code, `codex` under Codex. |
 | Size | A PR is big when `gh pr view N --repo owner/repo --json changedFiles,additions,deletions` shows 20 or more changed files or 1000 or more changed lines (additions plus deletions); otherwise it is small. |
@@ -53,9 +55,9 @@ This skill composes the `orchestration` skill (Orca coordinator loop), the `pr-r
 
 ### 0. Prepare
 
-1. Parse the arguments. Resolve `S`, `GH`, `ME`, and `ORCA`; load the orchestration guide if this session has not. If `$ORCA_TERMINAL_HANDLE` is empty, this session is not an Orca terminal and cannot coordinate workers: say so and end the tick.
-2. Unless `dry-run`, claim the loop with `S claim --terminal "$ORCA_TERMINAL_HANDLE"`. Exit status 3 means another live session owns it (heartbeat under 30 minutes old): print the owner and end the tick. Every later `S claim` from the same terminal refreshes the heartbeat.
-3. Resume with `S list --active`. For `running` reviews, bind their Run with `ORCA orchestration run-use --id "$(S run)" --json` unless `ORCA orchestration run-current --json` already names it; step 7 supervises them, and they are never redispatched. Step 6 dispatches `queued` reviews, and step 7 finishes `gate_flat` ones.
+1. Parse the arguments. Resolve `S`, `GH`, `ME`, and `ORCA`; load the orchestration guide if this session has not. If `ORCA` cannot reach a running Orca, say so and end the tick. Resolve `COORD`: take `S coordinator`, and when it is empty or `ORCA terminal show --terminal "$COORD" --json` reports it not `connected`, create one with `ORCA terminal create --title "slack-pr-review coordinator" --json` (in this session's worktree) and store its handle with `S coordinator --set <handle>`. In `dry-run`, report the handle that would be used and create nothing.
+2. Unless `dry-run`, claim the loop with `S claim --terminal "$SESSION"`. Exit status 3 means another live session owns it (heartbeat under 30 minutes old): print the owner and end the tick. Every later `S claim` from the same terminal refreshes the heartbeat.
+3. Resume with `S list --active`. For `running` reviews, bind their Run with `ORCA orchestration run-use --id "$(S run)" --from "$COORD" --json` unless `ORCA orchestration run-current --from "$COORD" --json` already names it; step 7 supervises them, and they are never redispatched. Step 6 dispatches `queued` reviews, and step 7 finishes `gate_flat` ones.
 
 ### 1. Poll Slack
 
@@ -139,12 +141,12 @@ While fewer than `MAX_WORKERS` workers are live, take the oldest `queued` review
    ```
 
    Branch on `decision` only. `DELEGATE`: continue. `UNAVAILABLE`: continue and say so in the JEV line. `FLAT`: if `failed_gates` contains `coupling_risk`, narrow the context honestly and retry once; if it is still FLAT, mark the review `gate_flat` and leave it for the end of step 7. Treat a non-zero exit, unparseable output, or `failed_closed: true` like FLAT.
-3. Bind a Run. Reuse `S run` while reviews are still `running` in it; otherwise run `ORCA orchestration run-create --objective "Slack-requested PR reviews <YYYY-MM-DD HH:MM KST>: read-only reviewers per PR, results DMed to the user" --json` and store the id with `S run --set`.
+3. Bind a Run. Reuse `S run` while reviews are still `running` in it; otherwise run `ORCA orchestration run-create --objective "Slack-requested PR reviews <YYYY-MM-DD HH:MM KST>: read-only reviewers per PR, results DMed to the user" --from "$COORD" --json` and store the id with `S run --set`.
 4. Fill the JEV line and the harness into the spec and start the worker (both reviewers at once for `orchestrate`):
 
    ```sh
    ORCA orchestration worker-start --spec "$(cat <spec file>)" --task-title "Review <owner/repo#N> <stage>" \
-     --worktree current --agent <harness> --json
+     --worktree current --agent <harness> --from "$COORD" --json
    ```
 
    Exit 0 means `ready`. Record the model and effort `launch.effective` reports, for the DM. A non-zero exit is never relaunched blindly: read `failedStage` and the worker's output (`ORCA orchestration worker-read`), and follow "Worker failures" in step 7.
@@ -154,7 +156,7 @@ While fewer than `MAX_WORKERS` workers are live, take the oldest `queued` review
 
 Loop while any review is `running`:
 
-1. Wait with `ORCA orchestration check --wait --types "worker_done,escalation,question" --timeout-ms 540000 --json 2> >(grep -v _keepalive >&2)`, adding `--ack <delivery id>` once the previous batch is fully processed. Omit `--terminal`, since this is the coordinator's own Orca terminal.
+1. Wait with `ORCA orchestration check --terminal "$COORD" --wait --types "worker_done,escalation,question" --timeout-ms 540000 --json 2> >(grep -v _keepalive >&2)`, adding `--ack <delivery id>` once the previous batch is fully processed. Always pass `--terminal "$COORD"`; this session may not be an Orca terminal at all.
 2. Process every message of the batch before acknowledging it:
    - `worker_done`: match its dispatch ID to a worker of a `running` review; note and ignore a stray ID. Release it with `ORCA orchestration worker-release --dispatch <id> --json` and record the stage's `state`. Then advance that review:
      - `single`: read `<REPORT_DIR>/summary.json` and confirm `report.md` exists. With outcome `succeeded` and both files, mark the review `done` with `finished_at` and the summary fields, and send the ready DM; otherwise follow "Worker failures".
@@ -162,7 +164,7 @@ Loop while any review is `running`:
      - `orchestrate`, the merger: when `merge/` holds both files, start the audit.
      - `orchestrate`, the auditor: when `audit/` holds both files and `<REPORT_DIR>/summary.json` and `report.md` exist, mark the review `done` and send the ready DM.
      A stage is never started on a message alone; the files decide, as pr-review-orchestrate's stage-order rule says. A freed slot goes straight back to step 6 for the next `queued` review.
-   - `question`: answer within the spec's rules with `ORCA orchestration reply --id <message id> --body "..." --json`. Never block on the user, since the loop is unattended: for a judgment call, tell the worker to take the conservative option and record the assumption in its report.
+   - `question`: answer within the spec's rules with `ORCA orchestration reply --id <message id> --body "..." --from "$COORD" --json`. Never block on the user, since the loop is unattended: for a judgment call, tell the worker to take the conservative option and record the assumption in its report.
    - `escalation`: decide and reply. Deny any request to post, push, run paid jobs, or start nested workers.
    - `heartbeat`: nothing to do.
 3. A wait that returns no batch is a checkpoint, not a failure. Whenever the last Slack poll is more than 9 minutes old, refresh the heartbeat (`S claim`) and run steps 1 to 4 and 6 again for new requests. After three consecutive empty waits, run `ORCA orchestration worker-list --run "$(S run)" --include-remote --json` and act on each row's `projection.attention` and `projection.nextAction` as the orchestration guide says. Stop, abandon, or retry a reviewer only on positive proof that it exited without `worker_done`; then mark it `failed` and send the failure DM.
