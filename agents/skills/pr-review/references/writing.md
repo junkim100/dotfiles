@@ -19,7 +19,7 @@ Usually 2 to 3 sentences. Cut sentences that reassure about paths that already w
 - Offer a sibling's remedy only after checking it handles the same mechanism, and point at it with `path:line`.
 - Ask whether a test could fail for the bug when a test is cited as coverage: `이 test의 fixture에는 중간 응답에 text가 없어서 이 경우를 잡지 못할 것 같습니다.`
 - Questions carry the diagnosis. Verify the facts first, put them in the question, and leave the decision with the author: fact, pinned permalink, `혹시 ~한 이유가 있었을까요?`, conditional fix.
-- State the guideline rule when the code violates it. The rule is the argument the author cannot dispute, so put it next to the mechanism, in words and without item numbers: `내부 가이드라인에서는 ~하도록 되어 있는데, 여기서는 ~해서 ...`.
+- State the guideline rule when the code violates it. The rule is the argument the author cannot dispute, so put it next to the mechanism, naming the file and stating the rule in words, without item numbers: `GUIDELINE.md에서는 ~하도록 되어 있는데, 여기서는 ~해서 ...`.
 - One comment per fix site. Several symptoms with one fix share a comment; one finding whose parts need fixes in different files becomes several comments.
 
 ## Examples (synthetic; names are illustrative)
@@ -50,7 +50,7 @@ Unchanged code whose consequence changed:
 
 Guideline violation:
 
-> `top_p`와 `max_tokens`를 agent config에만 쓰고 실제 request kwargs에는 넘기지 않아서, profile의 `max_tokens: 65536`이 client default인 16384로 요청되는 것을 고정된 client로 확인했습니다(`runner.py:212`). 내부 가이드라인에서는 profile의 `parameters` 전체를 실제 request까지 전달하도록 되어 있어서, 여기서도 그대로 넘겨야 할 것 같습니다.
+> `top_p`와 `max_tokens`를 agent config에만 쓰고 실제 request kwargs에는 넘기지 않아서, profile의 `max_tokens: 65536`이 client default인 16384로 요청되는 것을 고정된 client로 확인했습니다(`runner.py:212`). GUIDELINE.md에서는 profile의 `parameters` 전체를 실제 request까지 전달하도록 되어 있어서, 여기서도 그대로 넘겨야 할 것 같습니다.
 
 Removal:
 
@@ -63,7 +63,7 @@ Follow-up reminder:
 ## Anti-examples
 
 - Outsourcing a check: `혹시 이 provider 이름이 고정된 값인지 확인 부탁드립니다.` A grep answers it (R6). Check, then either drop it or state the finding.
-- Rule decoration: invoking the guideline for a finding no rule covers, or item numbers in a comment (`item 7`, `P9`) instead of the rule in words (G2).
+- Rule decoration: invoking the guideline for a finding no rule covers, item numbers in a comment (`item 7`, `P9`) instead of the rule in words, or a vague `내부 가이드라인` instead of the file name (G2).
 - Restating what is right: `다른 config는 이미 갱신돼 있습니다. 다만 ...` (G3).
 - A bundle: one comment carrying many unrelated issues hides priority. Split by fix site, and leave the low-value ones out of the recommended set.
 - An unbounded claim: `이 경로는 항상 실패합니다` when it fails only for one provider. Name the condition.
