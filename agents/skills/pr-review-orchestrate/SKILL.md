@@ -21,13 +21,13 @@ With one reviewer there is no merge: review ─▶ audit.
 ## Arguments
 
 - PR number or URL (required). A number uses the current repository.
-- `reviewers=`: one entry per independent review, comma separated, each `<harness>[:<model>[:<effort>]]`. Default: `codex,codex`.
-- `merger=`: the worker that merges the reviews. Default: `codex`.
-- `auditor=`: the worker that audits the merged review. Default: `codex`. It must be a fresh worker, never the merger itself.
+- `reviewers=`: one entry per independent review, comma separated, each `<harness>[:<model>[:<effort>]]`. Default: `claude,codex`.
+- `merger=`: the worker that merges the reviews. Default: `claude`.
+- `auditor=`: the worker that audits the merged review. Default: `codex`. It must be a fresh worker, never the merger itself; a different harness from the merger is preferred, so the last reader is not the model that wrote the text.
 - `harness` is `claude` (Claude Code) or `codex` (Codex). Model and effort are optional and normally left out: then the worker runs with whatever model and effort its harness is configured to use, so a newer model is picked up without editing this skill. Pass them only when the user names them, and never fill them in from memory.
 - The user may say it in words instead ("two Codex reviewers, Claude Code merges"); map that onto these fields and print the result in the plan.
 
-Choosing the number of reviewers: two (or more) for a large or risky PR, about 20+ changed files or 1000+ changed lines, or any change to a shared harness, provider, runtime, or launcher; one for a small PR. In blind tests on two large PRs with a Codex merger and auditor, two Codex reviewers were the only setup that met the acceptance bar on both; one Claude Code plus one Codex reviewer found the most issues but once let low-value drafts through the merge; two Claude Code reviewers were last. Use a mixed pair when coverage matters more than edit burden, and expect to prune more.
+Choosing the number of reviewers: two (or more) for a large or risky PR, about 20+ changed files or 1000+ changed lines, or any change to a shared harness, provider, runtime, or launcher; one for a small PR. In blind tests on three large PRs, scored by one Claude and one Codex judge, a Claude Code plus Codex reviewer pair ranked first in three of four judgments; the two harnesses find largely different blockers (Claude Code builds and runs the affected environments, Codex checks whether settings reach the request). Among merger and auditor choices for the same pair, a Claude Code merge followed by a Codex audit had the best average rank across both judges. Two Codex reviewers led once and are a reasonable fallback; two Claude Code reviewers were last or near last on every PR.
 
 ## Rules
 

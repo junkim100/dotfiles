@@ -126,7 +126,7 @@ Print the triage table (key, from, verdict, PRs, size, plan, reason), each rende
 
 While fewer than `MAX_WORKERS` workers are live, take the oldest `queued` review whose first stage fits in the free slots (one slot for `single`, two for `orchestrate`):
 
-1. Choose harnesses from `S harness --available`. `single`: `CURRENT` if available, else the other harness. `orchestrate`: reviewers `codex` and `claude` when both are available, otherwise both reviewers on the one that is; the merger and the auditor use `codex` when available, else `claude`. If no harness is available, leave the review `queued`, put the reset times on the status board, and dispatch nothing else this tick.
+1. Choose harnesses from `S harness --available`. `single`: `CURRENT` if available, else the other harness. `orchestrate`: reviewers `codex` and `claude` when both are available, otherwise both reviewers on the one that is; the merger uses `claude` and the auditor `codex` when both are available (the pr-review-orchestrate defaults), otherwise both use the one that is. If no harness is available, leave the review `queued`, put the reset times on the status board, and dispatch nothing else this tick.
 2. Run the gate from AGENTS.md for each worker you are about to start, and keep its JSON:
 
    ```sh
