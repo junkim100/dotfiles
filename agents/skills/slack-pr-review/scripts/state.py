@@ -84,6 +84,17 @@ def cmd_claim(args):
     return 0
 
 
+def cmd_release(args):
+    with locked() as data:
+        owner = data["owner"]
+        if owner and owner.get("terminal") == args.terminal:
+            data["owner"] = None
+            print("released")
+        else:
+            print("not the owner; nothing released")
+    return 0
+
+
 def cmd_watermark(args):
     if args.set is None:
         print(load()["watermark"] or "")
@@ -231,6 +242,10 @@ def main():
     p.add_argument("--stale-minutes", type=float, default=30)
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_claim)
+
+    p = sub.add_parser("release", help="drop the loop claim when this session holds it")
+    p.add_argument("--terminal", required=True)
+    p.set_defaults(func=cmd_release)
 
     p = sub.add_parser("watermark", help="print the Slack ts watermark, or move it forward with --set")
     p.add_argument("--set")

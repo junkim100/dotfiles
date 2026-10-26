@@ -211,7 +211,7 @@ Reminder for a head that is already reviewed:
 
 ### 9. Close the tick
 
-Refresh the heartbeat and end with the status board: one line with the tick time and the count of new messages per verdict; a table of the reviews that are active or changed in the last 7 days (`S list --days 7`, plus `S get` for requesters and DM state: PR, requested by, status, head, report path or skip reason, DM sent or not); and this tick's `ambiguous` messages with their permalinks. Under a self-paced Claude Code `/loop`, schedule the next wakeup about 900 s out, since no reviewer is left to wait for; under a scheduled run (an Orca automation), just end the turn.
+When no review is `running`, `queued`, or `gate_flat`, release the claim with `S release --terminal "$SESSION"` (a scheduled run is a fresh session, so a kept claim would make the next run exit as if a tick were still live); otherwise refresh the heartbeat. End with the status board: one line with the tick time and the count of new messages per verdict; a table of the reviews that are active or changed in the last 7 days (`S list --days 7`, plus `S get` for requesters and DM state: PR, requested by, status, head, report path or skip reason, DM sent or not); and this tick's `ambiguous` messages with their permalinks. Under a self-paced Claude Code `/loop`, schedule the next wakeup about 900 s out, since no reviewer is left to wait for; under a scheduled run (an Orca automation), just end the turn.
 
 ## Notes
 
