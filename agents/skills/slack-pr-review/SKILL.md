@@ -11,7 +11,7 @@ argument-hint: "[since=<YYYY-MM-DD|Nh|now>] [review=<PR URL>] [dry-run]"
 
 One invocation is one tick: poll Slack for new review requests, size each requested PR, dispatch one reviewer for a small PR or an orchestrated review for a big one, supervise the workers until every one settles (re-polling Slack while waiting), DM the user per finished review, print a status board, and end the turn. `/loop` supplies the repetition. Durable state makes every tick idempotent and lets a later session pick up reviews that an earlier one started.
 
-Run it as `/loop 10m /slack-pr-review` (fixed interval) or `/loop /slack-pr-review` (self-paced). A tick that is supervising reviewers keeps polling Slack between waits, so the interval only sets the pickup latency while nothing is running.
+In Claude Code, run it as `/loop 30m /slack-pr-review` (fixed interval) or `/loop /slack-pr-review` (self-paced). Codex has no `/loop`: invoke one tick as `$slack-pr-review`, and repeat it with an Orca automation (`orca automations create --name slack-pr-review --provider codex --prompt '$slack-pr-review' --trigger '*/30 * * * *' --timezone Asia/Seoul --fresh-session --enabled`). A run that starts while an earlier tick is still supervising exits at the loop claim, so overlapping schedules are safe. A tick that is supervising reviewers keeps polling Slack between waits, so the interval only sets the pickup latency while nothing is running.
 
 This skill composes the `orchestration` skill (Orca coordinator loop), the `pr-review` skill (run by each worker), the `pr-review-orchestrate` skill (the playbook for a big PR), and the Slack MCP tools (`slack_search_public_and_private`, `slack_read_thread`, `slack_send_message`).
 
@@ -30,7 +30,7 @@ This skill composes the `orchestration` skill (Orca coordinator loop), the `pr-r
 | Size | A PR is big when `gh pr view N --repo owner/repo --json changedFiles,additions,deletions` shows 20 or more changed files or 1000 or more changed lines (additions plus deletions); otherwise it is small. |
 | `MAX_WORKERS` | 3 workers live at once (a big PR's two reviewers count as two); further PRs wait as `queued`. |
 | Usage limits | `S harness --available` lists the harnesses that are not out of usage credits. |
-| `WAIT_MS` | 540000 (the Bash tool caps one call at 600 s). |
+| `WAIT_MS` | 540000. Give each wait's shell call a timeout above that (Claude Code's Bash tool caps one call at 600 s). |
 | Overlap | Each poll starts 900 s before the watermark so Slack index lag never drops a message; triage dedupes the repeats. |
 | Local clones | `S repo <owner/repo>`; `UpstageAI/solar-system` is `/Users/junkim/solar-system`. |
 
@@ -175,7 +175,7 @@ Worker failures. Read the worker's output (`ORCA orchestration worker-read --dis
 - A worker that never became ready because it waits at an interactive screen (a trust or hooks review prompt, a login): do not answer the prompt. Run the stage once on the other harness when available, and name the prompt and the harness it blocked in the DM so the user can clear it.
 - Any other failure, or a stage whose files are missing after `worker_done`: retry that stage once on the same harness; if it fails again, mark the review `failed` with the reason and send the failure DM, pointing at partial output.
 
-Leave the wait loop only when no review is `running` or `queued` and `ORCA orchestration worker-list --run "$(S run)" --terminal-state reclaimable --json` returns no rows. Then, for each `gate_flat` review, run the pr-review skill on that PR yourself in this session (a single review, whatever its size) with `report-dir=<REPORT_DIR>`, write the same `report.md` and `summary.json` into its report directory, mark it `done` or `failed`, and say in its DM that it was reviewed in-session by Claude because the delegation gate returned FLAT.
+Leave the wait loop only when no review is `running` or `queued` and `ORCA orchestration worker-list --run "$(S run)" --terminal-state reclaimable --json` returns no rows. Then, for each `gate_flat` review, run the pr-review skill on that PR yourself in this session (a single review, whatever its size) with `report-dir=<REPORT_DIR>`, write the same `report.md` and `summary.json` into its report directory, mark it `done` or `failed`, and say in its DM that it was reviewed in-session by the coordinator (name its harness) because the delegation gate returned FLAT.
 
 ### 8. DMs
 
@@ -211,7 +211,7 @@ Reminder for a head that is already reviewed:
 
 ### 9. Close the tick
 
-Refresh the heartbeat and end with the status board: one line with the tick time and the count of new messages per verdict; a table of the reviews that are active or changed in the last 7 days (`S list --days 7`, plus `S get` for requesters and DM state: PR, requested by, status, head, report path or skip reason, DM sent or not); and this tick's `ambiguous` messages with their permalinks. Under a self-paced `/loop`, schedule the next wakeup about 900 s out, since no reviewer is left to wait for.
+Refresh the heartbeat and end with the status board: one line with the tick time and the count of new messages per verdict; a table of the reviews that are active or changed in the last 7 days (`S list --days 7`, plus `S get` for requesters and DM state: PR, requested by, status, head, report path or skip reason, DM sent or not); and this tick's `ambiguous` messages with their permalinks. Under a self-paced Claude Code `/loop`, schedule the next wakeup about 900 s out, since no reviewer is left to wait for; under a scheduled run (an Orca automation), just end the turn.
 
 ## Notes
 
