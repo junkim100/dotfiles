@@ -152,6 +152,8 @@ def validate(rec: dict) -> list[str]:
                 violated.setdefault(i, f"{name} ({f.get('mechanism') or 'no mechanism'})")
     for row in rec.get("checklist") or []:
         if isinstance(row, dict) and str(row.get("result", "")).strip().lower().startswith("pass"):
+            if len(item_ids(row.get("item", ""))) > 1:
+                errors.append(f"checklist row {row.get('item')!r} passes several items at once; give each item its own row")
             if re.search(r"\b(refuted|contradict\w*)\b", str(row.get("evidence", "")), re.I):
                 errors.append(f"checklist row {row.get('item')!r} is pass but its evidence says refuted or contradicted")
             for i in sorted(item_ids(row.get("item", "")) & violated.keys()):

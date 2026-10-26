@@ -63,6 +63,9 @@ Map a finding onto the guideline instead of arguing it from first principles. Ci
 | registry lifecycle change without documentation, official promotion without both API and vLLM sanity, a spec without an error-handling row, a new benchmark without `migration.md` | L5 | items 25a, 25b, 25c, 28 |
 | resume declared without the full surface, or a resume knob as a ctor arg | L5 | P11, item 27 |
 | a new registry file that is not written out in full | L5 | item 26, and P2 too when a key is missing or a literal default is pinned in place of `null` |
+| a set registry generation value replaced or ignored (literals instead of the profile, a rewritten budget) | L2 | items 1, 5, 7, and P1 (registry authority) |
+| a provider branch nobody traced, or a hand-written provider dispatch | L1 | 15e not-checked when untraced, violation when the manual dispatch is verified, even when the target already fixes it |
+| a new or changed model profile whose ordered keys, comments, or blank lines differ from a named sibling | L5 | item 24 (compare the skeleton line by line and record the first differing line; explanatory header comments do not match, and house rule W3 never waives item 24) |
 | a maintained doc or comment whose setup, usage, or behavior statement is false at HEAD | L1 | P7, and 25a for maintained registry and benchmark docs |
 | an input mode (default mirror, local directory, prepared template, E2B upload) that reads data without `dloaders` | L6 | item 8 for that mode, even when the default mode complies |
 
