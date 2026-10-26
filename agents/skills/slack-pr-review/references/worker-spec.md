@@ -1,6 +1,6 @@
 # Worker spec template
 
-Render one spec per PR, save it as `<REPORT_DIR>/spec.txt`, and pass it with `--spec "$(cat <REPORT_DIR>/spec.txt)"`. Substitute every `{{...}}` placeholder. Keep a conditional block only when its condition holds and drop its bracketed label. Write plain prose with no hard wraps and no em or en dashes; this template follows the specs that worked for the PR #1686 and #1663 reviews.
+For a small PR (`plan: single`), render one spec, save it as `<REPORT_DIR>/spec.txt`, and pass it with `--spec "$(cat <REPORT_DIR>/spec.txt)"`. For a big PR (`plan: orchestrate`), build one spec per stage as "Orchestrated PRs" below describes. Substitute every `{{...}}` placeholder. Keep a conditional block only when its condition holds and drop its bracketed label. Write plain prose with no hard wraps and no em or en dashes; this template follows the specs that worked for the PR #1686 and #1663 reviews.
 
 Placeholders:
 
@@ -41,3 +41,17 @@ Lifecycle: settle exactly once with worker_done as your injected preamble specif
 
 JEV gate: {{JEV}}. The coordinator only coordinates and edits no project files; you own {{PR}} in your own immutable checkout, and any other live reviewer owns a different PR in its own checkout.
 ```
+
+## Orchestrated PRs
+
+For `plan: orchestrate`, build each stage's spec from the pr-review-orchestrate skill's worker briefs: its review brief for `review-a` and `review-b`, its merge brief, and its audit brief, each followed by its shared constraints block. Fill them with `{RUN}` = `{{REPORT_DIR}}`, `{WORK}` = `{{REPORT_DIR}}/<stage>`, `{HEAD}` and `{BASE_TIP}` = the SHAs pinned in step 4, `{HARNESS}` = the harness name only (never a model name), and `{INPUTS}` = the finished stage folders. Then append these parts of the template above, in this order, and save the result as `{{REPORT_DIR}}/specs/<stage>.txt`:
+
+1. The Repository paragraph, with two changes: the checkout is the shared clone of `{{LOCAL_REPO}}` under `{WORK}/repo` that the brief describes, not `/tmp/slack-pr-review/{{SLUG}}`; and the head is pinned, so a worker that sees the PR move reviews the pinned head and says so instead of switching.
+2. The wbl-eval block, when it applies (every stage).
+3. The requester context paragraph (every stage).
+4. The related block, when it applies (every stage).
+5. The follow-up block, when it applies (the reviewers and the merge; the audit keeps whatever the merge concluded about earlier threads).
+6. The Ownership paragraph.
+7. For the audit only, the Deliverables paragraph, changed so that `{{REPORT_DIR}}/report.md` is a copy of the audited review's report (with the not-recommended bodies appended) and `summary.json` describes the audited review; its ledger record stays in `{{REPORT_DIR}}/audit/ledger`.
+8. The Lifecycle paragraph, with `--report-path` set to the stage's `review.md` (for the audit, `{{REPORT_DIR}}/report.md`).
+9. The JEV line, followed by `Stage: <stage> of an orchestrated review, on <harness>.`

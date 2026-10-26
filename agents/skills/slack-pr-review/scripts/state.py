@@ -16,7 +16,8 @@ from datetime import datetime, timezone
 HOME = os.environ.get("SLACK_PR_REVIEW_HOME") or os.path.expanduser("~/.local/state/slack-pr-review")
 STATE = os.path.join(HOME, "state.json")
 LOCK = os.path.join(HOME, "state.lock")
-EMPTY = {"watermark": None, "owner": None, "run": None, "repos": {}, "messages": {}, "reviews": {}}
+EMPTY = {"watermark": None, "owner": None, "run": None, "repos": {}, "messages": {}, "reviews": {}, "harness_limits": {}}
+HARNESSES = ("codex", "claude")
 REVIEW_ACTIVE = ("queued", "running", "gate_flat")
 
 
@@ -146,7 +147,10 @@ def cmd_list(args):
             continue
         if args.days is not None and age_minutes(record["updated_at"]) > args.days * 24 * 60:
             continue
-        cols = [pr, status, (record.get("head") or "")[:7], record.get("dispatch") or "-", record.get("report_dir") or "-"]
+        dispatch = record.get("dispatch") or "-"
+        if isinstance(dispatch, list):
+            dispatch = ",".join(dispatch) or "-"
+        cols = [pr, status, (record.get("head") or "")[:7], dispatch, record.get("report_dir") or "-"]
         print("\t".join(cols))
     return 0
 
@@ -176,6 +180,31 @@ def cmd_report_dir(args):
     if not args.dry:
         os.makedirs(path, exist_ok=True)
     print(path)
+    return 0
+
+
+def cmd_harness(args):
+    """Print which harnesses are usable now, or record that one is out of usage credits until a time."""
+    if args.name is None:
+        limits = load()["harness_limits"]
+        now = now_iso()
+        status = {h: (limits.get(h) if limits.get(h) and limits[h]["until"] > now else None) for h in HARNESSES}
+        if args.available:
+            for h in HARNESSES:
+                if status[h] is None:
+                    print(h)
+        else:
+            emit(status)
+        return 0
+    if args.name not in HARNESSES:
+        sys.exit("harness must be one of " + ", ".join(HARNESSES))
+    with locked() as data:
+        if args.clear:
+            data["harness_limits"].pop(args.name, None)
+        elif args.unavailable_until:
+            data["harness_limits"][args.name] = {"until": args.unavailable_until, "reason": args.reason or "", "recorded_at": now_iso()}
+        else:
+            sys.exit("give --unavailable-until or --clear")
     return 0
 
 
@@ -238,6 +267,14 @@ def main():
     p.add_argument("head")
     p.add_argument("--dry", action="store_true", help="print the path without creating it")
     p.set_defaults(func=cmd_report_dir)
+
+    p = sub.add_parser("harness", help="print harness availability, list usable harnesses with --available, or mark one out of usage credits")
+    p.add_argument("name", nargs="?")
+    p.add_argument("--available", action="store_true", help="print the harnesses usable now, one per line")
+    p.add_argument("--unavailable-until", help="ISO 8601 UTC time when the usage limit resets")
+    p.add_argument("--reason", help="the limit message, one line")
+    p.add_argument("--clear", action="store_true")
+    p.set_defaults(func=cmd_harness)
 
     p = sub.add_parser("show", help="print the whole state")
     p.set_defaults(func=cmd_show)
