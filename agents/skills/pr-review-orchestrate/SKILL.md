@@ -3,7 +3,7 @@ name: pr-review-orchestrate
 description: >
   Run the pr-review skill on one pull request as a supervised multi-worker pipeline: independent reviews by the harnesses and models the user picks, then a merge worker that starts only after every review has finished, then an audit worker that starts only after the merge has finished.
   Use when the user runs /pr-review-orchestrate, or asks to orchestrate a PR review with several workers or subagents (for example one Codex and one Claude Code reviewer).
-argument-hint: "<PR number or URL> [reviewers=<harness>:<model>:<effort>,...] [merger=<harness>:<model>:<effort>] [auditor=<harness>:<model>:<effort>]"
+argument-hint: "<PR number or URL> [reviewers=<harness>[:<model>[:<effort>]],...] [merger=<harness>[:<model>[:<effort>]]] [auditor=<harness>[:<model>[:<effort>]]]"
 ---
 
 # PR Review Orchestrate
@@ -21,11 +21,11 @@ With one reviewer there is no merge: review ─▶ audit.
 ## Arguments
 
 - PR number or URL (required). A number uses the current repository.
-- `reviewers=`: one entry per independent review, comma separated, each `<harness>:<model>:<effort>`. Default: `codex:gpt-6-astra:xhigh,codex:gpt-6-astra:xhigh`.
-- `merger=`: the worker that merges the reviews. Default: `codex:gpt-6-astra:xhigh`.
-- `auditor=`: the worker that audits the merged review. Default: `codex:gpt-6-astra:xhigh`. It must be a fresh worker, never the merger itself.
-- `harness` is `claude` (Claude Code) or `codex` (Codex); `model` and `effort` are passed through as the orchestration method expects them.
-- The user may say it in words instead ("two Codex reviewers on gpt-6-astra, Claude Code merges"); map that onto these fields and print the result in the plan.
+- `reviewers=`: one entry per independent review, comma separated, each `<harness>[:<model>[:<effort>]]`. Default: `codex,codex`.
+- `merger=`: the worker that merges the reviews. Default: `codex`.
+- `auditor=`: the worker that audits the merged review. Default: `codex`. It must be a fresh worker, never the merger itself.
+- `harness` is `claude` (Claude Code) or `codex` (Codex). Model and effort are optional and normally left out: then the worker runs with whatever model and effort its harness is configured to use, so a newer model is picked up without editing this skill. Pass them only when the user names them, and never fill them in from memory.
+- The user may say it in words instead ("two Codex reviewers, Claude Code merges"); map that onto these fields and print the result in the plan.
 
 Choosing the number of reviewers: two (or more) for a large or risky PR, about 20+ changed files or 1000+ changed lines, or any change to a shared harness, provider, runtime, or launcher; one for a small PR. In blind tests on two large PRs with a Codex merger and auditor, two Codex reviewers were the only setup that met the acceptance bar on both; one Claude Code plus one Codex reviewer found the most issues but once let low-value drafts through the merge; two Claude Code reviewers were last. Use a mixed pair when coverage matters more than edit burden, and expect to prune more.
 
@@ -45,7 +45,7 @@ Choosing the number of reviewers: two (or more) for a large or risky PR, about 2
 ## Steps
 
 1. Resolve the PR (`gh pr view`), pin head and base tip, and create the run directory `~/.local/state/pr-review/orchestrate/<owner>-<repo>-<N>-<head7>-<UTC stamp>/` with `skill/` (the frozen copy), `review-a/`, `review-b/` (one per reviewer), `merge/`, and `audit/`.
-2. Print the plan: PR, pinned SHAs, each worker's harness, model, and effort, the stages, and the run directory. Then start; no confirmation is needed unless an argument was ambiguous.
+2. Print the plan: PR, pinned SHAs, each worker's harness (and model and effort when the user named them; otherwise "harness default"), the stages, and the run directory. After each worker starts, record the model and effort it actually runs with when the orchestration method reports them, and include them in the final summary. Then start; no confirmation is needed unless an argument was ambiguous.
 3. Start every reviewer at once with the review brief.
 4. When rule 4 allows, start the merger with the merge brief. With one reviewer, skip to step 5 and audit that review.
 5. When rule 4 allows, start the auditor with the audit brief.
@@ -53,7 +53,7 @@ Choosing the number of reviewers: two (or more) for a large or risky PR, about 2
 
 ## Worker briefs
 
-Fill the placeholders: `{PR_URL}`, `{HEAD}`, `{BASE_TIP}`, `{RUN}` (run directory), `{WORK}` (this worker's folder), `{HARNESS}` (for example "Codex, gpt-6-astra, xhigh"), `{INPUTS}` (folders this worker may read). Every brief ends with the shared constraints block.
+Fill the placeholders: `{PR_URL}`, `{HEAD}`, `{BASE_TIP}`, `{RUN}` (run directory), `{WORK}` (this worker's folder), `{HARNESS}` (the harness name, plus the model and effort only when the user named them), `{INPUTS}` (folders this worker may read). Every brief ends with the shared constraints block.
 
 Review brief:
 
