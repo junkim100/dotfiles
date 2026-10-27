@@ -58,7 +58,14 @@ def resolve(eval_env):
 
 
 def setup(user):
-    token = getpass.getpass("PR Review Bot token (xoxb-...): ").strip()
+    # Without a terminal (a `!` command in an agent session, or a pipe), take the token from stdin, for example `pbpaste | notify.py --setup ...`.
+    if sys.stdin.isatty():
+        try:
+            token = getpass.getpass("PR Review Bot token (xoxb-...): ").strip()
+        except EOFError:
+            token = ""
+    else:
+        token = sys.stdin.readline().strip()
     if not token.startswith("xoxb-"):
         print("setup: expected a bot token that starts with xoxb-")
         return 1

@@ -332,7 +332,7 @@ The loop DMs from its own Slack app so its messages notify the user, stay apart 
 
 1. At https://api.slack.com/apps, choose Create New App, then From a manifest, pick the workspace, and paste [assets/slack-app-manifest.json](assets/slack-app-manifest.json). It asks only for `chat:write`, `im:write`, and `im:history`, and keeps the Messages tab writable so the user can reply. The bot never joins channels: the loop reads request threads with the user's own Slack access.
 2. Install the app to the workspace. If the workspace needs an admin's approval, request it.
-3. Copy the Bot User OAuth Token (`xoxb-...`) from OAuth & Permissions, and run `python3 <this skill's directory>/scripts/notify.py --setup --user <your Slack member ID>`. It prompts for the token without echoing it, stores it in `~/.config/slack-pr-review/bot.env` (mode 600), and sends a test DM. `notify.py --which` prints which bot the loop will use.
+3. Copy the Bot User OAuth Token (`xoxb-...`) from OAuth & Permissions, and run `python3 <this skill's directory>/scripts/notify.py --setup --user <your Slack member ID>`. It prompts for the token without echoing it (where there is no terminal, such as a `!` command in an agent session, it reads the token from stdin instead: copy the token, then run `pbpaste | python3 <this skill's directory>/scripts/notify.py --setup --user <member ID>`), stores it in `~/.config/slack-pr-review/bot.env` (mode 600), and sends a test DM. `notify.py --which` prints which bot the loop will use.
 
 ## Notes
 
