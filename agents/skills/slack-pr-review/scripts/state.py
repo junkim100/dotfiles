@@ -18,7 +18,10 @@ STATE = os.path.join(HOME, "state.json")
 LOCK = os.path.join(HOME, "state.lock")
 EMPTY = {"watermark": None, "owner": None, "run": None, "repos": {}, "messages": {}, "reviews": {}, "harness_limits": {}, "coordinator": None}
 HARNESSES = ("codex", "claude")
-REVIEW_ACTIVE = ("queued", "running", "gate_flat")
+# Statuses that hold or wait for a worker; a tick keeps its claim while any review is in one.
+REVIEW_ACTIVE = ("queued", "running", "gate_flat", "fix_queued", "fix_running")
+# Statuses of a review that is still open in its lifecycle: waiting for the user's post decision, or tracked until the user approves.
+REVIEW_TRACKED = ("awaiting_post", "tracking", "fix_queued", "fix_running")
 
 
 def now_iso():
@@ -65,6 +68,15 @@ def read_stdin_json(optional=False):
     if not isinstance(payload, dict):
         sys.exit("stdin must be a JSON object")
     return payload
+
+
+def merge(target, fields):
+    """Merge fields into target, recursing into nested objects so a partial update keeps sibling keys."""
+    for key, value in fields.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            merge(target[key], value)
+        else:
+            target[key] = value
 
 
 def emit(value):
@@ -121,12 +133,7 @@ def cmd_message(args):
         if args.merge:
             if args.key not in data["messages"]:
                 sys.exit("no message record " + args.key)
-            existing = data["messages"][args.key]
-            for field, value in record.items():
-                if isinstance(value, dict) and isinstance(existing.get(field), dict):
-                    existing[field].update(value)
-                else:
-                    existing[field] = value
+            merge(data["messages"][args.key], record)
         else:
             record["triaged_at"] = now_iso()
             data["messages"][args.key] = record
@@ -134,11 +141,68 @@ def cmd_message(args):
 
 
 def cmd_asks(args):
-    """Print the ambiguous messages whose question DM is still waiting for the user's answer."""
-    for key, record in sorted(load()["messages"].items(), key=lambda item: item[1].get("ts", "")):
+    """Print every DM question still waiting for the user's answer: unclear requests (message) and post decisions (review)."""
+    data = load()
+    for key, record in sorted(data["messages"].items(), key=lambda item: item[1].get("ts", "")):
         ask = record.get("ask") or {}
         if ask.get("status") == "asked":
-            print("\t".join([key, ask.get("channel", ""), ask.get("ts", ""), ask.get("asked_at", ""), ",".join(record.get("prs") or []) or "-"]))
+            print("\t".join(["message", key, ask.get("channel", ""), ask.get("ts", ""), ask.get("asked_at", ""), ",".join(record.get("prs") or []) or "-"]))
+    for pr, record in sorted(data["reviews"].items(), key=lambda item: (item[1].get("ask") or {}).get("asked_at", "")):
+        ask = record.get("ask") or {}
+        if ask.get("status") == "asked":
+            print("\t".join(["review", pr, ask.get("channel", ""), ask.get("ts", ""), ask.get("asked_at", ""), ask.get("kind", "-")]))
+    return 0
+
+
+def cmd_signal(args):
+    """Append a signal that the author may have addressed the comments (JSON on stdin, deduped by ref), or print the pending ones with --pending."""
+    with locked() as data:
+        record = data["reviews"].get(args.pr)
+        if record is None:
+            sys.exit("no review record " + args.pr)
+        watch = record.setdefault("watch", {})
+        pending = watch.setdefault("signals", [])
+        if args.pending:
+            emit(pending)
+            return 0
+        signal = read_stdin_json()
+        refs = {s.get("ref") for s in pending} | set(watch.get("taken_refs", []))
+        if signal.get("ref") in refs:
+            print("duplicate")
+            return 0
+        signal.setdefault("recorded_at", now_iso())
+        pending.append(signal)
+        record["updated_at"] = now_iso()
+        print("recorded")
+    return 0
+
+
+def cmd_fix(args):
+    """Open the next fix check of a review (--new prints its folder) or merge fields (JSON on stdin) into fix check N."""
+    with locked() as data:
+        record = data["reviews"].get(args.pr)
+        if record is None or not record.get("report_dir"):
+            sys.exit("no review record with a report_dir for " + args.pr)
+        fixes = record.setdefault("fixes", [])
+        if args.new:
+            n = len(fixes) + 1
+            folder = os.path.join(record["report_dir"], "fix-{}".format(n))
+            os.makedirs(folder, exist_ok=True)
+            fields = read_stdin_json(optional=True)
+            taken = [s.get("ref") for s in fields.get("signals", []) if s.get("ref")]
+            watch = record.setdefault("watch", {})
+            watch["taken_refs"] = (watch.get("taken_refs") or []) + taken
+            watch["signals"] = [s for s in watch.get("signals", []) if s.get("ref") not in taken]
+            entry = {"n": n, "dir": folder, "created_at": now_iso()}
+            merge(entry, fields)
+            fixes.append(entry)
+            record["updated_at"] = now_iso()
+            print(folder)
+            return 0
+        if args.set is None or not 1 <= args.set <= len(fixes):
+            sys.exit("give --new or --set <existing fix number>")
+        merge(fixes[args.set - 1], read_stdin_json())
+        record["updated_at"] = now_iso()
     return 0
 
 
@@ -152,7 +216,7 @@ def cmd_review(args):
             history.append(record)
             record = {"history": history}
         record = record or {"history": []}
-        record.update(fields)
+        merge(record, fields)
         for key in args.add_request or []:
             requests = record.setdefault("requests", [])
             if key not in requests:
@@ -174,6 +238,8 @@ def cmd_list(args):
         if args.status and status not in args.status:
             continue
         if args.active and status not in REVIEW_ACTIVE:
+            continue
+        if args.tracked and status not in REVIEW_TRACKED:
             continue
         if args.days is not None and age_minutes(record["updated_at"]) > args.days * 24 * 60:
             continue
@@ -262,8 +328,19 @@ def main():
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_claim)
 
-    p = sub.add_parser("asks", help="list question DMs still waiting for the user's answer: key, DM channel, DM ts, asked_at, PRs")
+    p = sub.add_parser("asks", help="list DM questions still waiting for the user's answer: kind (message or review), key or PR, DM channel, DM ts, asked_at, PRs or ask kind")
     p.set_defaults(func=cmd_asks)
+
+    p = sub.add_parser("signal", help="record a fix-ready signal for a tracked review (JSON on stdin with kind, ref, at, text), or print the pending ones with --pending; fix --new consumes the signals it lists")
+    p.add_argument("pr")
+    p.add_argument("--pending", action="store_true")
+    p.set_defaults(func=cmd_signal)
+
+    p = sub.add_parser("fix", help="open the next fix check of a review and print its folder (--new, optional JSON on stdin; its signals leave the pending list) or update fix check N (--set N, JSON on stdin)")
+    p.add_argument("pr")
+    p.add_argument("--new", action="store_true")
+    p.add_argument("--set", type=int)
+    p.set_defaults(func=cmd_fix)
 
     p = sub.add_parser("release", help="drop the loop claim when this session holds it")
     p.add_argument("--terminal", required=True)
@@ -295,7 +372,8 @@ def main():
 
     p = sub.add_parser("list", help="list review records (PR, status, head, dispatch, report dir), oldest update first")
     p.add_argument("--status", nargs="*")
-    p.add_argument("--active", action="store_true", help="only queued or running reviews")
+    p.add_argument("--active", action="store_true", help="only reviews that hold or wait for a worker: " + ", ".join(REVIEW_ACTIVE))
+    p.add_argument("--tracked", action="store_true", help="only reviews still open in their lifecycle: " + ", ".join(REVIEW_TRACKED))
     p.add_argument("--days", type=float, help="only reviews updated within this many days")
     p.set_defaults(func=cmd_list)
 

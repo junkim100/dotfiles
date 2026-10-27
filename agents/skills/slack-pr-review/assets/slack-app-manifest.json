@@ -1,0 +1,28 @@
+{
+  "display_information": {
+    "name": "PR Review Bot",
+    "description": "Tells you when a requested PR review is ready and asks before anything is posted to GitHub.",
+    "background_color": "#24292f"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "PR Review",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["chat:write", "im:write", "im:history"]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
