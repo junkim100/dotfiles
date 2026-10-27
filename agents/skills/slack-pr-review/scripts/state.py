@@ -117,9 +117,28 @@ def cmd_seen(args):
 
 def cmd_message(args):
     record = read_stdin_json()
-    record["triaged_at"] = now_iso()
     with locked() as data:
-        data["messages"][args.key] = record
+        if args.merge:
+            if args.key not in data["messages"]:
+                sys.exit("no message record " + args.key)
+            existing = data["messages"][args.key]
+            for field, value in record.items():
+                if isinstance(value, dict) and isinstance(existing.get(field), dict):
+                    existing[field].update(value)
+                else:
+                    existing[field] = value
+        else:
+            record["triaged_at"] = now_iso()
+            data["messages"][args.key] = record
+    return 0
+
+
+def cmd_asks(args):
+    """Print the ambiguous messages whose question DM is still waiting for the user's answer."""
+    for key, record in sorted(load()["messages"].items(), key=lambda item: item[1].get("ts", "")):
+        ask = record.get("ask") or {}
+        if ask.get("status") == "asked":
+            print("\t".join([key, ask.get("channel", ""), ask.get("ts", ""), ask.get("asked_at", ""), ",".join(record.get("prs") or []) or "-"]))
     return 0
 
 
@@ -243,6 +262,9 @@ def main():
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_claim)
 
+    p = sub.add_parser("asks", help="list question DMs still waiting for the user's answer: key, DM channel, DM ts, asked_at, PRs")
+    p.set_defaults(func=cmd_asks)
+
     p = sub.add_parser("release", help="drop the loop claim when this session holds it")
     p.add_argument("--terminal", required=True)
     p.set_defaults(func=cmd_release)
@@ -256,8 +278,9 @@ def main():
     p.add_argument("keys", nargs="*")
     p.set_defaults(func=cmd_seen)
 
-    p = sub.add_parser("message", help="store a triage record (JSON on stdin) under <channel_id>/<message_ts>")
+    p = sub.add_parser("message", help="store a triage record (JSON on stdin) under <channel_id>/<message_ts>; --merge updates fields of an existing one")
     p.add_argument("key")
+    p.add_argument("--merge", action="store_true")
     p.set_defaults(func=cmd_message)
 
     p = sub.add_parser("review", help="merge fields (JSON on stdin) into the review record of owner/repo#N")
