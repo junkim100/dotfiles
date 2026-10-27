@@ -177,6 +177,32 @@ def cmd_signal(args):
     return 0
 
 
+def cmd_ack(args):
+    """Track the user's replies a review acknowledges with a reaction: add one, mark its reaction state, or list them."""
+    with locked() as data:
+        record = data["reviews"].get(args.pr)
+        if record is None:
+            sys.exit("no review record " + args.pr)
+        acks = record.setdefault("acks", [])
+        if args.add:
+            if not any(a["ref"] == args.add for a in acks):
+                acks.append({"ref": args.add, "state": "pending", "added_at": now_iso()})
+            record["updated_at"] = now_iso()
+        elif args.mark:
+            ref, state = args.mark
+            for a in acks:
+                if a["ref"] == ref:
+                    a["state"] = state
+                    a["marked_at"] = now_iso()
+                    break
+            else:
+                sys.exit("no ack " + ref)
+        for a in acks:
+            channel, ts = a["ref"].split("/", 1)
+            print("\t".join([channel, ts, a["state"]]))
+    return 0
+
+
 def cmd_fix(args):
     """Open the next fix check of a review (--new prints its folder) or merge fields (JSON on stdin) into fix check N."""
     with locked() as data:
@@ -335,6 +361,12 @@ def main():
     p.add_argument("pr")
     p.add_argument("--pending", action="store_true")
     p.set_defaults(func=cmd_signal)
+
+    p = sub.add_parser("ack", help="list a review's acknowledged replies (channel, ts, reaction state), --add <channel>/<ts>, or --mark <channel>/<ts> <loading|done|failed>")
+    p.add_argument("pr")
+    p.add_argument("--add")
+    p.add_argument("--mark", nargs=2, metavar=("REF", "STATE"))
+    p.set_defaults(func=cmd_ack)
 
     p = sub.add_parser("fix", help="open the next fix check of a review and print its folder (--new, optional JSON on stdin; its signals leave the pending list) or update fix check N (--set N, JSON on stdin)")
     p.add_argument("pr")
