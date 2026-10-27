@@ -141,16 +141,16 @@ def cmd_message(args):
 
 
 def cmd_asks(args):
-    """Print every DM question still waiting for the user's answer: unclear requests (message) and post decisions (review)."""
+    """Print every DM question still waiting for the user's answer: unclear requests (message) and post decisions (review), with the thread each lives in."""
     data = load()
     for key, record in sorted(data["messages"].items(), key=lambda item: item[1].get("ts", "")):
         ask = record.get("ask") or {}
         if ask.get("status") == "asked":
-            print("\t".join(["message", key, ask.get("channel", ""), ask.get("ts", ""), ask.get("asked_at", ""), ",".join(record.get("prs") or []) or "-"]))
+            print("\t".join(["message", key, ask.get("channel", ""), ask.get("thread_ts") or ask.get("ts", ""), ask.get("asked_at", ""), ",".join(record.get("prs") or []) or "-"]))
     for pr, record in sorted(data["reviews"].items(), key=lambda item: (item[1].get("ask") or {}).get("asked_at", "")):
         ask = record.get("ask") or {}
         if ask.get("status") == "asked":
-            print("\t".join(["review", pr, ask.get("channel", ""), ask.get("ts", ""), ask.get("asked_at", ""), ask.get("kind", "-")]))
+            print("\t".join(["review", pr, ask.get("channel", ""), ask.get("thread_ts") or ask.get("ts", ""), ask.get("asked_at", ""), ask.get("kind", "-")]))
     return 0
 
 
@@ -240,7 +240,8 @@ def cmd_review(args):
         if args.new_round and record:
             history = record.pop("history", [])
             history.append(record)
-            record = {"history": history}
+            # The PR keeps one bot DM thread across rounds.
+            record = {"history": history, "thread": record.get("thread")} if record.get("thread") else {"history": history}
         record = record or {"history": []}
         merge(record, fields)
         for key in args.add_request or []:
@@ -354,7 +355,7 @@ def main():
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_claim)
 
-    p = sub.add_parser("asks", help="list DM questions still waiting for the user's answer: kind (message or review), key or PR, DM channel, DM ts, asked_at, PRs or ask kind")
+    p = sub.add_parser("asks", help="list DM questions still waiting for the user's answer: kind (message or review), key or PR, DM channel, thread ts, asked_at, PRs or ask kind")
     p.set_defaults(func=cmd_asks)
 
     p = sub.add_parser("signal", help="record a fix-ready signal for a tracked review (JSON on stdin with kind, ref, at, text), or print the pending ones with --pending; fix --new consumes the signals it lists")

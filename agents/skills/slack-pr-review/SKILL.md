@@ -92,7 +92,7 @@ Drop results from `ME` and from bots. The message key is `<channel_id>/<message_
 
 ### 1a. Read answers to earlier questions
 
-`S asks` lists every question still waiting, one row per question: kind (`message` or `review`), key or PR, DM channel, DM ts, asked_at, and the PRs or the ask kind. For each row, read the DM's thread with `slack_read_thread(channel_id=<DM channel>, message_ts=<DM ts>, response_format="detailed")` and take the replies from `ME` that are newer than the ask's `handled_ts` (or than the question), oldest first; ignore the bot's own messages. Each reply is the user's instruction about this one question only. After acting on a reply, record its ts as `ask.handled_ts`.
+`S asks` lists every question still waiting, one row per question: kind (`message` or `review`), key or PR, DM channel, the ts of the thread the question lives in (the PR thread, step 8), asked_at, and the PRs or the ask kind. For each row, read that thread with `slack_read_thread(channel_id=<DM channel>, message_ts=<thread ts>, response_format="detailed")` and take the replies from `ME` that are newer than both the question itself (`ask.ts`) and the ask's `handled_ts`, oldest first; ignore the bot's own messages. Each reply is the user's instruction about this one question only. After acting on a reply, record its ts as `ask.handled_ts` and as `thread.handled_ts` on the review.
 
 For a `message` row (an unclear request):
 
@@ -112,8 +112,16 @@ For a `review` row (ask kind `post_first` after a full review, or `post_fix` aft
 - `posted`, `올렸어요` (only for `post_first`): the user posted the review themselves. Mark it `tracking` with `watch.from` set to the commit of `GH`'s newest review in `GHR threads`, and reply that tracking started.
 - `skip`, `패스`, `no`: post nothing. A `post_first` review becomes `done` and is no longer tracked; a `post_fix` review returns to `tracking` with `watch.from` set to the checked head. Reply with what happens next.
 - `stop`, `그만`: mark the review `closed` with `closed_reason: "the user stopped tracking"` and reply that tracking ended.
-- Any other reply: answer once in the thread with the reply options of the DM it answers, as for a `message` row.
+- Any other reply: handle it as a free-form reply (below) when it asks something; otherwise answer once in the thread with the reply options of the DM it answers, as for a `message` row.
 - No reply yet: leave it. A post decision never expires; the status board keeps listing it.
+
+Free-form replies in a PR thread. Also read the PR thread of every review that has one and is not `approved`, `done`, `closed`, or `skipped`, for replies from `ME` newer than `thread.handled_ts` that the rows above did not consume. They are the user's instructions about that PR, in their own words:
+
+- Asked to check whether the comments are resolved, or whether the PR can merge (for example "the author says everything is fixed, can you check?"): when the latest fix check covers the current head and nothing from the author has arrived since, answer in one short reply from it: what is resolved, what is still open, and whether the PR is mergeable (`gh pr view N --json mergeable,mergeStateStatus`, plus the CI state), pointing at its proposal in the thread. Otherwise record `S signal` `{"kind": "user", "ref": "<channel>/<reply ts>", "text"}`, register the reply with `S ack`, and step 1b queues a fix check now; its DM answers the question.
+- Asked to stop, skip, or post: treat it as the matching answer above.
+- Anything else about the PR: answer in one short reply from the state and the reports, or ask one clarifying question.
+
+Record the reply's ts as `thread.handled_ts`.
 
 Acknowledging replies. The user wants a reaction, not a message, as the sign that a reply was seen: put `:loading:` on each reply when you start acting on it (`NOTIFY --channel <DM channel> --ts <reply ts> --react loading`), and change it to `:done:` when the work it asked for is complete (`--unreact loading --react done`), or to `:x:` when that work failed (the failure DM says why). Replies handled within the tick (`skip`, `stop`, `posted`, `edit`, and `post` once `GHR post` returns) get `:done:` right away; a failed `post` gets `:x:`. A reply that starts longer work (`review` on an unclear request) is registered on the review it creates or joins with `S ack <PR> --add <DM channel>/<reply ts>` (step 3), and its reaction follows that review: every tick, for each review with acks (`S ack <PR>`), a review in `queued`, `running`, `gate_flat`, `fix_queued`, or `fix_running` keeps `:loading:` on acks still `pending`; any later status swaps `:loading:` for `:done:` (`failed` for `:x:`). Record each change with `S ack <PR> --mark <ref> loading|done|failed`. An unclear reply gets the clarifying message instead of a reaction. If `NOTIFY` refuses a reaction (for example `missing_scope`), leave the ack as it is, so a later tick adds it, and say so on the status board.
 
@@ -128,7 +136,7 @@ Each tick, for every review in `S list --tracked` whose status is `tracking`:
 1. Run `GHR threads <owner/repo> <N> --login "$GH" --out <REPORT_DIR>/watch-threads.json`. A `MERGED` or `CLOSED` state makes the review `closed` (send the closed DM) and stops here. An `APPROVED` review by `GH` newer than `watch.since` means the user approved on GitHub themselves: mark it `approved` and stop here.
 2. Slack: read each `watch.slack` entry after its `last_ts`, with `slack_read_thread(channel_id, message_ts=<thread_ts>, oldest=<last_ts>)` for a thread, or `slack_read_channel(channel_id, oldest=<last_ts>)` for a DM. Skip messages from `ME` and bots. A message that says the comments were addressed or asks for another look (반영했습니다, 수정했습니다, 고쳤습니다, 확인 부탁드립니다, 다시 봐주세요, fixed, addressed, updated, PTAL) is a signal: `S signal <PR>` with `{"kind": "slack", "ref": "<channel>/<ts>", "at", "from_name", "permalink", "text": <the message, secrets removed>}`. Anything else in the thread is not a signal. Then move `last_ts` to the newest message read.
 3. GitHub: `review_requested: true` is a signal `{"kind": "rerequest", "ref": "rerequest/<head>"}`. Each reply in the user's threads and each conversation comment by someone other than `GH` and not by a bot account (a login ending in `[bot]`), newer than `watch.since`, is a signal `{"kind": "gh_reply", "ref": "gh/<id>", "at", "url", "text"}`.
-4. Queue a fix check when `S signal <PR> --pending` holds a `slack`, `request`, `rerequest`, or `head_moved` signal, or holds `gh_reply` signals and the threads file's `last_other_activity` is at least Quiet old. Queue it with `S fix <PR> --new` and `{"signals": <the pending list>, "from": <watch.from>, "status": "queued"}`, which prints its folder `<FIX_DIR>` and consumes those signals; copy the threads file to `<FIX_DIR>/threads.json`; and set the review `fix_queued` with `"fix": <its number>`.
+4. Queue a fix check when `S signal <PR> --pending` holds a `user`, `slack`, `request`, `rerequest`, or `head_moved` signal, or holds `gh_reply` signals and the threads file's `last_other_activity` is at least Quiet old. Queue it with `S fix <PR> --new` and `{"signals": <the pending list>, "from": <watch.from>, "status": "queued"}`, which prints its folder `<FIX_DIR>` and consumes those signals; copy the threads file to `<FIX_DIR>/threads.json`; and set the review `fix_queued` with `"fix": <its number>`.
 
 In `dry-run`, report the signals and the fix checks that would be queued, and record nothing.
 
@@ -167,7 +175,7 @@ EOF
 For `owner/repo#N`, read `gh pr view N --repo owner/repo --json number,url,title,state,isDraft,headRefOid,baseRefName,author,changedFiles,additions,deletions` and `gh api repos/owner/repo/pulls/N/reviews --paginate`. Then decide, in this order:
 
 1. `S get` shows a review in `queued`, `running`, `gate_flat`, `fix_queued`, or `fix_running`: attach this message with `S review 'owner/repo#N' --add-request <key> < /dev/null` and stop. Its DM will name every requester.
-2. It shows `awaiting_post`: attach the message, and when it is a reminder or a re-review ask, reply in the open ask's thread that `<name>` asked again, with the permalink. No new work.
+2. It shows `awaiting_post`: attach the message, and when it is a reminder or a re-review ask, reply in the PR thread that `<name>` asked again, with the permalink. No new work.
 3. It shows `tracking`: attach the message, add its conversation to `watch.slack` (as in step 1b), and when it asks for another look, record `S signal` with `{"kind": "request", "ref": "<key>", "at", "from_name", "permalink", "text"}`. Step 1b queues the fix check. No new full review.
 4. It shows a `done` review of the current head: attach the message the same way, and send the reminder DM (step 8) when the message is a reminder or a re-review ask. No new review.
 5. Skip, recording `status: "skipped"` with a `skip_reason` and sending no DM, when the PR is closed or merged, or when `git -C <local clone> worktree list --porcelain` shows a checkout whose path ends in `/pr-<N>-<head[:7]>` (pr-review's default name), which means another session has reviewed or is reviewing that exact head. This skill's workers name their checkouts under `/tmp/slack-pr-review/` instead, so they never match.
@@ -232,14 +240,14 @@ Loop while any review is `running` or `fix_running`:
      - `orchestrate`, a reviewer: when both `review-a` and `review-b` hold `ledger/review.json` and `done.json`, start the merge (step 6, points 2 to 5, one slot). One finished review and one that failed twice go to the audit directly, as pr-review-orchestrate's failure rule says.
      - `orchestrate`, the merger: when `merge/` holds both files, start the audit.
      - `orchestrate`, the auditor: when `audit/` holds both files and `<REPORT_DIR>/summary.json` and `report.md` exist, finish the review (below).
-     - A fix check: when `<FIX_DIR>` holds `fixcheck.md`, `payload.json`, and `summary.json` and `GHR check <FIX_DIR>/payload.json` passes, record `S fix <PR> --set <k>` with the summary fields and `"status": "done"`, set the review `awaiting_post`, and send the fix-check DM with its items (step 8), recording `"ask": {"status": "asked", "kind": "post_fix", "payload": "<FIX_DIR>/payload.json", "channel", "ts", "permalink", "asked_at"}`. Otherwise follow "Worker failures".
+     - A fix check: when `<FIX_DIR>` holds `fixcheck.md`, `payload.json`, and `summary.json` and `GHR check <FIX_DIR>/payload.json` passes, record `S fix <PR> --set <k>` with the summary fields and `"status": "done"`, set the review `awaiting_post`, and send the fix-check DM with its items (step 8), recording `"ask": {"status": "asked", "kind": "post_fix", "payload": "<FIX_DIR>/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`. Otherwise follow "Worker failures".
      A stage is never started on a message alone; the files decide, as pr-review-orchestrate's stage-order rule says. A freed slot goes straight back to step 6 for the next queued work.
    - `question`: answer within the spec's rules with `ORCA orchestration reply --id <message id> --body "..." --from "$COORD" --json`. Never block on the user, since the loop is unattended: for a judgment call, tell the worker to take the conservative option and record the assumption in its report.
    - `escalation`: decide and reply. Deny any request to post, push, run paid jobs, or start nested workers.
    - `heartbeat`: nothing to do.
 3. A wait that returns no batch is a checkpoint, not a failure. Whenever the last Slack poll is more than 9 minutes old, refresh the heartbeat (`S claim`) and run steps 1, 1a, 1b, 2 to 4 and 6 again for new requests, answers, and signals. After three consecutive empty waits, run `ORCA orchestration worker-list --run "$(S run)" --include-remote --json` and act on each row's `projection.attention` and `projection.nextAction` as the orchestration guide says. Stop, abandon, or retry a worker only on positive proof that it exited without `worker_done`; then mark it `failed` and send the failure DM.
 
-Finishing a review: record `finished_at` and the summary fields. Build the first post with `GHR payload <ledger review.json> --out <REPORT_DIR>/post/payload.json` (the ledger record is `<REPORT_DIR>/review.json` for a single review and `<REPORT_DIR>/audit/ledger/review.json` for an orchestrated one) and run `GHR check` on it. It holds every recommended draft, or a single "LGTM!" approval when no draft is recommended. Set the review `awaiting_post` and send the ready DM with its items (step 8), recording `"ask": {"status": "asked", "kind": "post_first", "payload": "<REPORT_DIR>/post/payload.json", "channel", "ts", "permalink", "asked_at"}`.
+Finishing a review: record `finished_at` and the summary fields. Build the first post with `GHR payload <ledger review.json> --out <REPORT_DIR>/post/payload.json` (the ledger record is `<REPORT_DIR>/review.json` for a single review and `<REPORT_DIR>/audit/ledger/review.json` for an orchestrated one) and run `GHR check` on it. It holds every recommended draft, or a single "LGTM!" approval when no draft is recommended. Set the review `awaiting_post` and send the ready DM with its items (step 8), recording `"ask": {"status": "asked", "kind": "post_first", "payload": "<REPORT_DIR>/post/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`.
 
 Worker failures. Read the worker's output (`ORCA orchestration worker-read --dispatch <id>`) before deciding:
 
@@ -253,7 +261,9 @@ Leave the wait loop only when no review is `running`, `queued`, `fix_running`, o
 
 Send each DM by piping it to `NOTIFY`, so the user gets a notification. If `NOTIFY` exits non-zero (no bot token, or Slack refused), send the same text with `slack_send_message(channel_id=ME, message=...)` instead and put `DM sent without notification: <NOTIFY's reason>` on the status board. Store the returned channel, ts, and link on the review (`dm_permalink`, or the ask fields), or on the message record for a reminder. Show times in KST (`TZ=Asia/Seoul date -r <unix seconds> '+%Y-%m-%d %H:%M'`). Name every requester when several asked. Drop a line marked "only" when its condition does not hold.
 
-Items: after a ready or fix-check DM, post each string of `GHR render <payload>` as its own reply in that DM's thread (`NOTIFY --channel <channel> --thread-ts <ts>`), in order, so the user reads exactly what would be posted.
+One thread per PR. Everything about one PR lives in one thread of the bot DM, the PR thread, stored on the review as `thread: {"channel", "ts", "handled_ts"}`. When the request came through a question DM, that question is the thread's root: copy its channel and ts into the review's `thread` in step 3. Otherwise the first DM the loop sends about the PR (usually the ready DM) is sent top-level and becomes the root. Every later message about the PR, including the ready DM, its items, fix checks, post results, skip reasons, reminders, failures, and tracking ended, is a reply in that thread (`NOTIFY --channel <thread.channel> --thread-ts <thread.ts>`), never a new top-level DM. A new round of the same PR (`--new-round`) keeps the old record's `thread`. When a reply in one thread joins a review that already has another PR thread, answer it there with one line linking the PR thread. Each ask records `thread_ts` (the root) next to `ts` (the ask message itself).
+
+Items: after a ready or fix-check DM, post each string of `GHR render <payload>` as its own reply in the PR thread, in order, so the user reads exactly what would be posted.
 
 Ready (asks `post_first`):
 
@@ -266,7 +276,7 @@ Findings: <h> High, <m> Medium, <n> Note, <t> Nit. Inline comment drafts: <c> re
 Earlier comments: <r> resolved, <p> partly resolved, <u> unresolved   (only for a follow-up review)
 Report: `<REPORT_DIR>/report.md`
 
-**To post:** the <c> recommended drafts are numbered in this thread. Reply `post` to post them as one review, `post 1 3` for some, `edit <n>: <text>` to change one first, `posted` if you post it yourself, or `skip` to post nothing and stop tracking.
+**To post:** the <c> recommended drafts are numbered below in this thread. Reply `post` to post them as one review, `post 1 3` for some, `edit <n>: <text>` to change one first, `posted` if you post it yourself, or `skip` to post nothing and stop tracking.
 ```
 
 When the payload is a single approval, the last paragraph is: ``**To post:** no comments are recommended. Reply `post` to approve with "LGTM!", `posted` if you review it yourself, or `skip`.``
@@ -278,13 +288,13 @@ Fix check (asks `post_fix`):
 Checked `<from7>..<head7>` after <the trigger: <name>'s message in [<#channel or DM>](<permalink>) | a re-requested review | the author's replies on GitHub | a push after the last check>
 Your comments: <f> fixed, <a> answered, <p> partly fixed, <u> not fixed, <d> disputed (<b> blocking still open)
 New problems since your comments: <k>
-Proposal: approve with "LGTM!" | <r> replies and <c> new comments, numbered in this thread
+Proposal: approve with "LGTM!" | <r> replies and <c> new comments, numbered below in this thread
 Report: `<FIX_DIR>/fixcheck.md`
 
 Reply `post` to post it, `post 1 3` for some items, `edit <n>: <text>` to change one, `skip` to post nothing and keep watching, or `stop` to stop tracking this PR.
 ```
 
-Post result (a reply in the ask's thread):
+Post result (a reply in the PR thread):
 
 ```text
 Posted to GitHub: <one link per call from GHR post>. <Watching the PR for the author's fixes now. | Approved; tracking for this PR has ended.>
@@ -306,7 +316,7 @@ Partial output: `<path>`   (only when something was written)
 Retry with `/slack-pr-review review=<url>`   (only for a full review; a failed fix check retries on the next signal)
 ```
 
-Question, for an `ambiguous` message (send it right after triage, once per message; store its channel, ts, and link with `S message <key> --merge` as `{"ask": {"status": "asked", "channel", "ts", "permalink", "asked_at"}}`):
+Question, for an `ambiguous` message (send it right after triage, once per message; store its channel, ts, and link with `S message <key> --merge` as `{"ask": {"status": "asked", "channel", "thread_ts", "ts", "permalink", "asked_at"}}`):
 
 ```text
 **Review request unclear:** <name> in [<#channel or DM>](<permalink>) at <YYYY-MM-DD HH:MM KST>
