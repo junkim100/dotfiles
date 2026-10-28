@@ -10,7 +10,6 @@ cask "font-meslo-lg-nerd-font"
 
 # Applications
 cask "antinote"
-cask "arc"
 cask "claude"
 cask "ghostty"
 # From this repository's own tap, see Casks/globalprotect.rb.
@@ -79,6 +78,11 @@ mas "Hand Mirror", id: 1502839586
 mas "Hidden Bar", id: 1452453066
 mas "Magnet", id: 441258766
 mas "QuickShade", id: 931571202
+
+# Safari is included with macOS. Enable these extensions in Safari > Settings > Extensions after installation.
+mas "Hush", id: 1544743900
+mas "Noir", id: 1592917505
+mas "Wipr 2", id: 1662217862
 
 # Exceptions
 # These apps live on the Mac but are deliberately not managed here. Each has no Homebrew cask or is

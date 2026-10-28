@@ -26,6 +26,10 @@ Reruns reuse existing tools and links. Homebrew installs missing Brewfile entrie
 bash "$DOTFILES_DIR/macOS/install.sh"
 ```
 
+Mac App Store apps are declared in [`macOS/Brewfile`](macOS/Brewfile) using `mas "App Name", id: <App Store ID>`. The Brewfile installs `mas`, the Mac App Store command-line tool, and the macOS installer uses Homebrew Bundle to install missing apps with `--no-upgrade`. On a new Mac, sign into the App Store with the Apple account that owns the apps before running the installer.
+
+Safari is included with macOS. The Brewfile manages its Hush, Noir, and Wipr 2 extensions; enable them in **Safari > Settings > Extensions** after installation. Their individual settings are not stored in dotfiles.
+
 **Ubuntu:**
 ```bash
 bash "$DOTFILES_DIR/ubuntu/install.sh"
