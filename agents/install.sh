@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 . "$DOTFILES_DIR/scripts/lib/install.sh"
-install_init "Shared agents, Codex, and Claude Code" 5 "$@"
+install_init "Shared agents, Codex, Claude Code, and Muse Code" 6 "$@"
 
 step "Shared skills"
 for skill in "$SCRIPT_DIR"/skills/*/; do
@@ -44,6 +44,9 @@ run_installer "$SCRIPT_DIR/codex/install.sh"
 
 step "Claude Code"
 run_installer "$SCRIPT_DIR/claude-code/install.sh"
+
+step "Muse Code"
+run_installer "$SCRIPT_DIR/muse-code/install.sh"
 
 step "Shared plugins"
 run_installer "$SCRIPT_DIR/plugins/install.sh"

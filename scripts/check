@@ -50,7 +50,7 @@ check_dry_run() {
     && grep -q -- '--dry-run)' "$DOTFILES_DIR/scripts/lib/install.sh" \
     || fail "$installer does not use the shared --dry-run parser, so it could run for real"
   home=$(mktemp -d "$TEMP_DIR/dry-run-XXXXXX")
-  if ! HOME="$home" bash "$DOTFILES_DIR/$installer" --dry-run > "$home.log" 2>&1; then
+  if ! HOME="$home" XDG_CONFIG_HOME="$home/.config" bash "$DOTFILES_DIR/$installer" --dry-run > "$home.log" 2>&1; then
     cat "$home.log" >&2
     fail "$installer --dry-run exited non-zero"
   fi
@@ -79,6 +79,7 @@ check_link_sources ubuntu/install.sh
 check_link_sources common/tmux/install.sh
 check_link_sources agents/claude-code/install.sh
 check_link_sources agents/codex/install.sh
+check_link_sources agents/muse-code/install.sh
 check_link_sources agents/install.sh
 check_link_sources agents/plugins/install.sh
 check_link_sources profiles/backend-ai/install.sh
@@ -86,6 +87,7 @@ check_link_sources profiles/backend-ai/install.sh
 check_dry_run agents/install.sh
 check_dry_run agents/claude-code/install.sh
 check_dry_run agents/codex/install.sh
+check_dry_run agents/muse-code/install.sh
 check_dry_run agents/plugins/install.sh
 check_dry_run common/tmux/install.sh
 check_dry_run ubuntu/install_packages.sh
@@ -93,6 +95,7 @@ check_dry_run ubuntu/setup_conda.sh
 check_dry_run profiles/backend-ai/install.sh
 
 bash "$DOTFILES_DIR/scripts/tests/installers.sh"
+bash "$DOTFILES_DIR/scripts/tests/muse.sh"
 python3 "$DOTFILES_DIR/agents/plugins/manage.py" check
 python3 "$DOTFILES_DIR/scripts/tests/plugins.py"
 

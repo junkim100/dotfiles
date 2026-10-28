@@ -4,7 +4,7 @@
 
 This repository manages reproducible personal configuration for macOS, Ubuntu, and machine profiles. Prefer explicit symlinks and idempotent installers over generated configuration or hidden migration logic.
 
-`AGENTS.md` is the canonical source of repository instructions and is read directly by current Claude Code and Codex. Do not create `CLAUDE.md` files or compatibility links. Personal instructions belong in `agents/AGENTS.md`; Claude Code loads that source through `~/.claude/rules/agents.md`.
+`AGENTS.md` is the canonical source of repository instructions and is read directly by current Claude Code, Codex, and Muse Code. Do not create `CLAUDE.md` files or compatibility links. Personal instructions belong in `agents/AGENTS.md`; Claude Code loads that source through `~/.claude/rules/agents.md`, and Muse Code through `${XDG_CONFIG_HOME:-~/.config}/muse/AGENTS.md`.
 
 ## Ownership
 
@@ -12,8 +12,8 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 - `ubuntu/` owns Ubuntu-specific configuration and installation.
 - `common/` owns canonical configuration used by two or more platforms. Platform paths may remain as compatibility symlinks when deployed home-directory links still target them.
 - `profiles/` owns machine-role overlays that reuse a platform configuration, including the Backend.AI Ubuntu profile.
-- `agents/` owns shared personal instructions, custom agent skills, the third-party plugin catalog, and agent installation. `agents/install.sh` installs the shared pieces, runs the Codex and Claude Code installers, then reconciles `agents/plugins/catalog.json` for both clients.
-- `agents/claude-code/` owns Claude Code settings, the status line, and its installer. `agents/codex/` owns Codex CLI installation and its integration. Keep application-specific settings and installation here; keep shared instructions and skills at the top of `agents/`.
+- `agents/` owns shared personal instructions, custom agent skills, the third-party plugin catalog, and agent installation. `agents/install.sh` installs the shared pieces, runs the Codex, Claude Code, and Muse Code installers, then reconciles `agents/plugins/catalog.json` for Claude and Codex. Muse discovers portable skills from the neutral store through `~/.agents/skills`; native Muse plugin, MCP, and hook adapters are not configured.
+- `agents/claude-code/` owns Claude Code settings, the status line, and its installer. `agents/codex/` owns Codex CLI installation and its integration. `agents/muse-code/` owns Muse Code installation and the preferences merged into its local settings. Keep application-specific settings and installation here; keep shared instructions and skills at the top of `agents/`.
 - `scripts/lib/install.sh` owns shared Bash installer argument handling, progress, diagnostics, downloads, and cleanup. `scripts/link-file` owns managed symlinks, and `scripts/tests/` owns isolated installer regression tests.
 - `Casks/` makes the repository a Homebrew tap. It holds casks that Homebrew itself does not offer, and `macOS/Brewfile` taps the repository by URL so `brew bundle` can install them.
 - `lazyvim/` is a Git submodule backed by `junkim100/lazyvim`.
@@ -36,7 +36,7 @@ This repository manages reproducible personal configuration for macOS, Ubuntu, a
 
 - Keep platform-specific paths self-contained under their platform directory.
 - When multiple platforms intentionally use identical configuration, keep one canonical file under `common/` and point installers and compatibility symlinks to it.
-- Keep every custom authored skill under `agents/skills/` and link it into `~/.agents/skills` for Codex, Pi, and OpenCode. Claude Code must use symlinks in `~/.claude/skills` that resolve to those same canonical skill directories. Create these links directly from the canonical directories. Do not add application-specific skill copies or intermediate compatibility directories.
+- Keep every custom authored skill under `agents/skills/` and link it into `~/.agents/skills` for Codex, Muse Code, Pi, and OpenCode. Claude Code must use symlinks in `~/.claude/skills` that resolve to those same canonical skill directories. Create these links directly from the canonical directories. Do not add application-specific skill copies or intermediate compatibility directories.
 - Manage third-party plugins through `agents/plugins/catalog.json`, never a Claude-only installation list. Declare support for both Claude and Codex and document unsupported runtime features. Pin complete upstream packages by commit and archive checksum in the neutral store under `~/.local/share/agent-plugins`. Export portable skills into both discovery paths from that store, never from a client cache. Keep packages, build output, native caches, credentials, and machine-specific marketplace paths out of Git. Add adapters for future agents' MCP, hooks, and language-server features before claiming compatibility; a skill symlink alone does not install those features.
 - Custom skills synced from claude.ai must also have canonical sources under `agents/skills/`, including their references and scripts. Import authored files without sync manifests or cache state. Disable duplicate synced commands by their `anthropic-skills:<name>` keys in Claude Code's `skillOverrides`; leave third-party synced skills and the application-managed cache alone.
 - Update every installer callsite and README path when moving configuration.
