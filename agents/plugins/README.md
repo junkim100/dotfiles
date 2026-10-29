@@ -18,7 +18,7 @@ The migration accepts the previous dotfiles-managed links into Codex's cache and
 
 ## Support
 
-| Capability | Claude Code | Codex | Muse Code, Pi, OpenCode, and other skill readers |
+| Capability | Claude Code | Codex | Pi, OpenCode, and other skill readers |
 | --- | --- | --- | --- |
 | Custom dotfiles skills | Shared source symlinks | Shared source symlinks | Shared source symlinks |
 | Understand-Anything | Native plugin and portable skills | Native plugin and portable skills | Nine portable skills and complete package |
@@ -31,7 +31,7 @@ The migration accepts the previous dotfiles-managed links into Codex's cache and
 
 Understand-Anything also has its upstream-supported `~/.understand-anything-plugin` link. Gavel uses `~/.local/share/agent-plugins/gavel`; the custom `gavel` skill reads its upstream command instructions and uses the same Node runner in every agent. Model requests, graph generation, and browser tasks never run during installation. Understand-Anything builds its core on first use.
 
-Understand-Anything's automatic graph-update hooks use Claude events; other agents should request updates explicitly. MCP servers, tool names, language servers, and OAuth connections need client support. Muse Code discovers the portable skills through `~/.agents/skills`, and its application is installed by `agents/muse-code/install.sh`; native Muse plugins, MCP servers, and hooks are not reconciled here. Pi and OpenCode discover the portable skills, but their applications and MCP adapters are not installed here. Application-managed connectors, synced skills, and credentials retain their own lifecycle.
+Understand-Anything's automatic graph-update hooks use Claude events; other agents should request updates explicitly. MCP servers, tool names, language servers, and OAuth connections need client support. Pi and OpenCode discover the portable skills, but their applications and MCP adapters are not installed here. Application-managed connectors, synced skills, and credentials retain their own lifecycle.
 
 Gavel also needs the host to permit launching its advisor CLI. A sandboxed Codex session may block the nested app-server before a model request. Use an approved runner command when the host supports it; sharing the skill does not override execution permissions. The advisor's read-only sandbox remains enabled.
 

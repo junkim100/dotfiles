@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal dotfiles and configuration scripts for macOS, Ubuntu, LazyVim, Claude Code, Codex, and Muse Code.
+Personal dotfiles and configuration scripts for macOS, Ubuntu, LazyVim, Claude Code, and Codex.
 
 ## Setup
 
@@ -56,14 +56,14 @@ bash "$DOTFILES_DIR/lazyvim/install.sh"
 
 The configuration lives in [`junkim100/lazyvim`](https://github.com/junkim100/lazyvim) and is pinned here as a Git submodule. Its installer links the checkout to `~/.config/nvim`, installs the pinned Neovim release, and restores exact plugin commits from `lazy-lock.json`.
 
-**Agents (Codex CLI, Claude Code, Muse Code, and shared skills):**
+**Agents (Codex CLI, Claude Code, and shared skills):**
 ```bash
 bash "$DOTFILES_DIR/agents/install.sh"
 ```
 
-The agent installer sets up shared skills and the delegation gate, runs `agents/codex/install.sh`, `agents/claude-code/install.sh`, and `agents/muse-code/install.sh`, then installs the shared plugin catalog with `agents/plugins/install.sh`. It installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) when missing, using OpenAI's native installer non-interactively with `curl` or `wget` on macOS and Linux. The macOS Brewfile leaves Codex installation to this installer. New installations go into `~/.local/bin`; existing installations on `PATH` or at `~/.local/bin/codex`, including Homebrew installations, are reused without upgrading them. The platform shell configurations already add `~/.local/bin` to `PATH`; the installer prints a reminder when needed. Use `--dry-run` to preview installation and skill links without downloading or changing anything.
+The agent installer sets up shared skills and the delegation gate, runs `agents/codex/install.sh` and `agents/claude-code/install.sh`, then installs the shared plugin catalog with `agents/plugins/install.sh`. It installs [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) when missing, using OpenAI's native installer non-interactively with `curl` or `wget` on macOS and Linux. The macOS Brewfile leaves Codex installation to this installer. New installations go into `~/.local/bin`; existing installations on `PATH` or at `~/.local/bin/codex`, including Homebrew installations, are reused without upgrading them. The platform shell configurations already add `~/.local/bin` to `PATH`; the installer prints a reminder when needed. Use `--dry-run` to preview installation and skill links without downloading or changing anything.
 
-Custom authored skills live under `agents/skills/`, including `conference-paper-review`, `doubt-driven-development`, `gavel`, `interview`, `paper-study-notes`, `pr-review`, `pr-review-orchestrate`, `quiz`, and `test-audit`. The agent installer links each skill into `~/.agents/skills`, which Codex, Muse Code, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. The Claude Code installer links the same skill directories directly into `~/.claude/skills`.
+Custom authored skills live under `agents/skills/`, including `conference-paper-review`, `doubt-driven-development`, `gavel`, `interview`, `paper-study-notes`, `pr-review`, `pr-review-orchestrate`, `quiz`, and `test-audit`. The agent installer links each skill into `~/.agents/skills`, which Codex, [Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md#locations), and [OpenCode](https://opencode.ai/docs/skills/#place-files) discover directly, leaving room for machine-local skills in the same directory. Pi and OpenCode can discover these skills even when installed later; their applications are installed separately. The Claude Code installer links the same skill directories directly into `~/.claude/skills`.
 
 Third-party plugins are declared once in [`agents/plugins/catalog.json`](agents/plugins/catalog.json). The shared installer verifies pinned upstream archives, stores complete packages under `~/.local/share/agent-plugins`, and configures the same local marketplace for Claude and Codex. Portable skills in both discovery directories point directly to those neutral packages. Run `python3 agents/plugins/manage.py doctor` for a read-only runtime health check. Understand-Anything, Gavel, frontend-design, Context7, Playwright, and Slack are covered; Pyright's Claude LSP integration is an explicit exception. See the [support matrix and update workflow](agents/plugins/README.md) for per-agent runtime requirements and authentication limits. This shared inventory covers dotfiles-managed capabilities; application-managed connectors and synced caches keep their own lifecycle.
 
@@ -71,7 +71,7 @@ Third-party plugins are declared once in [`agents/plugins/catalog.json`](agents/
 
 `test-audit` is a portable adaptation of OpenClaw's test-quality skill. It applies lightweight checks when writing, modifying, or reviewing tests, and reserves broader audits for requests that include that scope. Its description supports automatic selection, reinforced by a rule in `agents/AGENTS.md`. Future agents can use the same skill through a supported discovery path; agents with different locations need an installer link, and those with separate global instructions need an equivalent rule for explicit automatic-use guidance.
 
-`agents/AGENTS.md` is the single source of personal instructions for Claude Code, Codex, and Muse Code, including skill rules, writing preferences, and the delegation gate. The Codex installer links it into `~/.codex/AGENTS.md`, a custom `CODEX_HOME` when set, and Orca's managed Codex home when present. The Claude Code installer links it into `~/.claude/rules/agents.md`, which loads across projects without a `CLAUDE.md`. Muse Code loads the link at `${XDG_CONFIG_HOME:-~/.config}/muse/AGENTS.md`. The repository root `AGENTS.md` separately describes how to maintain dotfiles.
+`agents/AGENTS.md` is the single source of personal instructions for Claude Code and Codex, including skill rules, writing preferences, and the delegation gate. The Codex installer links it into `~/.codex/AGENTS.md`, a custom `CODEX_HOME` when set, and Orca's managed Codex home when present. The Claude Code installer links it into `~/.claude/rules/agents.md`, which loads across projects without a `CLAUDE.md`. The repository root `AGENTS.md` separately describes how to maintain dotfiles.
 
 Claude Code 2.1.285 or later is required. Project instructions are configured to include `AGENTS.md` even in repositories that also contain Claude-specific instruction files. The installer reports an older CLI and asks you to run `claude update`; it does not upgrade an existing installation implicitly. No `CLAUDE.md` files or compatibility skill directories are maintained here. The installer removes only the former dotfiles-managed `~/.claude/CLAUDE.md` link after linking the shared rules; it refuses to discard independently authored instructions. See [Claude Code instruction discovery](https://code.claude.com/docs/en/memory#agentsmd) and [global rules](https://code.claude.com/docs/en/memory#user-level-rules).
 
@@ -83,19 +83,6 @@ bash "$DOTFILES_DIR/agents/claude-code/install.sh"
 ```
 
 `agents/claude-code/` owns Claude Code settings, the status line, and installation. Its installer links the shared rules and canonical skills, preserving machine-local skills. The standalone Codex installer is `agents/codex/install.sh`; use `agents/install.sh` for the complete shared setup.
-
-**Muse Code:**
-```bash
-bash "$DOTFILES_DIR/agents/muse-code/install.sh"
-muse login
-muse
-```
-
-The [Muse Code installer](https://dev.meta.ai/docs/muse-code) downloads Meta's native launcher into `~/.local/bin` when missing, requiring `curl` and Python 3. It reuses an existing CLI, verifies its version without auto-updating, leaves shell profiles alone, links the shared personal instructions, and installs canonical skills into `~/.agents/skills`. It respects `XDG_CONFIG_HOME` and refuses to overwrite independently authored Muse instructions. The upstream launcher can update itself during ordinary use; dotfiles installation does not request upgrades of an existing CLI.
-
-Muse owns its local `settings.json`, credentials, and session state. The installer merges only the preferences that disable [Contributor mode](https://dev.meta.ai/docs/muse-code/subscriptions#contributor-mode) and acknowledge that choice, preserving unrelated settings and refusing malformed files. This prevents the first interactive session from enabling training on private code; disabling Contributor mode reduces the subscription allowance. Settings and authentication stay outside Git. Sign in with your Meta account for subscription access, then select an available model in `/models`. Model availability depends on your plan and region; installation does not subscribe or change billing.
-
-Muse discovers portable third-party skills already exported by the shared plugin installer into `~/.agents/skills`. Its native plugin, MCP, and hook integrations need separate adapters; the [support matrix](agents/plugins/README.md#support) documents these limits. Gavel's current advisor providers remain Codex and `agy`.
 
 ```text
 agents/
@@ -113,11 +100,8 @@ agents/
 │   ├── install.sh
 │   ├── settings.json
 │   └── statusline-command.sh
-├── codex/
-│   └── install.sh
-└── muse-code/
-    ├── install.sh
-    └── configure.py
+└── codex/
+    └── install.sh
 ```
 
 Custom skills imported from claude.ai follow the same ownership rule. The paper skills include their reference files and PDF scanner under `agents/skills/`. Claude Code's `skillOverrides` disables their duplicate `anthropic-skills:<name>` commands, while the local commands use the canonical symlinks. Anthropic's synced skills and cache remain managed by Claude Code. See [synced skill names](https://code.claude.com/docs/en/skills#when-a-synced-skill-name-matches-another-command) and [skill visibility overrides](https://code.claude.com/docs/en/skills#override-skill-visibility-from-settings).

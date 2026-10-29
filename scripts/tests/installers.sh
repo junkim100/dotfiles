@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Never let the caller's Codex or XDG configuration home escape the isolated fixtures.
-unset CODEX_HOME XDG_CONFIG_HOME
+# Never let the caller's Codex home escape the isolated fixtures.
+unset CODEX_HOME
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -42,7 +42,7 @@ grep -q '\[FAIL\].*Download probe.*exit 7' "$TEMP_DIR/failure.log" || fail "fail
 # These commands must never execute in a preview, including nested installers.
 preview_bin="$TEMP_DIR/preview-bin"
 mkdir -p "$preview_bin"
-for tool in curl wget brew apt-get sudo git claude codex muse gh conda nvitop uv pipx tmux tic; do
+for tool in curl wget brew apt-get sudo git claude codex gh conda nvitop uv pipx tmux tic; do
   cat > "$preview_bin/$tool" <<'FORBIDDEN'
 #!/bin/sh
 printf 'unexpected command\n' >> "$HOME/unexpected-command"
@@ -50,7 +50,7 @@ exit 97
 FORBIDDEN
   chmod +x "$preview_bin/$tool"
 done
-installers=(macOS/install.sh ubuntu/install.sh agents/install.sh agents/codex/install.sh agents/claude-code/install.sh agents/muse-code/install.sh agents/plugins/install.sh common/tmux/install.sh ubuntu/install_packages.sh ubuntu/setup_conda.sh profiles/backend-ai/install.sh)
+installers=(macOS/install.sh ubuntu/install.sh agents/install.sh agents/codex/install.sh agents/claude-code/install.sh agents/plugins/install.sh common/tmux/install.sh ubuntu/install_packages.sh ubuntu/setup_conda.sh profiles/backend-ai/install.sh)
 for installer in "${installers[@]}"; do
   preview_home=$(mktemp -d "$TEMP_DIR/preview-XXXXXX")
   HOME="$preview_home" PATH="$preview_bin:$PATH" NO_COLOR=1 bash "$DOTFILES_DIR/$installer" --dry-run > "$TEMP_DIR/preview.log" 2>&1 \
@@ -239,8 +239,6 @@ CLAUDE
     ln -s "$DOTFILES_DIR/scripts/tests/plugin-cli.py" "$combined_bin/$tool"
   done
   ln -s "$(command -v python3)" "$combined_bin/python3"
-  printf '#!/bin/sh\n[ "$*" = --version ] || exit 91\necho "Muse Code test"\n' > "$combined_bin/muse"
-  chmod +x "$combined_bin/muse"
   ln -s "$(command -v python3)" "$combined_home/.local/share/jev-delegation/venv/bin/python"
   HOME="$combined_home" python3 "$DOTFILES_DIR/scripts/tests/plugin-cli.py" seed
   for attempt in 1 2; do
@@ -250,7 +248,7 @@ CLAUDE
   done
   [[ ! -e $combined_home/downloads ]] || fail "combined installer replaced the existing Codex"
   [[ ! -e $combined_home/.claude/CLAUDE.md && ! -L $combined_home/.claude/CLAUDE.md ]] || fail "old Claude instructions remain"
-  for installed in "$combined_home/.codex/AGENTS.md" "$custom_codex_home/AGENTS.md" "$orca_home/AGENTS.md" "$combined_home/.claude/rules/agents.md" "$combined_home/.config/muse/AGENTS.md"; do
+  for installed in "$combined_home/.codex/AGENTS.md" "$custom_codex_home/AGENTS.md" "$orca_home/AGENTS.md" "$combined_home/.claude/rules/agents.md"; do
     [[ $(readlink "$installed") == "$DOTFILES_DIR/agents/AGENTS.md" ]] || fail "global instructions do not share one source: $installed"
   done
   [[ $(readlink "$combined_home/.claude/settings.json") == "$DOTFILES_DIR/agents/claude-code/settings.json" ]] || fail "Claude settings link was not migrated"

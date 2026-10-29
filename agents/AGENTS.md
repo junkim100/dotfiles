@@ -1,6 +1,6 @@
 # Shared Agent Instructions
 
-Personal instructions shared by Claude Code, Codex, Muse Code, and other configured agents. Edit this canonical file under `agents/AGENTS.md`. Installers link it into Codex homes as `AGENTS.md`, into Claude Code as `~/.claude/rules/agents.md`, and into Muse Code as `${XDG_CONFIG_HOME:-~/.config}/muse/AGENTS.md`.
+Personal instructions shared by Claude Code, Codex, and other configured agents. Edit this canonical file under `agents/AGENTS.md`. Installers link it into Codex homes as `AGENTS.md` and into Claude Code as `~/.claude/rules/agents.md`.
 
 # Test Quality
 
