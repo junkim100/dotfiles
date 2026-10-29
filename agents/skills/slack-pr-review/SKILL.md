@@ -40,7 +40,7 @@ A PR stays `tracking` with no time limit: it ends only with `approved`, `closed`
 | `ME` | The logged-in Slack user ID that the Slack MCP tool descriptions state (`U0AHV2WBTRC` when this was written). If they state another ID, use theirs. |
 | `GH` | `gh api user --jq .login` |
 | `S` | `python3 <this skill's directory>/scripts/state.py`. State lives in `~/.local/state/slack-pr-review/` (`state.json`, plus `reviews/<owner>-<repo>-<N>-<sha7>/` per review, with `post/` for the first post and `fix-<k>/` per fix check). `S --help` lists the subcommands; JSON payloads go on stdin. |
-| `GHR` | `python3 <this skill's directory>/scripts/ghreview.py`: `threads` (the PR state and every thread `GH` started, with replies), `payload` (build the first post from a ledger record), `check`, `render`, `edit`, and `post`. Its docstring defines the payload schema. |
+| `GHR` | `python3 <this skill's directory>/scripts/ghreview.py` (it never writes a review body: every request is posted as its own comment, inline at its line when the line is in the diff, else as a file comment or a PR comment): `threads` (the PR state and every thread `GH` started, with replies), `payload` (build the first post from a ledger record), `check`, `render`, `edit`, and `post`. Its docstring defines the payload schema. |
 | `NOTIFY` | `python3 <this skill's directory>/scripts/notify.py --env /Users/junkim/solar-system/eval/wbl-eval/.env`: sends the message on stdin (standard markdown) as a DM from the PR Review Bot (see Setup), or from the eval notifier bot until that is set up, and prints `{"channel", "ts", "permalink", "bot"}`; `--channel <D id> --thread-ts <ts>` replies in that message's thread, and `--channel <D id> --ts <ts> [--unreact <emoji>] [--react <emoji>]` swaps the bot's reaction on a message instead of sending one. A DM the user sends to themselves never notifies them, so `slack_send_message(channel_id=ME)` is only the fallback. |
 | `ORCA` | The Orca executable chosen as the orchestration skill describes (`orca` on this Mac). |
 | `COORD` | The loop's own Orca coordinator terminal, stored with `S coordinator`. Every Orca orchestration command passes it (`--from "$COORD"`, or `--terminal "$COORD"` for `check`), so worker status messages land in that background terminal and never in the session where the user typed the command. |
@@ -122,7 +122,7 @@ Free-form replies in a PR thread. Also read the PR thread of every review that h
 Answer these yourself in this tick, right away, with `gh`, the PR diff, `GHR threads`, and the reports: no worker, no subagent, and no orchestration or review skill. That covers questions such as what changed on GitHub (new commits, replies, CI), what the author's replies say, what the PR does, which comments are still open, and updates the user gives you (record them on the review). Only an explicit request to verify the fixes or review the PR again starts work (a fix check, or a new full review when the user asks for one by name).
 
 - Asked to check whether the comments are resolved, or whether the PR can merge (for example "the author says everything is fixed, can you check?"): when the latest fix check covers the current head and nothing from the author has arrived since, answer in one short reply from it: what is resolved, what is still open, and whether the PR is mergeable (`gh pr view N --json mergeable,mergeStateStatus`, plus the CI state), pointing at its proposal in the thread. Otherwise record `S signal` `{"kind": "user", "ref": "<channel>/<reply ts>", "text"}`, register the reply with `S ack`, and step 1b queues a fix check now; its DM answers the question.
-- Asked to stop, skip, post, or approve: treat it as the matching answer above. Asked to post something new (a comment, a reply, a reminder): write the exact text as a numbered item in the thread and wait for `post`, unless the user gave the exact text.
+- Asked to stop, skip, post, or approve: treat it as the matching answer above. Asked to post something new (a comment, a reply, a reminder): write the exact text as numbered items in the thread, one request per item, and wait for `post`, unless the user gave the exact text.
 - Anything else about the PR: answer in one short reply from the state and the reports, or ask one clarifying question.
 
 Record the reply's ts as `thread.handled_ts`.
@@ -281,7 +281,7 @@ Findings: <h> High, <m> Medium, <n> Note, <t> Nit. Inline comment drafts: <c> re
 Earlier comments: <r> resolved, <p> partly resolved, <u> unresolved   (only for a follow-up review)
 Report: `<REPORT_DIR>/report.md`
 
-**To post:** the <c> recommended drafts are numbered below in this thread. Reply `post` to post them as one review, `post 1 3` for some, `edit <n>: <text>` to change one first, `posted` if you post it yourself, or `skip` to post nothing and stop tracking.
+**To post:** the <c> recommended drafts are numbered below in this thread. Reply `post` to post them, each as its own comment, `post 1 3` for some, `edit <n>: <text>` to change one first, `posted` if you post it yourself, or `skip` to post nothing and stop tracking.
 ```
 
 When the payload is a single approval, the last paragraph is: ``**To post:** no comments are recommended. Reply `post` to approve with "LGTM!", `posted` if you review it yourself, or `skip`.``

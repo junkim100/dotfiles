@@ -7,12 +7,13 @@ A payload is one JSON file holding everything a single post would send:
    "verdict": "approve" | "changes" | null,
    "items": [
      {"n": 1, "type": "comment", "path": "src/x.py", "line": 12, "body": "...", "blocking": true, "draft": "D1"},
-     {"n": 2, "type": "body", "body": "..."},                        PR-level text, joined into the review body
-     {"n": 3, "type": "reply", "in_reply_to": 456, "body": "...", "thread_url": "..."},
+     {"n": 2, "type": "file_comment", "path": "src/y.py", "body": "..."},   a comment on a changed file whose line is outside the diff
+     {"n": 3, "type": "pr_comment", "body": "..."},                  one PR conversation comment (no file, or a file the PR does not change)
+     {"n": 4, "type": "reply", "in_reply_to": 456, "body": "...", "thread_url": "..."},
      {"n": 1, "type": "approve", "body": "LGTM!"}                    an approval is always the only item
    ]}
 
-`post` sends comment and body items as one COMMENT review at commit_id, each reply to its thread, and an approval as an APPROVE review, only when the PR is open and, for an approval, only while the head is still commit_id. It needs --approval naming the user's Slack reply that allowed it, records every call in posted.json next to the payload, and skips items already posted, so a retry never posts twice. Runs on the macOS system Python (3.9).
+Every item is its own comment and nothing is ever written into a review body: the user wants each request posted separately. `post` sends the line comments together as one COMMENT review with no body at commit_id (falling back to one review comment each if GitHub insists on a body), each file comment and PR comment on its own, each reply to its thread, and an approval as an APPROVE review whose body is the approval text. It posts only when the PR is open and, for an approval, only while the head is still commit_id. A legacy "body" item is treated as a pr_comment. It needs --approval naming the user's Slack reply that allowed it, records every call in posted.json next to the payload, and skips items already posted, so a retry never posts twice. Runs on the macOS system Python (3.9).
 """
 
 import argparse
@@ -24,7 +25,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-TYPES = ("comment", "body", "reply", "approve")
+TYPES = ("comment", "file_comment", "pr_comment", "reply", "approve")
 META_QUERY = """
 query($owner: String!, $repo: String!, $n: Int!) {
   repository(owner: $owner, name: $repo) {
@@ -159,7 +160,11 @@ def diff_lines(repo, base, commit):
 
 def load_payload(path):
     with open(path) as f:
-        return json.load(f)
+        payload = json.load(f)
+    for item in payload.get("items", []):
+        if item.get("type") == "body":
+            item["type"] = "pr_comment"
+    return payload
 
 
 def save_payload(path, payload):
@@ -188,6 +193,8 @@ def validate(payload):
             errors.append(where + ": empty body")
         if kind == "comment" and not (item.get("path") and isinstance(item.get("line"), int)):
             errors.append(where + ": a comment needs path and an integer line")
+        if kind == "file_comment" and not item.get("path"):
+            errors.append(where + ": a file comment needs path")
         if kind == "reply" and not isinstance(item.get("in_reply_to"), int):
             errors.append(where + ": a reply needs the integer in_reply_to of the thread's first comment")
     if any(i.get("type") == "approve" for i in items) and len(items) != 1:
@@ -205,8 +212,10 @@ def cmd_payload(args):
         item = {"n": len(items) + 1, "body": d["body"], "blocking": d.get("blocking"), "draft": d.get("id")}
         if d.get("file") and isinstance(d.get("line"), int):
             item.update({"type": "comment", "path": d["file"], "line": d["line"]})
+        elif d.get("file"):
+            item.update({"type": "file_comment", "path": d["file"]})
         else:
-            item["type"] = "body"
+            item["type"] = "pr_comment"
         items.append(item)
     if not items:
         items = [{"n": 1, "type": "approve", "body": args.approve_body}]
@@ -218,7 +227,7 @@ def cmd_payload(args):
 
 
 def cmd_check(args):
-    """Validate a payload, and turn a comment whose line is outside the PR diff at commit_id into a body item that names its file and line."""
+    """Validate a payload. A comment whose line is outside the PR diff at commit_id becomes a file comment when the PR changes that file, else a PR comment; either way its text names the file and line."""
     payload = load_payload(args.payload)
     errors = validate(payload)
     if errors:
@@ -233,11 +242,20 @@ def cmd_check(args):
             if anchors is None:
                 continue
             if item["line"] not in anchors:
-                item["type"] = "body"
-                item["body"] = "`{}:{}`: {}".format(item.pop("path"), item.pop("line"), item["body"])
-                moved.append(item["n"])
+                where = "`{}:{}`".format(item["path"], item["line"])
+                if where not in item["body"] and "`{}`".format(item["path"]) not in item["body"]:
+                    item["body"] = "{}: {}".format(where, item["body"])
+                if item["path"] in lines:
+                    item["type"] = "file_comment"
+                    item.pop("line")
+                    moved.append("{} (file comment)".format(item["n"]))
+                else:
+                    item["type"] = "pr_comment"
+                    item.pop("path")
+                    item.pop("line")
+                    moved.append("{} (PR comment)".format(item["n"]))
     save_payload(args.payload, payload)
-    print("ok: {} items{}".format(len(payload["items"]), "; moved to the review body because the line is outside the diff: " + ", ".join(map(str, moved)) if moved else ""))
+    print("ok: {} items{}".format(len(payload["items"]), "; line outside the diff, so posted separately as: " + ", ".join(moved) if moved else ""))
     return 0
 
 
@@ -247,11 +265,13 @@ def render_item(item, payload):
         head = "**{}. Approve** at `{}`".format(item["n"], payload["commit_id"][:7])
     elif item["type"] == "comment":
         head = "**{}. {}** `{}:{}`".format(item["n"], blocking or "comment", item["path"], item["line"])
+    elif item["type"] == "file_comment":
+        head = "**{}. {}** `{}` (file comment)".format(item["n"], blocking or "comment", item["path"])
     elif item["type"] == "reply":
         where = item.get("thread_url")
         head = "**{}. Reply** {}".format(item["n"], "in [this thread]({})".format(where) if where else "to comment {}".format(item["in_reply_to"]))
     else:
-        head = "**{}. Review body**{}".format(item["n"], " ({})".format(blocking) if blocking else "")
+        head = "**{}. PR comment**{}".format(item["n"], " ({})".format(blocking) if blocking else "")
     return head + "\n\n" + item["body"]
 
 
@@ -325,13 +345,16 @@ def cmd_post(args):
         print("refused: the head moved from {} to {} since the check; run a new fix check first".format(payload["commit_id"][:7], pr["head"]["sha"][:7]))
         return 4
     calls = []
-    review_items = [i for i in items if i["type"] in ("comment", "body")]
-    if review_items:
-        body = "\n\n".join(i["body"] for i in review_items if i["type"] == "body")
-        comments = [{"path": i["path"], "line": i["line"], "side": "RIGHT", "body": i["body"]} for i in review_items if i["type"] == "comment"]
-        calls.append(([i["n"] for i in review_items], "repos/{}/pulls/{}/reviews".format(repo, number), {"commit_id": payload["commit_id"], "event": "COMMENT", "body": body, "comments": comments}))
+    line_items = [i for i in items if i["type"] == "comment"]
+    if line_items:
+        comments = [{"path": i["path"], "line": i["line"], "side": "RIGHT", "body": i["body"]} for i in line_items]
+        calls.append(([i["n"] for i in line_items], "repos/{}/pulls/{}/reviews".format(repo, number), {"commit_id": payload["commit_id"], "event": "COMMENT", "comments": comments}))
     for i in items:
-        if i["type"] == "reply":
+        if i["type"] == "file_comment":
+            calls.append(([i["n"]], "repos/{}/pulls/{}/comments".format(repo, number), {"commit_id": payload["commit_id"], "path": i["path"], "subject_type": "file", "body": i["body"]}))
+        elif i["type"] == "pr_comment":
+            calls.append(([i["n"]], "repos/{}/issues/{}/comments".format(repo, number), {"body": i["body"]}))
+        elif i["type"] == "reply":
             calls.append(([i["n"]], "repos/{}/pulls/{}/comments/{}/replies".format(repo, number, i["in_reply_to"]), {"body": i["body"]}))
         elif i["type"] == "approve":
             calls.append(([i["n"]], "repos/{}/pulls/{}/reviews".format(repo, number), {"commit_id": payload["commit_id"], "event": "APPROVE", "body": i["body"]}))
@@ -342,21 +365,54 @@ def cmd_post(args):
         print("refused: --approval must name the user's Slack reply that allowed this post")
         return 1
     results, failed = [], False
-    for numbers, endpoint, body in calls:
+
+    def save_record():
+        with open(posted_path(args.payload), "w") as f:
+            json.dump(record, f, ensure_ascii=False, indent=1)
+            f.write("\n")
+
+    def send(numbers, endpoint, body):
+        """POST one call and record its items as posted or failed; return False when it failed."""
         try:
             response = json.loads(gh(["api", "-X", "POST", endpoint, "--input", "-"], stdin=json.dumps(body)))
+        except RuntimeError as exc:
+            for n in numbers:
+                record["calls"].append({"n": n, "ok": False, "endpoint": endpoint, "error": str(exc), "at": now_iso(), "approval": args.approval})
+            results.append({"items": numbers, "error": str(exc)})
+            save_record()
+            return False
+        url = response.get("html_url") or response.get("_links", {}).get("html", {}).get("href")
+        for n in numbers:
+            record["calls"].append({"n": n, "ok": True, "endpoint": endpoint, "id": response.get("id"), "url": url, "at": now_iso(), "approval": args.approval, "payload": digest(payload)})
+        results.append({"items": numbers, "url": url})
+        save_record()
+        return True
+
+    for numbers, endpoint, body in calls:
+        is_bodyless_review = endpoint.endswith("/reviews") and body.get("event") == "COMMENT"
+        if is_bodyless_review:
+            try:
+                response = json.loads(gh(["api", "-X", "POST", endpoint, "--input", "-"], stdin=json.dumps(body)))
+            except RuntimeError as exc:
+                if "body" not in str(exc).lower():
+                    for n in numbers:
+                        record["calls"].append({"n": n, "ok": False, "endpoint": endpoint, "error": str(exc), "at": now_iso(), "approval": args.approval})
+                    results.append({"items": numbers, "error": str(exc)})
+                    save_record()
+                    failed = True
+                    continue
+                # GitHub wanted a review body: post the same line comments one at a time, still with no body.
+                single = "repos/{}/pulls/{}/comments".format(repo, number)
+                for n, comment in zip(numbers, body["comments"]):
+                    failed = not send([n], single, dict(comment, commit_id=body["commit_id"])) or failed
+                continue
             url = response.get("html_url") or response.get("_links", {}).get("html", {}).get("href")
             for n in numbers:
                 record["calls"].append({"n": n, "ok": True, "endpoint": endpoint, "id": response.get("id"), "url": url, "at": now_iso(), "approval": args.approval, "payload": digest(payload)})
             results.append({"items": numbers, "url": url})
-        except RuntimeError as exc:
-            failed = True
-            for n in numbers:
-                record["calls"].append({"n": n, "ok": False, "endpoint": endpoint, "error": str(exc), "at": now_iso(), "approval": args.approval})
-            results.append({"items": numbers, "error": str(exc)})
-        with open(posted_path(args.payload), "w") as f:
-            json.dump(record, f, ensure_ascii=False, indent=1)
-            f.write("\n")
+            save_record()
+        else:
+            failed = not send(numbers, endpoint, body) or failed
     print(json.dumps({"posted": results, "skipped_already_posted": sorted(chosen & done)}, ensure_ascii=False))
     return 2 if failed else 0
 

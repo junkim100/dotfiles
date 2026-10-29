@@ -43,6 +43,11 @@ Sources point at the 2026-10-21 review study kept locally under `~/.local/state/
 - Rule: anchor a comment to a line whenever one exists. Use a general PR comment only when no line fits or the user asks for one.
 - Source: user feedback 2026-08 (W2 follow-ups H757, H758).
 
+### G6a. One request per comment, and no review body
+- Scope: any repository. Phase: writing and posting.
+- Rule: every request is its own comment. Never put requests into a review body, and never combine several requests into one comment, a general one included. GitHub takes line comments only on lines of the PR diff, so a draft whose fix line is outside the diff is posted as a file comment on that file when the PR changes it, otherwise as its own general PR comment; either way its text names the `path:line`.
+- Source: user feedback 2026-10-30 on PR #1706, where three requests were posted together in one review body.
+
 ### G7. Reminders for unresolved items
 - Scope: follow-up reviews. Phase: writing.
 - Rule: unresolved items from earlier rounds go in one short comment without bullets, naming each `file:line`. Resolved items are not repeated.
