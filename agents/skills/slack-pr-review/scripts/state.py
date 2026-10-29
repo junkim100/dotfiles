@@ -17,7 +17,7 @@ HOME = os.environ.get("SLACK_PR_REVIEW_HOME") or os.path.expanduser("~/.local/st
 STATE = os.path.join(HOME, "state.json")
 LOCK = os.path.join(HOME, "state.lock")
 EMPTY = {"watermark": None, "owner": None, "run": None, "repos": {}, "messages": {}, "reviews": {}, "harness_limits": {}, "coordinator": None}
-HARNESSES = ("codex", "claude")
+HARNESSES = ("codex", "claude", "kimi")
 # Statuses that hold or wait for a worker; a tick keeps its claim while any review is in one.
 REVIEW_ACTIVE = ("queued", "running", "gate_flat", "fix_queued", "fix_running")
 # Statuses of a review that is still open in its lifecycle: waiting for the user's post decision, or tracked until the user approves.
