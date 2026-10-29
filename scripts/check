@@ -79,6 +79,7 @@ check_link_sources ubuntu/install.sh
 check_link_sources common/tmux/install.sh
 check_link_sources agents/claude-code/install.sh
 check_link_sources agents/codex/install.sh
+check_link_sources agents/kimi-code/install.sh
 check_link_sources agents/install.sh
 check_link_sources agents/plugins/install.sh
 check_link_sources profiles/backend-ai/install.sh
@@ -86,6 +87,7 @@ check_link_sources profiles/backend-ai/install.sh
 check_dry_run agents/install.sh
 check_dry_run agents/claude-code/install.sh
 check_dry_run agents/codex/install.sh
+check_dry_run agents/kimi-code/install.sh
 check_dry_run agents/plugins/install.sh
 check_dry_run common/tmux/install.sh
 check_dry_run ubuntu/install_packages.sh
@@ -93,6 +95,7 @@ check_dry_run ubuntu/setup_conda.sh
 check_dry_run profiles/backend-ai/install.sh
 
 bash "$DOTFILES_DIR/scripts/tests/installers.sh"
+bash "$DOTFILES_DIR/scripts/tests/kimi.sh"
 python3 "$DOTFILES_DIR/agents/plugins/manage.py" check
 python3 "$DOTFILES_DIR/scripts/tests/plugins.py"
 

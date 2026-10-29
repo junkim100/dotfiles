@@ -1,0 +1,4 @@
+#!/bin/sh
+# Use OS-trusted certificates alongside Node's bundled roots, including managed Mac certificates.
+export NODE_USE_SYSTEM_CA="${NODE_USE_SYSTEM_CA:-1}"
+exec "$HOME/.kimi-code/bin/kimi" "$@"

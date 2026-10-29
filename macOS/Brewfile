@@ -22,6 +22,7 @@ cask "pearcleaner"
 cask "slack"
 cask "spotify"
 cask "stats"
+cask "supasidebar"
 cask "tailscale-app"
 cask "logi-options+"
 

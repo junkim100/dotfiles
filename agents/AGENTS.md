@@ -1,6 +1,6 @@
 # Shared Agent Instructions
 
-Personal instructions shared by Claude Code, Codex, and other configured agents. Edit this canonical file under `agents/AGENTS.md`. Installers link it into Codex homes as `AGENTS.md` and into Claude Code as `~/.claude/rules/agents.md`.
+Personal instructions shared by Claude Code, Codex, Kimi Code, and other configured agents. Edit this canonical file under `agents/AGENTS.md`. Installers link it into Codex and Kimi Code homes as `AGENTS.md` and into Claude Code as `~/.claude/rules/agents.md`.
 
 # Test Quality
 

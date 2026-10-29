@@ -11,11 +11,6 @@
       "revision": "6df3065f1d8ddc2ce3615314d1d493f36d6b1c80",
       "sha256": "67cdd19ffecd4df2f572b5126d73071224f5e0f07f8c4c313538a70f63b99ea1"
     },
-    "gavel": {
-      "repo": "junkim100/gavel",
-      "revision": "54787784e9d685bd0b2195abffd09f6caaca2c46",
-      "sha256": "61cbc96ec95a996aae446a2f07a4eeb8d99d227669953b90dff5b3c9f8c93a4f"
-    },
     "slack": {
       "repo": "slackapi/slack-mcp-plugin",
       "revision": "b073ebc2fc500b52e781f5fd17ebb9ad462363dc",
@@ -45,18 +40,6 @@
       "path": "understand-anything-plugin",
       "pnpm_empty_importers": ["packages/viewer"],
       "version": "2.9.7"
-    },
-    {
-      "id": "gavel@dotfiles",
-      "claude": true,
-      "codex": true,
-      "skills": [],
-      "root_link": ".local/share/agent-plugins/gavel",
-      "limitations": "Use the shared gavel skill outside Claude; its legacy commands are not exposed by Codex. The runner needs Node and authenticated advisor CLIs.",
-      "legacy_id": "gavel@gavel",
-      "source": "gavel",
-      "path": ".",
-      "version": "0.5.0"
     },
     {
       "id": "frontend-design@dotfiles",

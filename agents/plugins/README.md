@@ -18,22 +18,19 @@ The migration accepts the previous dotfiles-managed links into Codex's cache and
 
 ## Support
 
-| Capability | Claude Code | Codex | Pi, OpenCode, and other skill readers |
+| Capability | Claude Code | Codex | Kimi Code, Pi, OpenCode, and other skill readers |
 | --- | --- | --- | --- |
 | Custom dotfiles skills | Shared source symlinks | Shared source symlinks | Shared source symlinks |
 | Understand-Anything | Native plugin and portable skills | Native plugin and portable skills | Nine portable skills and complete package |
-| Gavel | Native commands and shared `gavel` skill | Shared `gavel` entry point and native synthesis skill | Shared `gavel` entry point |
 | frontend-design | Native plugin and portable skill | Native plugin and portable skill | Portable skill |
 | Context7 | Native MCP plugin | Native MCP plugin | Requires an MCP adapter |
 | Playwright | Native MCP plugin | Native MCP plugin | Requires an MCP adapter and browser dependencies |
 | Slack | Native plugin and portable skills | Native plugin and portable skills | Eight portable skills; tools require a connection |
 | Pyright LSP | Native LSP plugin | Pyright CLI | Use the client's language support or Pyright CLI |
 
-Understand-Anything also has its upstream-supported `~/.understand-anything-plugin` link. Gavel uses `~/.local/share/agent-plugins/gavel`; the custom `gavel` skill reads its upstream command instructions and uses the same Node runner in every agent. Model requests, graph generation, and browser tasks never run during installation. Understand-Anything builds its core on first use.
+Understand-Anything also has its upstream-supported `~/.understand-anything-plugin` link. Model requests, graph generation, and browser tasks never run during installation. Understand-Anything builds its core on first use.
 
-Understand-Anything's automatic graph-update hooks use Claude events; other agents should request updates explicitly. MCP servers, tool names, language servers, and OAuth connections need client support. Pi and OpenCode discover the portable skills, but their applications and MCP adapters are not installed here. Application-managed connectors, synced skills, and credentials retain their own lifecycle.
-
-Gavel also needs the host to permit launching its advisor CLI. A sandboxed Codex session may block the nested app-server before a model request. Use an approved runner command when the host supports it; sharing the skill does not override execution permissions. The advisor's read-only sandbox remains enabled.
+Understand-Anything's automatic graph-update hooks use Claude events; other agents should request updates explicitly. MCP servers, tool names, language servers, and OAuth connections need client support. Kimi Code, Pi, and OpenCode discover the portable skills, but this plugin installer does not configure their native MCP, hook, or language-server integrations. The parent agent installer installs Kimi Code; Pi and OpenCode applications are installed separately. Application-managed connectors, synced skills, and credentials retain their own lifecycle.
 
 ## Verification and updates
 
@@ -43,4 +40,4 @@ Run `python3 agents/plugins/manage.py doctor`, or add `--json` for structured ou
 
 To update a package, review its upstream change, update its full commit and archive checksum in the catalog, run the tests, and rerun `agents/install.sh`. The new catalog digest changes all native package versions, making the selected release explicit. Keep the previous release until the new one is verified. Never copy OAuth grants between agents. Start new sessions after installation so discovery reflects the current packages.
 
-Upstream references: [Understand-Anything](https://github.com/Egonex-AI/Understand-Anything), [Gavel](https://github.com/junkim100/gavel), and [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins).
+Upstream references: [Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) and [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins).
