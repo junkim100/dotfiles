@@ -270,21 +270,27 @@ One thread per PR. Everything about one PR lives in one thread of the bot DM, th
 
 Items: after a ready or fix-check DM, post each string of `GHR render <payload>` as its own reply in the PR thread, in order, so the user reads exactly what would be posted.
 
-Ready (asks `post_first`):
+Ready (asks `post_first`). Lead with the answer, keep one fact per line, and give every line a bold label so the message reads at a glance:
 
 ```text
-**PR review ready:** [<owner/repo#N>](<url>) <title>
-Requested by <name> in [<#channel or DM>](<permalink>) at <YYYY-MM-DD HH:MM KST>
-Reviewed head `<sha7>`. Verdict: <verdict>
-How: single review on <harness> (<model>, <effort>) | orchestrated: reviewers <harness, model>, <harness, model> and <harness, model> (or what happened to the Kimi review), merge <harness>, audit <harness>; <files> files, <lines> lines changed
-Findings: <h> High, <m> Medium, <n> Note, <t> Nit. Inline comment drafts: <c> recommended, <k> not recommended
-Earlier comments: <r> resolved, <p> partly resolved, <u> unresolved   (only for a follow-up review)
-Report: `<REPORT_DIR>/report.md`
+**<icon> #<N> review ready: <verdict word>**
+[<owner/repo#N>](<url>) by <author login>: <title without its [area] prefix>
 
-**To post:** the <c> recommended drafts are numbered below in this thread. Reply `post` to post them, each as its own comment, `post 1 3` for some, `edit <n>: <text>` to change one first, `posted` if you post it yourself, or `skip` to post nothing and stop tracking.
+**Asked by** <name> in [<#channel or DM>](<permalink>), <Mon D HH:MM KST>   (every requester when several asked)
+**What it does** <one plain sentence on what the PR changes, from its body and the report; no file names>
+**Verdict** <the review's verdict, its first sentence only>
+**Comments to post** <c> (<b> blocking, <c-b> non-blocking)
+<GHR outline <payload>: one numbered line per comment, its plain-English why and file:line, blocking ones marked>
+**Earlier comments** <r> resolved, <p> partly, <u> unresolved   (only for a follow-up review)
+**Reviewed** `<sha7>` · <files> files, <lines> lines · <single review on <harness> | Codex, Claude Code and Kimi reviewers (or what happened to the Kimi review), Claude Code merge, Codex audit>
+
+Reply `post` to post all (each as its own comment) · `post 1 3` for some · `edit <n>: <text>` · `posted` if you post it yourself · `skip`
+Full report: `<REPORT_DIR>/report.md`
 ```
 
-When the payload is a single approval, the last paragraph is: ``**To post:** no comments are recommended. Reply `post` to approve with "LGTM!", `posted` if you review it yourself, or `skip`.``
+The icon and verdict word: 🔴 `not mergeable` when any recommended comment is blocking or the review says it is not mergeable; 🟡 `mergeable after fixes` when every recommended comment is non-blocking; 🟢 `mergeable` when nothing is recommended. Keep the outline numbers identical to the thread items, which follow it with the exact bodies. Do not add model names, effort levels, finding-severity tallies, or the not-recommended count to this message; they stay in the report.
+
+When the payload is a single approval, the outline and the comment count are dropped and the reply line is: ``Reply `post` to approve with "LGTM!" · `posted` if you review it yourself · `skip`.``
 
 Fix check (asks `post_fix`):
 

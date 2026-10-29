@@ -209,7 +209,7 @@ def cmd_payload(args):
     drafts = [d for d in rec.get("drafts", []) if d.get("channel") == "post"]
     items = []
     for d in drafts:
-        item = {"n": len(items) + 1, "body": d["body"], "blocking": d.get("blocking"), "draft": d.get("id")}
+        item = {"n": len(items) + 1, "body": d["body"], "blocking": d.get("blocking"), "draft": d.get("id"), "why": d.get("why")}
         if d.get("file") and isinstance(d.get("line"), int):
             item.update({"type": "comment", "path": d["file"], "line": d["line"]})
         elif d.get("file"):
@@ -283,6 +283,37 @@ def cmd_render(args):
         sys.exit("no item {}".format(args.item))
     print(json.dumps([render_item(i, payload) for i in items], ensure_ascii=False))
     return 0
+
+
+def short_why(item):
+    """One plain line for the item: its ledger `why`, else the body's first sentence."""
+    text = (item.get("why") or "").strip()
+    if not text:
+        body = re.sub(r"\s+", " ", item["body"]).strip()
+        text = re.split(r"(?<=[.!?다])\s", body, maxsplit=1)[0]
+    return text if len(text) <= 160 else text[:157].rstrip() + "..."
+
+
+def cmd_outline(args):
+    """Print the numbered one-line list of items for the top of a DM, blocking ones marked, capped at --max."""
+    payload = load_payload(args.payload)
+    lines = []
+    for item in payload["items"][:args.max]:
+        if item["type"] == "approve":
+            lines.append("{}. Approve with \"{}\"".format(item["n"], item["body"]))
+            continue
+        where = "`{}:{}`".format(Path_name(item["path"]), item["line"]) if item.get("line") else ("`{}`".format(Path_name(item["path"])) if item.get("path") else "PR comment")
+        mark = "**blocking** " if item.get("blocking") else ""
+        lines.append("{}. {}{} ({})".format(item["n"], mark, short_why(item), where))
+    rest = len(payload["items"]) - args.max
+    if rest > 0:
+        lines.append("...and {} more, all in the thread".format(rest))
+    print("\n".join(lines))
+    return 0
+
+
+def Path_name(path):
+    return path.rsplit("/", 1)[-1]
 
 
 def posted_path(payload_path):
@@ -443,6 +474,11 @@ def main():
     p.add_argument("payload")
     p.add_argument("--item", type=int)
     p.set_defaults(func=cmd_render)
+
+    p = sub.add_parser("outline", help="print the numbered one-line list of items (blocking marked) for the top of a DM")
+    p.add_argument("payload")
+    p.add_argument("--max", type=int, default=8)
+    p.set_defaults(func=cmd_outline)
 
     p = sub.add_parser("edit", help="replace item N's body with the text on stdin")
     p.add_argument("payload")
