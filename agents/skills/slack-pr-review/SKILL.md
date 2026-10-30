@@ -39,6 +39,7 @@ A PR stays `tracking` with no time limit: it ends only with `approved`, `closed`
 |---|---|
 | `ME` | The logged-in Slack user ID that the Slack MCP tool descriptions state (`U0AHV2WBTRC` when this was written). If they state another ID, use theirs. |
 | `GH` | `gh api user --jq .login` |
+| `TEAMS` | The Slack user groups whose mentions count as asking the user's team: `S06H6FU93FU`. Search results show a group mention as `<@S...>`; message text may show it as `<!subteam^S...>`. Add a group here when the user names another one. |
 | `S` | `python3 <this skill's directory>/scripts/state.py`. State lives in `~/.local/state/slack-pr-review/` (`state.json`, plus `reviews/<owner>-<repo>-<N>-<sha7>/` per review, with `post/` for the first post and `fix-<k>/` per fix check). `S --help` lists the subcommands; JSON payloads go on stdin. |
 | `GHR` | `python3 <this skill's directory>/scripts/ghreview.py` (it never writes a review body: every request is posted as its own comment, inline at its line when the line is in the diff, else as a file comment or a PR comment): `threads` (the PR state and every thread `GH` started, with replies), `payload` (build the first post from a ledger record), `check`, `render`, `edit`, and `post`. Its docstring defines the payload schema. |
 | `NOTIFY` | `python3 <this skill's directory>/scripts/notify.py --env /Users/junkim/solar-system/eval/wbl-eval/.env`: sends the message on stdin (standard markdown) as a DM from the PR Review Bot (see Setup), or from the eval notifier bot until that is set up, and prints `{"channel", "ts", "permalink", "bot"}`; `--channel <D id> --thread-ts <ts>` replies in that message's thread, and `--channel <D id> --ts <ts> [--unreact <emoji>] [--react <emoji>]` swaps the bot's reaction on a message instead of sending one. A DM the user sends to themselves never notifies them, so `slack_send_message(channel_id=ME)` is only the fallback. |
@@ -88,6 +89,7 @@ Start at `after = watermark - 900`. On the first run, start from `since` (defaul
 
 - Query A, mentions: `keywords=["<@ME>"]`, `natural_language_query=""`.
 - Query B, direct messages: `channel_types="im"`, `filters="has:link"`, `natural_language_query=""`.
+- Query C, team mentions: one search per group in `TEAMS`, `keywords=["<@<group id>>"]`, `natural_language_query=""`. A message found by both A and C is triaged once, as a mention of `ME`.
 
 Drop results from `ME` and from bots. The message key is `<channel_id>/<message_ts>`; `S seen <key>...` prints only the keys not yet triaged. After step 2 has recorded every new message of the poll, move the watermark to the newest `message_ts` seen with `S watermark --set`, so a crash mid-triage re-polls instead of losing messages.
 
@@ -152,7 +154,9 @@ Classify obvious chatter (scheduling, social, a question with no PR in sight) fr
 |---|---|
 | `request` | The message asks the user to review, re-review, or check a specific PR: an explicit ask addressed to the user (리뷰 부탁드립니다, 리뷰 요청드립니다, 봐주세요, 확인 부탁드립니다, review please, PTAL), a reminder for a PR of the thread (리뷰 리마인드), or a re-review ask after updates (반영했습니다, 다시 봐주세요). In a group mention the user counts as asked when named as a reviewer, not when named only after `cc`. A 1:1 DM asking for a review counts without an @-mention. |
 | `not_request` | Scheduling, FYI, `cc` only, a question about something other than a PR's code, a note that comments were answered (코멘트 남겼습니다) without asking for another look, a future intent (작업 후 다시 요청드리겠습니다), or an ask aimed at someone else. |
-| `ambiguous` | It might be a request, but no PR can be identified or the ask is unclear. Never dispatch it on a guess: send the question DM (step 8) and let the user's reply decide (step 1a). |
+| `ambiguous` | It might be a request, but no PR can be identified or the ask is unclear; or a review ask is addressed to a team in `TEAMS` and to no individual (for example `<@team>` followed by "PR 리뷰 부탁드립니다"). Never dispatch it on a guess: send the question DM (step 8) and let the user's reply decide (step 1a). |
+
+Team mentions (Query C) decide by who the review ask is addressed to. A review ask addressed to the team alone is `ambiguous`, so the user is asked. When the ask names a person (someone other than `ME`, with the team only after `cc`, as in `<@someone> cc. <@team>`), it is `not_request`: it is that person's review, and the user is not asked. People named only for a different ask in the same message (a delivery check, a legal question) do not make a team review ask theirs. A team mention with no review ask (an announcement, "merge 완료", a question) is `not_request`. When `ME` is named as the reviewer, the usual `request` rule applies.
 
 For a `request`, list the requested PRs as `owner/repo#N` from `github.com/<owner>/<repo>/pull/<N>` links in the message or its thread. A bare `#N` counts only when the same thread links that repository. A PR mentioned only as background (a stacked child, a related or earlier PR) is not requested; it becomes context for the requested PR's reviewer.
 
@@ -338,6 +342,8 @@ Possible PR: [<owner/repo#N>](<url>)   (only when one is linked)
 
 Should I review it? Reply in this thread with `review` (add a PR link if it is another PR) or `skip`. I check replies every run.
 ```
+
+For a team review ask, the first line is `**Review request to your team:** <name> asked <@team handle or "your team"> in [<#channel>](<permalink>) at <YYYY-MM-DD HH:MM KST>`, and the rest is the same.
 
 Reminder for a head that is already reviewed:
 
