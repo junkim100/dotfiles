@@ -115,6 +115,7 @@ def main():
     parser.add_argument("--env", help="the wbl-eval .env file holding the eval notifier fallback (SLACK_EVAL_NOTIFICATOR and SLACK_EVAL_NOTIFICATOR_DM)")
     parser.add_argument("--channel", help="the bot DM channel (D...) for --thread-ts; default: the user, which opens the DM")
     parser.add_argument("--thread-ts", help="reply in the thread of this message")
+    parser.add_argument("--broadcast", action="store_true", help="with --thread-ts, also show the reply in the DM itself, so it notifies like a new message")
     parser.add_argument("--ts", help="the message to react to, with --react or --unreact")
     parser.add_argument("--react", help="add this reaction (an emoji name without colons) to --ts as the bot")
     parser.add_argument("--unreact", help="remove this reaction of the bot from --ts first")
@@ -143,6 +144,8 @@ def main():
     payload = {"channel": args.channel or user, "markdown_text": text, "unfurl_links": False, "unfurl_media": False}
     if args.thread_ts:
         payload["thread_ts"] = args.thread_ts
+        if args.broadcast:
+            payload["reply_broadcast"] = True
     try:
         data = call(token, "chat.postMessage", payload)
     except Exception as exc:
