@@ -280,7 +280,6 @@ Started (top-level, when a review starts from a Slack request with no thread yet
 ```text
 **#<N> review started** · [<owner/repo#N>](<url>) by <author login>: <title without its [area] prefix>
 **Asked by** <name> in [<#channel or DM>](<permalink>), <Mon D HH:MM KST>
-**How** <one Codex review | Codex, Claude Code and Kimi reviews, then a Claude Code merge and a Codex audit>
 ```
 
 Ready (asks `post_first`). Lead with the answer, keep one fact per line, and give every line a bold label so the message reads at a glance:
