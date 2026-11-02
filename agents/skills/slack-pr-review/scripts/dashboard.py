@@ -1207,7 +1207,7 @@ def snapshot():
     print("loop:", level.upper(), "-", text)
     print("next check:", clock(kst(auto.get("nextRunAt"))) if auto.get("enabled") else "paused", "| coordinator:", auto.get("agentId"), "| current check:", "running" if live else "none")
     for r, started, tr in m.checks()[:5]:
-        status = "no transcript" if tr is None else ("failed: " + short_error(tr[2])) if tr[2] else "running" if not tr[0] else headline(tr[1], 110)
+        status = "no transcript" if tr is None else ("failed: " + short_error(tr[2])) if tr[2] else "running" if not tr[0] else "skipped: another check was already running" if claim_exit(tr) else headline(tr[1], 110)
         print("check", clock(started), status)
     for pr, r in ((m.state or {}).get("reviews") or {}).items():
         if r.get("status") in LIVE_REVIEW + WAITING + TRACKED:
