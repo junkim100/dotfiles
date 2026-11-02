@@ -235,7 +235,7 @@ While fewer than `MAX_WORKERS` workers are live, take the oldest `queued` or `fi
    ```
 
    Exit 0 means `ready`. Record the model and effort `launch.effective` reports, for the DM. A non-zero exit is never relaunched blindly: read `failedStage` and the worker's output (`ORCA orchestration worker-read`), and follow "Worker failures" in step 7.
-5. Acknowledge a new review. When a full review starts and its PR has no thread yet (it came straight from a Slack request, not through a question), send the started DM (step 8) top-level, store it as the review's `thread`, and put `:loading:` on it (`NOTIFY --channel <D id> --ts <its ts> --react loading`). A review whose thread already exists needs nothing new: the user's reply there already carries `:loading:`.
+5. Acknowledge a new review. When a full review starts and its PR has no thread yet (it came straight from a Slack request, not through a question), send the started DM (step 8) top-level, store it as the review's `thread`, and put `:loading:` on it (`NOTIFY --channel <D id> --ts <its ts> --react loading`). A review whose thread already exists needs nothing new when the user's own reply started it (that reply already carries `:loading:`). A fix check started by anything else (the author's message, a re-requested review, author replies on GitHub) gets the fix-check started notice (step 8) as a reply in the PR thread, with `:loading:` on that notice until the fix-check DM is posted (`:done:`) or the check fails (`:x:`); record it on the check with `S fix <PR> --set <k>` as `{"started_notice": {"channel", "ts"}}`.
 6. Record it: `S review 'owner/repo#N'` with `{"status": "running" or "fix_running", "run", "report_dir", "started_at", "workers": {"<stage>": {"harness", "model", "effort", "dispatch", "task", "terminal", "jev", "state": "running"}}}` (stage `single`, `review-a`, `review-b`, `review-c`, `merge`, `audit`, or `fix-<k>`; the Kimi reviewer records `{"harness": "kimi", "pid", "log", "jev", "state": "running"}` with no dispatch), set `dispatch` to the live dispatch IDs, and for a fix check also `S fix <PR> --set <k>` with `{"status": "running", "head", "harness", "dispatch"}`.
 
 ### 7. Supervise until nothing is running
@@ -249,7 +249,7 @@ Loop while any review is `running` or `fix_running`:
      - `orchestrate`, a reviewer: when `review-a` and `review-b` hold `ledger/review.json` and `done.json`, and `review-c` holds them too or has settled without them (below), start the merge over every finished review (step 6, points 2 to 6, one slot). One finished review and the others failed twice go to the audit directly, as pr-review-orchestrate's failure rule says.
      - `orchestrate`, the merger: when `merge/` holds both files, start the audit.
      - `orchestrate`, the auditor: when `audit/` holds both files and `<REPORT_DIR>/summary.json` and `report.md` exist, finish the review (below).
-     - A fix check: when `<FIX_DIR>` holds `fixcheck.md`, `payload.json`, and `summary.json` and `GHR check <FIX_DIR>/payload.json` passes, record `S fix <PR> --set <k>` with the summary fields and `"status": "done"`, set the review `awaiting_post`, and send the fix-check DM with its items (step 8), recording `"ask": {"status": "asked", "kind": "post_fix", "payload": "<FIX_DIR>/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`. Otherwise follow "Worker failures".
+     - A fix check: when `<FIX_DIR>` holds `fixcheck.md`, `payload.json`, and `summary.json` and `GHR check <FIX_DIR>/payload.json` passes, record `S fix <PR> --set <k>` with the summary fields and `"status": "done"`, change the check's started notice from `:loading:` to `:done:` when it has one, set the review `awaiting_post`, and send the fix-check DM with its items (step 8), recording `"ask": {"status": "asked", "kind": "post_fix", "payload": "<FIX_DIR>/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`. Otherwise follow "Worker failures".
      A stage is never started on a message alone; the files decide, as pr-review-orchestrate's stage-order rule says. A freed slot goes straight back to step 6 for the next queued work.
    - `question`: answer within the spec's rules with `ORCA orchestration reply --id <message id> --body "..." --from "$COORD" --json`. Never block on the user, since the loop is unattended: for a judgment call, tell the worker to take the conservative option and record the assumption in its report.
    - `escalation`: decide and reply. Deny any request to post, push, run paid jobs, or start nested workers.
@@ -280,6 +280,12 @@ Started (top-level, when a review starts from a Slack request with no thread yet
 ```text
 **#<N> review started** · [<owner/repo#N>](<url>) by <author login>: <title without its [area] prefix>
 **Asked by** <name> in [<#channel or DM>](<permalink>), <Mon D HH:MM KST>
+```
+
+Fix check started (a reply in the PR thread, when a fix check starts from anything other than the user's reply):
+
+```text
+**#<N> fix check started** after <name>'s message in [<#channel or DM>](<permalink>), <Mon D HH:MM KST> | after the author's replies on GitHub | after a re-requested review
 ```
 
 Ready (asks `post_first`). Lead with the answer, keep one fact per line, and give every line a bold label so the message reads at a glance:
