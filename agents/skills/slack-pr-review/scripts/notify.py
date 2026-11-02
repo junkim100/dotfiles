@@ -16,6 +16,8 @@ import urllib.parse
 import urllib.request
 
 API = "https://slack.com/api/"
+# The one state reaction a PR thread's root carries; --state swaps to one of these and removes the others.
+STATES = {"loading": "loading", "done": "done", "failed": "x", "skipped": "heavy_minus_sign"}
 BOT_ENV = os.path.expanduser(os.environ.get("SLACK_PR_REVIEW_BOT_ENV") or "~/.config/slack-pr-review/bot.env")
 
 
@@ -110,6 +112,26 @@ def react(token, args):
     return 0
 
 
+def set_state(token, args):
+    """Leave exactly one state reaction on the root: remove every other state emoji, then add the wanted one."""
+    if not (args.channel and args.ts):
+        print("state: --channel and --ts are required")
+        return 1
+    wanted = STATES[args.state]
+    for name in STATES.values():
+        method, harmless = ("reactions.add", "already_reacted") if name == wanted else ("reactions.remove", "no_reaction")
+        try:
+            data = call(token, method, {"channel": args.channel, "timestamp": args.ts, "name": name}, form=True)
+        except Exception as exc:
+            print("state: {} failed: {}".format(method, type(exc).__name__))
+            return 1
+        if not data.get("ok") and data.get("error") != harmless:
+            print("state: {} {} refused: {}".format(method, name, data.get("error")))
+            return 1
+    print("state: " + args.state)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="Send the user a Slack DM from the PR Review Bot (or the eval notifier until it is set up); message text on stdin.")
     parser.add_argument("--env", help="the wbl-eval .env file holding the eval notifier fallback (SLACK_EVAL_NOTIFICATOR and SLACK_EVAL_NOTIFICATOR_DM)")
@@ -119,6 +141,7 @@ def main():
     parser.add_argument("--ts", help="the message to react to, with --react or --unreact")
     parser.add_argument("--react", help="add this reaction (an emoji name without colons) to --ts as the bot")
     parser.add_argument("--unreact", help="remove this reaction of the bot from --ts first")
+    parser.add_argument("--state", choices=sorted(STATES), help="set the PR thread root's state reaction on --ts: loading, done, failed, or skipped; the other state reactions are removed")
     parser.add_argument("--which", action="store_true", help="print which bot would send, without sending")
     parser.add_argument("--setup", action="store_true", help="store the PR Review Bot token (prompted, never echoed) and send a test DM")
     parser.add_argument("--user", help="the user's Slack member ID, for --setup")
@@ -135,6 +158,8 @@ def main():
     if not token:
         print("notify: no bot token configured; nothing sent")
         return 1
+    if args.state:
+        return set_state(token, args)
     if args.react or args.unreact:
         return react(token, args)
     text = sys.stdin.read().strip()

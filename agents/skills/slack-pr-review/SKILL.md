@@ -139,10 +139,10 @@ Starting a watch (when a review becomes `tracking` for the first time): set `wat
 
 Each tick, for every review in `S list --tracked` whose status is `tracking`:
 
-1. Run `GHR threads <owner/repo> <N> --login "$GH" --out <REPORT_DIR>/watch-threads.json`. A `MERGED` or `CLOSED` state makes the review `closed` (send the closed DM) and stops here. An `APPROVED` review by `GH` newer than `watch.since` means the user approved on GitHub themselves: mark it `approved` and stop here.
+1. Run `GHR threads <owner/repo> <N> --login "$GH" --out <REPORT_DIR>/watch-threads.json`. A `MERGED` or `CLOSED` state makes the review `closed`: reply the Tracking-ended DM in the PR thread, set the root state to `done`, and stop here. An `APPROVED` review by `GH` newer than `watch.since` means the user approved on GitHub themselves: mark it `approved`, reply one line saying so in the PR thread, set the root state to `done`, and stop here.
 2. Slack: read each `watch.slack` entry after its `last_ts`, with `slack_read_thread(channel_id, message_ts=<thread_ts>, oldest=<last_ts>)` for a thread, or `slack_read_channel(channel_id, oldest=<last_ts>)` for a DM. Skip messages from `ME` and bots. A message that says the comments were addressed or asks for another look (반영했습니다, 수정했습니다, 고쳤습니다, 확인 부탁드립니다, 다시 봐주세요, fixed, addressed, updated, PTAL) is a signal: `S signal <PR>` with `{"kind": "slack", "ref": "<channel>/<ts>", "at", "from_name", "permalink", "text": <the message, secrets removed>}`. Anything else in the thread is not a signal. Then move `last_ts` to the newest message read.
 3. GitHub: `review_requested: true` is a signal `{"kind": "rerequest", "ref": "rerequest/<head>"}`. Each reply in the user's threads and each conversation comment by someone other than `GH` and not by a bot account (a login ending in `[bot]`), newer than `watch.since`, is a signal `{"kind": "gh_reply", "ref": "gh/<id>", "at", "url", "text"}`.
-4. Queue a fix check when `S signal <PR> --pending` holds a `user`, `slack`, `request`, `rerequest`, or `head_moved` signal, or holds `gh_reply` signals and the threads file's `last_other_activity` is at least Quiet old, and there is something new to check: the head moved since `watch.from` or the last fix check, or the author replied on GitHub since then. When a Slack message or a request says the comments are fixed but neither has happened, do not queue a check: reply once in the PR thread that <name> says the comments are fixed but no new commits or replies are on GitHub yet, so the check runs when they arrive, and leave the signal pending. Signals are per PR: a message counts only for the PRs its thread is watched for, and replies count only on their own PR, even when one author has several tracked PRs. Queue it with `S fix <PR> --new` and `{"signals": <the pending list>, "from": <watch.from>, "status": "queued"}`, which prints its folder `<FIX_DIR>` and consumes those signals; copy the threads file to `<FIX_DIR>/threads.json`; and set the review `fix_queued` with `"fix": <its number>`.
+4. Queue a fix check when `S signal <PR> --pending` holds a `user`, `slack`, `request`, `rerequest`, or `head_moved` signal, or holds `gh_reply` signals and the threads file's `last_other_activity` is at least Quiet old, and there is something new to check: the head moved since `watch.from` or the last fix check, or the author replied on GitHub since then. When a Slack message or a request says the comments are fixed but neither has happened, do not queue a check: reply once in the PR thread that <name> says the comments are fixed but no new commits or replies are on GitHub yet, so the check runs when they arrive, and leave the signal pending. Signals are per PR: a message counts only for the PRs its thread is watched for, and replies count only on their own PR, even when one author has several tracked PRs. Queue it with `S fix <PR> --new` and `{"signals": <the pending list>, "from": <watch.from>, "status": "queued"}`, which prints its folder `<FIX_DIR>` and consumes those signals; reply the Fix-check-started notice in the PR thread and set the root state to `loading` (unless the user's own reply started it, which already shows `:loading:`); copy the threads file to `<FIX_DIR>/threads.json`; and set the review `fix_queued` with `"fix": <its number>`.
 
 In `dry-run`, report the signals and the fix checks that would be queued, and record nothing.
 
@@ -180,16 +180,16 @@ EOF
 
 ### 3. Resolve each requested PR
 
-For `owner/repo#N`, read `gh pr view N --repo owner/repo --json number,url,title,state,isDraft,headRefOid,baseRefName,author,changedFiles,additions,deletions` and `gh api repos/owner/repo/pulls/N/reviews --paginate`. Then decide, in this order:
+For `owner/repo#N`, read `gh pr view N --repo owner/repo --json number,url,title,state,isDraft,headRefOid,baseRefName,author,changedFiles,additions,deletions` and `gh api repos/owner/repo/pulls/N/reviews --paginate`. Then decide, in this order. Whatever the decision, tell the user right away in the PR thread (step 8, Threads and reactions): creating the thread now if the PR has none, never waiting until the work is done.
 
-1. `S get` shows a review in `queued`, `running`, `gate_flat`, `fix_queued`, or `fix_running`: attach this message with `S review 'owner/repo#N' --add-request <key> < /dev/null` and stop. Its DM will name every requester.
-2. It shows `awaiting_post`: attach the message, and when it is a reminder or a re-review ask, reply in the PR thread that `<name>` asked again, with the permalink. No new work.
-3. It shows `tracking`: attach the message, add its conversation to `watch.slack` (as in step 1b), and when it asks for another look, record `S signal` with `{"kind": "request", "ref": "<key>", "at", "from_name", "permalink", "text"}`. Step 1b queues the fix check. No new full review.
-4. It shows a `done` review of the current head: attach the message the same way, and send the reminder DM (step 8) when the message is a reminder or a re-review ask. No new review.
-5. Skip, recording `status: "skipped"` with a `skip_reason` and sending no DM, when the PR is closed or merged, or when `git -C <local clone> worktree list --porcelain` shows a checkout whose path ends in `/pr-<N>-<head[:7]>` (pr-review's default name), which means another session has reviewed or is reviewing that exact head. This skill's workers name their checkouts under `/tmp/slack-pr-review/` instead, so they never match.
+1. `S get` shows a review in `queued`, `running`, `gate_flat`, `fix_queued`, or `fix_running`: attach this message with `S review 'owner/repo#N' --add-request <key> < /dev/null`, reply the Asked-again notice in the PR thread, and stop. Its result will name every requester.
+2. It shows `awaiting_post`: attach the message and reply the Asked-again notice in the PR thread. No new work.
+3. It shows `tracking`: attach the message, add its conversation to `watch.slack` (as in step 1b), and when it asks for another look, record `S signal` with `{"kind": "request", "ref": "<key>", "at", "from_name", "permalink", "text"}`. Step 1b queues the fix check in this same tick and posts its notice. No new full review.
+4. It shows a `done` review of the current head: attach the message the same way and reply the Asked-again notice in the PR thread. No new review.
+5. Skip, recording `status: "skipped"` with a `skip_reason`, sending the Not-reviewed DM (step 8: the thread root, or a reply when the PR already has a thread), and setting the root state to `skipped`, when the PR is closed or merged, or when `git -C <local clone> worktree list --porcelain` shows a checkout whose path ends in `/pr-<N>-<head[:7]>` (pr-review's default name), which means another session has reviewed or is reviewing that exact head. This skill's workers name their checkouts under `/tmp/slack-pr-review/` instead, so they never match.
 6. `GH` has review threads on the PR that this loop does not track (the user posted them outside it): this request is a request for another look, so start tracking instead of a full round. `S review 'owner/repo#N' --new-round` with `{"status": "tracking", "head", "base", "title", "url", "author", "requests": [keys], "report_dir": <S report-dir 'owner/repo#N' <head>>, "external": true}`, start the watch with `watch.from` set to the commit of `GH`'s newest review, and record the `request` signal as in point 3.
 7. Skip as in point 5 when `GH` already submitted a review whose `commit_id` is the current head (an approval or a review with no threads).
-8. Otherwise start a new round, which also retries a `failed` review when a new request arrives: `S review 'owner/repo#N' --new-round` with `{"status": "queued", "head", "base", "title", "url", "author", "requests": [keys], "followup": <true when GH reviewed this PR before or the message asks for a re-review>, "plan": "single" or "orchestrate" (by Size), "size": {"files", "additions", "deletions"}}`. A draft PR is still reviewed when someone asked.
+8. Otherwise start a new round, which also retries a `failed` review when a new request arrives. Send the Started DM as the thread root right away (or, when the PR already has a thread, reply the Asked-again notice there) and set the root state to `loading`, even when the review has to wait for a free slot: `S review 'owner/repo#N' --new-round` with `{"status": "queued", "head", "base", "title", "url", "author", "requests": [keys], "followup": <true when GH reviewed this PR before or the message asks for a re-review>, "plan": "single" or "orchestrate" (by Size), "size": {"files", "additions", "deletions"}}`. A draft PR is still reviewed when someone asked.
 
 Find the local clone with `S repo owner/repo`. If none is recorded, look for an existing clone whose `origin` is that repository; otherwise run `gh repo clone owner/repo ~/.cache/slack-pr-review/repos/owner/repo -- --filter=blob:none`. Record the path with `S repo owner/repo --set <path>`. If gh cannot read the PR, mark the review `failed` with the error and send the failure DM.
 
@@ -235,7 +235,7 @@ While fewer than `MAX_WORKERS` workers are live, take the oldest `queued` or `fi
    ```
 
    Exit 0 means `ready`. Record the model and effort `launch.effective` reports, for the DM. A non-zero exit is never relaunched blindly: read `failedStage` and the worker's output (`ORCA orchestration worker-read`), and follow "Worker failures" in step 7.
-5. Acknowledge a new review. When a full review starts and its PR has no thread yet (it came straight from a Slack request, not through a question), send the started DM (step 8) top-level, store it as the review's `thread`, and put `:loading:` on it (`NOTIFY --channel <D id> --ts <its ts> --react loading`). A review whose thread already exists needs nothing new when the user's own reply started it (that reply already carries `:loading:`). A fix check started by anything else (the author's message, a re-requested review, author replies on GitHub) gets the fix-check started notice (step 8) as a reply in the PR thread, with `:loading:` on that notice until the fix-check DM is posted (`:done:`) or the check fails (`:x:`); record it on the check with `S fix <PR> --set <k>` as `{"started_notice": {"channel", "ts"}}`.
+5. Keep the thread right: the PR thread already exists (step 3 or 1b created it), so starting a worker sends no new message. When the review or check came from the user's reply in a question thread, that thread's root is the PR thread; set its state to `loading`.
 6. Record it: `S review 'owner/repo#N'` with `{"status": "running" or "fix_running", "run", "report_dir", "started_at", "workers": {"<stage>": {"harness", "model", "effort", "dispatch", "task", "terminal", "jev", "state": "running"}}}` (stage `single`, `review-a`, `review-b`, `review-c`, `merge`, `audit`, or `fix-<k>`; the Kimi reviewer records `{"harness": "kimi", "pid", "log", "jev", "state": "running"}` with no dispatch), set `dispatch` to the live dispatch IDs, and for a fix check also `S fix <PR> --set <k>` with `{"status": "running", "head", "harness", "dispatch"}`.
 
 ### 7. Supervise until nothing is running
@@ -249,7 +249,7 @@ Loop while any review is `running` or `fix_running`:
      - `orchestrate`, a reviewer: when `review-a` and `review-b` hold `ledger/review.json` and `done.json`, and `review-c` holds them too or has settled without them (below), start the merge over every finished review (step 6, points 2 to 6, one slot). One finished review and the others failed twice go to the audit directly, as pr-review-orchestrate's failure rule says.
      - `orchestrate`, the merger: when `merge/` holds both files, start the audit.
      - `orchestrate`, the auditor: when `audit/` holds both files and `<REPORT_DIR>/summary.json` and `report.md` exist, finish the review (below).
-     - A fix check: when `<FIX_DIR>` holds `fixcheck.md`, `payload.json`, and `summary.json` and `GHR check <FIX_DIR>/payload.json` passes, record `S fix <PR> --set <k>` with the summary fields and `"status": "done"`, change the check's started notice from `:loading:` to `:done:` when it has one, set the review `awaiting_post`, and send the fix-check DM with its items (step 8), recording `"ask": {"status": "asked", "kind": "post_fix", "payload": "<FIX_DIR>/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`. Otherwise follow "Worker failures".
+     - A fix check: when `<FIX_DIR>` holds `fixcheck.md`, `payload.json`, and `summary.json` and `GHR check <FIX_DIR>/payload.json` passes, record `S fix <PR> --set <k>` with the summary fields and `"status": "done"`, set the review `awaiting_post`, send the fix-check DM with its items as replies in the PR thread, and set the root state to `done` (step 8), recording `"ask": {"status": "asked", "kind": "post_fix", "payload": "<FIX_DIR>/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`. Otherwise follow "Worker failures".
      A stage is never started on a message alone; the files decide, as pr-review-orchestrate's stage-order rule says. A freed slot goes straight back to step 6 for the next queued work.
    - `question`: answer within the spec's rules with `ORCA orchestration reply --id <message id> --body "..." --from "$COORD" --json`. Never block on the user, since the loop is unattended: for a judgment call, tell the worker to take the conservative option and record the assumption in its report.
    - `escalation`: decide and reply. Deny any request to post, push, run paid jobs, or start nested workers.
@@ -257,9 +257,9 @@ Loop while any review is `running` or `fix_running`:
 3. The Kimi reviewer sends no messages: check it after every wait, batch or not. Its folder holding `ledger/review.json` and `done.json` means done (record `state: done` and advance the review as for a finished reviewer); its process gone (`kill -0 $(cat <REPORT_DIR>/logs/review-c.pid)` fails) without those files means it failed: a log that says the usage limit was reached records `S harness kimi --unavailable-until <the reset time, or now plus 5 hours>` and settles it as skipped; any other failure is retried once, and a second failure settles it as failed. Either way the PR continues with the other reviews, and the DM names what happened to the Kimi review. There is no time limit: a Kimi process that is still alive is waited for, however long it takes after the other reviewers finish, because the user prefers its review over a shorter wall time. Stop the process only when the review is abandoned.
 4. A wait that returns no batch is a checkpoint, not a failure. Whenever the last Slack poll is more than 9 minutes old, refresh the heartbeat (`S claim`) and run steps 1, 1a, 1b, 2 to 4 and 6 again for new requests, answers, and signals. After three consecutive empty waits, run `ORCA orchestration worker-list --run "$(S run)" --include-remote --json` and act on each row's `projection.attention` and `projection.nextAction` as the orchestration guide says. Stop, abandon, or retry a worker only on positive proof that it exited without `worker_done`; then mark it `failed` and send the failure DM.
 
-Finishing a review: record `finished_at` and the summary fields. Build the first post with `GHR payload <ledger review.json> --out <REPORT_DIR>/post/payload.json` (the ledger record is `<REPORT_DIR>/review.json` for a single review and `<REPORT_DIR>/audit/ledger/review.json` for an orchestrated one) and run `GHR check` on it. It holds every recommended draft, or a single "LGTM!" approval when no draft is recommended. Set the review `awaiting_post` and send the ready DM with its items (step 8), and change the started DM's `:loading:` to `:done:` (`:x:` when the review failed), recording `"ask": {"status": "asked", "kind": "post_first", "payload": "<REPORT_DIR>/post/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`.
+Finishing a review: record `finished_at` and the summary fields. Build the first post with `GHR payload <ledger review.json> --out <REPORT_DIR>/post/payload.json` (the ledger record is `<REPORT_DIR>/review.json` for a single review and `<REPORT_DIR>/audit/ledger/review.json` for an orchestrated one) and run `GHR check` on it. It holds every recommended draft, or a single "LGTM!" approval when no draft is recommended. Set the review `awaiting_post`, send the ready DM with its items as replies in the PR thread (step 8), and set the root state to `done`, recording `"ask": {"status": "asked", "kind": "post_first", "payload": "<REPORT_DIR>/post/payload.json", "channel", "thread_ts", "ts", "permalink", "asked_at"}`.
 
-Worker failures. Read the worker's output (`ORCA orchestration worker-read --dispatch <id>`) before deciding:
+Worker failures. Read the worker's output (`ORCA orchestration worker-read --dispatch <id>`) before deciding. Every failure DM is a reply in the PR thread, and when the review or check is given up the root state becomes `failed`:
 
 - A usage or credit limit (a message that the plan's usage, spend, quota, or credits are exhausted, usually with a reset time): record `S harness <harness> --unavailable-until <reset time in UTC, or now plus 6 hours> --reason "<one line>"`, then rerun the same stage once on the other harness if `S harness --available` lists it, and run every later stage of that PR there too. Say in the DM which stages moved and why. With no harness left, mark the review `failed` (a fix check: back to `tracking` with the check `failed`) with the reset times.
 - A worker that never became ready because it waits at an interactive screen (a trust or hooks review prompt, a login): do not answer the prompt. Run the stage once on the other harness when available, and name the prompt and the harness it blocked in the DM so the user can clear it.
@@ -271,18 +271,37 @@ Leave the wait loop only when no review is `running`, `queued`, `fix_running`, o
 
 Send each DM by piping it to `NOTIFY`, so the user gets a notification. Send the templates below as written, adding only facts about the PR: never add lines about the skill's own rules, why it waits for a reply, missing bot scopes, or other loop internals; those go on the status board. If `NOTIFY` exits non-zero (no bot token, or Slack refused), send the same text with `slack_send_message(channel_id=ME, message=...)` instead and put `DM sent without notification: <NOTIFY's reason>` on the status board. Store the returned channel, ts, and link on the review (`dm_permalink`, or the ask fields), or on the message record for a reminder. Show times in KST (`TZ=Asia/Seoul date -r <unix seconds> '+%Y-%m-%d %H:%M'`). Name every requester when several asked. Drop a line marked "only" when its condition does not hold.
 
-One thread per PR. Everything about one PR lives in one thread of the bot DM, the PR thread, stored on the review as `thread: {"channel", "ts", "handled_ts"}`. When the request came through a question DM, that question is the thread's root: copy its channel and ts into the review's `thread` in step 3. Otherwise the first DM the loop sends about the PR (usually the ready DM) is sent top-level and becomes the root. Every later message about the PR, including the ready DM, its items, fix checks, post results, skip reasons, reminders, failures, and tracking ended, is a reply in that thread (`NOTIFY --channel <thread.channel> --thread-ts <thread.ts>`), never a new top-level DM. Never pass `--broadcast`: results stay in the thread and are not also sent to the DM itself. A new round of the same PR (`--new-round`) keeps the old record's `thread`. When a reply in one thread joins a review that already has another PR thread, answer it there with one line linking the PR thread. Each ask records `thread_ts` (the root) next to `ts` (the ask message itself).
+Threads and reactions. The user wants to see, the moment the loop notices something, whether it is being done, and then hear back in the same place when it is done.
+
+- One thread per PR. Every PR the loop acts on, or decides not to act on, has exactly one thread in the bot DM, stored on the review as `thread: {"channel", "ts", "handled_ts"}` and kept across rounds (`--new-round` keeps it). It is created the moment the loop identifies the PR: the question DM for an unclear or team request (steps 2 and 8), otherwise the Started or Not-reviewed DM from step 3. A PR that already has a thread never gets a second root.
+- Everything later is a plain reply in that thread (`NOTIFY --channel <thread.channel> --thread-ts <thread.ts>`): Asked-again and Fix-check-started notices, the "nothing new on GitHub yet" note, the ready and fix-check DMs and their items, post results, failures, tracking ended, and answers to the user's replies. Never a new top-level message about a PR that has a thread, and never `--broadcast`.
+- The root carries exactly one state reaction, set with `NOTIFY --channel <thread.channel> --ts <thread.ts> --state <state>` (it removes the others): `loading` (:loading:) while a review or fix check for the PR is queued or running; `done` (:done:) when the latest work finished and its result is in the thread, including when it now waits for the user's `post`; `failed` (:x:) when it failed, with the reason in the thread; `skipped` (:heavy_minus_sign:) when the loop decided not to review. A question root has no state until the user answers it. Set it at every transition: thread created, review or fix check queued, finished, failed.
+- The user's own replies get their acknowledgement as step 1a describes: :loading: while acting on them, :done: or :x: when that is over. Notices, results, and items carry no reactions.
+- When a reply in one thread joins a review that already has another PR thread, answer it there with one line linking the PR thread. Each ask records `thread_ts` (the root) next to `ts` (the ask message itself).
 
 Items: after a ready or fix-check DM, post each string of `GHR render <payload>` as its own reply in the PR thread, in order, so the user reads exactly what would be posted.
 
-Started (top-level, when a review starts from a Slack request with no thread yet; it becomes the PR thread and carries `:loading:` until the review is ready):
+Started (the thread root, sent when step 3 starts a review for a PR with no thread):
 
 ```text
 **#<N> review started** · [<owner/repo#N>](<url>) by <author login>: <title without its [area] prefix>
 **Asked by** <name> in [<#channel or DM>](<permalink>), <Mon D HH:MM KST>
 ```
 
-Fix check started (a reply in the PR thread, when a fix check starts from anything other than the user's reply):
+Not reviewed (the thread root, or a reply when the PR has a thread; root state `skipped`):
+
+```text
+**#<N> not reviewed:** <the reason: already merged | closed | you already reviewed this head | another session is reviewing this head> · [<owner/repo#N>](<url>) by <author login>: <title>
+**Asked by** <name> in [<#channel or DM>](<permalink>), <Mon D HH:MM KST>
+```
+
+Asked again (a reply in the PR thread):
+
+```text
+<name> asked again in [<#channel or DM>](<permalink>), <Mon D HH:MM KST>: <already being reviewed | the review is ready above, waiting for your post | watching for the author's fixes>
+```
+
+Fix check started (a reply in the PR thread, when step 1b queues a fix check; the root goes to `loading`):
 
 ```text
 **#<N> fix check started** after <name>'s message in [<#channel or DM>](<permalink>), <Mon D HH:MM KST> | after the author's replies on GitHub | after a re-requested review
@@ -329,18 +348,16 @@ Post result (a reply in the PR thread):
 Posted to GitHub: <one link per call from GHR post>. <Watching the PR for the author's fixes now. | Approved; tracking for this PR has ended.>
 ```
 
-Tracking ended:
+Tracking ended (a reply in the PR thread; root state `done`):
 
 ```text
-**Tracking ended:** [<owner/repo#N>](<url>) <title> was <merged | closed> before your approval.
+**#<N> tracking ended:** <merged | closed> before your approval.
 ```
 
-Failed:
+Failed (a reply in the PR thread; root state `failed`):
 
 ```text
-**PR <review | fix check> failed:** [<owner/repo#N>](<url>) <title>
-Requested by <name> in [<#channel or DM>](<permalink>)
-Reason: <one line>
+**#<N> <review | fix check> failed:** <one-line reason>
 Partial output: `<path>`   (only when something was written)
 Retry with `/slack-pr-review review=<url>`   (only for a full review; a failed fix check retries on the next signal)
 ```
@@ -359,11 +376,6 @@ Should I review it? Reply in this thread with `review` (add a PR link if it is a
 
 For a team review ask, the first line is `**Review request to your team:** <name> asked <@team handle or "your team"> in [<#channel>](<permalink>) at <YYYY-MM-DD HH:MM KST>`, and the rest is the same.
 
-Reminder for a head that is already reviewed:
-
-```text
-**Review reminder:** <name> asked again about [<owner/repo#N>](<url>) in [<#channel or DM>](<permalink>). The review of head `<sha7>` is ready: `<REPORT_DIR>/report.md`
-```
 
 ### 9. Close the tick
 
