@@ -1,0 +1,4 @@
+#!/bin/sh
+# Terminal dashboard for the slack-pr-review loop: its health, the current check, reviews in progress, questions waiting in the bot DM, and recent checks with their summaries. The program lives with the skill whose state it reads; this launcher lets it run straight from the dotfiles folder.
+DOTFILES_DIR=$(cd "$(dirname "$0")/.." && pwd)
+exec python3 "$DOTFILES_DIR/agents/skills/slack-pr-review/scripts/dashboard.py" "$@"
