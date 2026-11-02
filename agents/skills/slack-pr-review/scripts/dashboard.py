@@ -3,6 +3,8 @@
 
 The screen is a status view first: the loop is meant to stay running, so no single key press acts on it. Up and down select a check in the Recent checks list and Enter opens that check's full summary (left and right step to the previous or next check from there). Every action lives in the actions menu behind `a`: check now (one check right away while the 10-minute schedule keeps going), stop or restart the current check, pause or resume the schedule, and switch the coordinator; each one that interrupts or changes the loop asks to confirm. `q` quits.
 
+The mouse works too: click a check to open its summary, click a review or a waiting question to open its thread in the bot DM, click `actions` or `quit` in the bottom bar, click a menu item to run it (or outside the menu to close it), click Yes or Cancel in a confirmation, and use the wheel to move through checks or scroll a summary.
+
 It shows the loop's health (running on schedule, paused, or failing, with the reason), the current check, every review in progress, waiting on the user, or tracked, the questions waiting in the bot DM, and the recent checks with each one's summary or error from its Codex transcript. Stopping a check closes its terminal and releases the loop claim; review workers keep going and the next check resumes them.
 
 Standard library only (curses), so it runs on the macOS system Python. `--once` prints a plain-text snapshot instead.
@@ -10,6 +12,8 @@ Standard library only (curses), so it runs on the macOS system Python. `--once` 
 
 import curses
 import glob
+import platform
+import re
 import json
 import os
 import subprocess
@@ -309,7 +313,12 @@ class Dashboard:
         self.offset = 0
         self.toast = ""
         self.toast_until = 0
+        self.zones = []
         curses.curs_set(0)
+        # Mouse reporting is switched on here and decoded below, not through curses' own mouse support:
+        # the macOS curses library misreads the newer (SGR) reports some terminals send, so clicks were lost.
+        sys.stdout.write(MOUSE_ON)
+        sys.stdout.flush()
         curses.use_default_colors()
         palette = [curses.COLOR_GREEN, curses.COLOR_YELLOW, curses.COLOR_RED, curses.COLOR_CYAN, curses.COLOR_MAGENTA, curses.COLOR_BLUE]
         for i, color in enumerate(palette, start=1):
@@ -337,6 +346,49 @@ class Dashboard:
         self.put(y, 2, " {} ".format(title), curses.A_BOLD)
         return y + 1
 
+    def zone(self, y, x0, x1, action, value=None):
+        """Remember a clickable area drawn this frame."""
+        self.zones.append((y, x0, x1, action, value))
+
+    def hit(self, y, x):
+        for zy, x0, x1, action, value in reversed(self.zones):
+            if zy == y and x0 <= x < x1:
+                return action, value
+        return None, None
+
+    def footer(self, parts):
+        """Draw the bottom bar from (label, action) pairs and make each labeled part clickable."""
+        h, w = self.screen.getmaxyx()
+        self.put(h - 1, 0, " " * (w - 1), curses.A_REVERSE)
+        x = 1
+        for label, action in parts:
+            self.put(h - 1, x, label, curses.A_REVERSE | (curses.A_BOLD if action else 0))
+            if action:
+                self.zone(h - 1, x, x + cols(label), action)
+            x += cols(label) + 4
+        self.put(h - 1, w - 26, "refreshes every {}s".format(REFRESH_SEC), curses.A_REVERSE | curses.A_DIM)
+
+    def open_link(self, url):
+        if not url:
+            self.say("No link to open for that row.")
+            return
+        opener = "open" if platform.system() == "Darwin" else "xdg-open"
+        try:
+            subprocess.Popen([opener, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.say("Opened " + url)
+        except OSError as exc:
+            self.say("Could not open the link: {}".format(exc))
+
+    def thread_link(self, review):
+        """The PR's bot DM thread (its root message), or the PR on GitHub when no thread link can be built."""
+        ask = review.get("ask") or {}
+        stored = review.get("dm_permalink") or ask.get("permalink") or ""
+        thread = review.get("thread") or {}
+        host = re.match(r"(https://[^/]+)/archives/", stored)
+        if host and thread.get("channel") and thread.get("ts"):
+            return "{}/archives/{}/p{}".format(host.group(1), thread["channel"], thread["ts"].replace(".", ""))
+        return stored or review.get("url")
+
     def say(self, text):
         self.toast = text
         self.toast_until = time.time() + 12
@@ -345,6 +397,7 @@ class Dashboard:
     def draw_main(self):
         s = self.screen
         s.erase()
+        self.zones = []
         h, w = s.getmaxyx()
         m = self.model
         now = datetime.now(KST)
@@ -389,6 +442,7 @@ class Dashboard:
         y = self.rule(y, "Reviews")
         budget = max(3, h - y - 13)
         for pr, r, status, updated in rows[:budget]:
+            self.zone(y, 0, w, "link", self.thread_link(r))
             attr = self.c["green"] if status in LIVE_REVIEW else self.c["yellow"] if status in WAITING else self.c["blue"] if status in TRACKED else curses.A_DIM
             dot = "●" if status in LIVE_REVIEW + WAITING + TRACKED else "○"
             self.put(y, 1, dot, attr)
@@ -425,14 +479,15 @@ class Dashboard:
             a = msg.get("ask") or {}
             if a.get("status") == "asked":
                 prs = ", ".join("#" + p.split("#")[-1] for p in msg.get("prs") or []) or "?"
-                asks.append((kst(a.get("asked_at")), "{}: review it? (asked by {})".format(prs, msg.get("from_name") or "?")))
+                asks.append((kst(a.get("asked_at")), "{}: review it? (asked by {})".format(prs, msg.get("from_name") or "?"), a.get("permalink")))
         for pr, r in reviews.items():
             a = r.get("ask") or {}
             if a.get("status") == "asked":
                 what = {"post_first": "post the review?", "post_fix": "post the fix-check follow-up?"}.get(a.get("kind"), "reply needed")
-                asks.append((kst(a.get("asked_at")), "#{}: {}".format(pr.split("#")[-1], what)))
+                asks.append((kst(a.get("asked_at")), "#{}: {}".format(pr.split("#")[-1], what), a.get("permalink") or self.thread_link(r)))
         y = self.rule(y, "Waiting on you" + ("  ({})".format(len(asks)) if asks else ""))
-        for at, line in sorted(asks, key=lambda a: a[0] or now)[:4]:
+        for at, line, link in sorted(asks, key=lambda a: a[0] or now)[:4]:
+            self.zone(y, 0, w, "link", link)
             self.put(y, 1, "●", self.c["yellow"])
             self.put(y, 3, line)
             self.put(y, w - 14, ago(at), curses.A_DIM)
@@ -450,6 +505,7 @@ class Dashboard:
             self.offset = self.sel - rows + 1
         y = self.rule(y, "Recent checks  ({} of {})".format(self.sel + 1 if checks else 0, len(checks)))
         for i, (r, started, tr) in enumerate(checks[self.offset: self.offset + rows], start=self.offset):
+            self.zone(y, 0, w, "check", i)
             if tr is None:
                 mark, attr, text = "?", curses.A_DIM, "no transcript"
             elif tr[2]:
@@ -476,10 +532,7 @@ class Dashboard:
             self.put(h - 2, 1, m.errors[0], self.c["red"])
         elif self.toast and time.time() < self.toast_until:
             self.put(h - 2, 1, self.toast, self.c["cyan"])
-        footer = " ↑↓ select a check    Enter open it    a actions    q quit "
-        self.put(h - 1, 0, " " * (w - 1), curses.A_REVERSE)
-        self.put(h - 1, 0, footer, curses.A_REVERSE)
-        self.put(h - 1, w - 26, "refreshes every {}s".format(REFRESH_SEC), curses.A_REVERSE | curses.A_DIM)
+        self.footer([("↑↓ or click a check", None), ("Enter open it", "open"), ("a actions", "menu"), ("q quit", "quit")])
         s.refresh()
 
     # actions menu
@@ -508,6 +561,10 @@ class Dashboard:
         win = curses.newwin(height, width, top, left)
         win.erase()
         draw_box(win, height, width, "Actions")
+        self.zones = [(row, 0, w, "menu_close", None) for row in range(h)]
+        for i in range(len(items)):
+            for dy in (0, 1):
+                self.zone(top + 2 + i * 2 + dy, left, left + width, "menu_item", i)
         try:
             for i, (_, label, hint, enabled) in enumerate(items):
                 row = 2 + i * 2
@@ -526,16 +583,29 @@ class Dashboard:
         win = curses.newwin(5, width, max(1, h // 2 - 2), max(1, (w - width) // 2))
         win.erase()
         draw_box(win, 5, width, "Confirm")
+        top, left = max(1, h // 2 - 2), max(1, (w - width) // 2)
         try:
             win.addnstr(1, 2, question, width - 4, curses.A_BOLD)
-            win.addnstr(3, 2, "y yes    any other key: cancel", width - 4, curses.A_DIM)
+            win.addnstr(3, 2, "[ Yes (y) ]", width - 4, curses.A_REVERSE | curses.A_BOLD)
+            win.addnstr(3, 16, "[ Cancel ]", width - 18, curses.A_REVERSE)
         except curses.error:
             pass
         win.refresh()
-        self.screen.timeout(-1)
-        key = self.screen.getch()
-        self.screen.timeout(REFRESH_SEC * 1000)
-        return key in (ord("y"), ord("Y"))
+        while True:
+            self.screen.timeout(-1)
+            key = self.screen.getch()
+            self.screen.timeout(REFRESH_SEC * 1000)
+            if key == curses.KEY_MOUSE:
+                mouse = decode_mouse(read_after_kmous(self.screen))
+            elif key != 27:
+                return key in (ord("y"), ord("Y"))
+            else:
+                mouse = decode_mouse(read_escape(self.screen))
+            if mouse is None:
+                return False
+            mx, my, kind = mouse
+            if kind == "click":
+                return my == top + 3 and left + 2 <= mx < left + 13
 
     def do(self, action):
         auto = self.model.auto
@@ -596,6 +666,7 @@ class Dashboard:
     def draw_details(self):
         s = self.screen
         s.erase()
+        self.zones = []
         h, w = s.getmaxyx()
         checks = self.model.checks()
         self.put(0, 0, " Check summary ", curses.A_BOLD | curses.A_REVERSE)
@@ -617,8 +688,7 @@ class Dashboard:
                 lines.append(raw)
             for i, line in enumerate(lines[self.scroll: self.scroll + h - 4]):
                 self.put(i + 3, 1, line, self.c["red"] if line.startswith("FAILED") else 0)
-        self.put(h - 1, 0, " " * (w - 1), curses.A_REVERSE)
-        self.put(h - 1, 0, " ↑↓ scroll    ← newer check    → older check    Esc back ", curses.A_REVERSE)
+        self.footer([("↑↓ or wheel scroll", None), ("← newer check", "newer"), ("→ older check", "older"), ("Esc back", "back")])
         s.refresh()
 
     def loop(self):
@@ -636,6 +706,20 @@ class Dashboard:
                 continue
             if key == curses.KEY_RESIZE:
                 continue
+            if key == curses.KEY_MOUSE:
+                mouse = decode_mouse(read_after_kmous(self.screen))
+                if mouse:
+                    self.on_mouse(*mouse)
+                continue
+            if key == 27:
+                seq = read_escape(self.screen)
+                mouse = decode_mouse(seq)
+                if mouse:
+                    self.on_mouse(*mouse)
+                    continue
+                if seq:
+                    continue
+                key = 27
             if self.mode == "menu":
                 items = self.actions()
                 if key in (27, ord("a"), ord("q")):
@@ -688,6 +772,117 @@ class Dashboard:
                 self.menu_index = 0
 
 
+MOUSE_ON = "\033[?1000h\033[?1006h"    # report button presses, in the SGR format
+MOUSE_OFF = "\033[?1006l\033[?1000l"
+SGR_MOUSE = re.compile(r"\[<(\d+);(\d+);(\d+)([Mm])$")
+
+
+def read_escape(screen):
+    """After an ESC, collect the rest of an escape sequence that arrives at once ("" for a lone ESC)."""
+    screen.timeout(30)
+    chars = []
+    while len(chars) < 32:
+        c = screen.getch()
+        if c == -1:
+            break
+        chars.append(chr(c) if c < 256 else "")
+        seq = "".join(chars)
+        if SGR_MOUSE.match(seq) or (seq.startswith("[M") and len(seq) == 5):
+            break
+    screen.timeout(REFRESH_SEC * 1000)
+    return "".join(chars)
+
+
+def read_after_kmous(screen):
+    """The terminal database may claim the start of a mouse report (\\E[M or \\E[<) and hand back KEY_MOUSE; read the
+    rest of the report that is still waiting and rebuild the whole sequence."""
+    screen.timeout(30)
+    chars = []
+    while len(chars) < 32:
+        c = screen.getch()
+        if c == -1:
+            break
+        chars.append(chr(c) if c < 256 else "")
+        rest = "".join(chars)
+        if re.match(r"\d+;\d+;\d+[Mm]$", rest) or (len(rest) == 3 and not rest[0].isdigit()):
+            break
+    screen.timeout(REFRESH_SEC * 1000)
+    rest = "".join(chars)
+    return ("[<" + rest) if re.match(r"\d+;\d+;\d+[Mm]$", rest) else ("[M" + rest)
+
+
+def decode_mouse(seq):
+    """(x, y, kind) for a mouse report: kind is click, wheel_up, wheel_down, or None for releases and motion."""
+    m = SGR_MOUSE.match(seq)
+    if m:
+        b, x, y, pressed = int(m.group(1)), int(m.group(2)) - 1, int(m.group(3)) - 1, m.group(4) == "M"
+    elif seq.startswith("[M") and len(seq) == 5:
+        b, x, y = ord(seq[2]) - 32, ord(seq[3]) - 33, ord(seq[4]) - 33
+        pressed = (b & 3) != 3
+    else:
+        return None
+    if b & 64:
+        return x, y, "wheel_down" if b & 1 else "wheel_up"
+    if b & 32 or not pressed or (b & 3) != 0:
+        return x, y, None
+    return x, y, "click"
+
+
+def _on_mouse(self, x, y, kind):
+    """Clicks and the wheel, in whichever view is showing."""
+    count = len(self.model.runs)
+    if kind in ("wheel_up", "wheel_down"):
+        step = -1 if kind == "wheel_up" else 1
+        if self.mode == "details":
+            self.scroll = max(0, self.scroll + step * 3)
+        elif self.mode == "main":
+            self.sel = max(0, min(count - 1, self.sel + step))
+        return
+    if kind != "click":
+        return
+    action, value = self.hit(y, x)
+    if self.mode == "menu":
+        if action == "menu_item":
+            items = self.actions()
+            self.menu_index = value
+            act, _, _, enabled = items[value]
+            self.mode = "main"
+            if enabled:
+                self.draw_main()
+                self.do(act)
+                self.model.load()
+            else:
+                self.say("Nothing is running, so there is nothing to stop.")
+        elif action == "menu_close":
+            self.mode = "main"
+        return
+    if action == "check":
+        self.sel = value
+        self.mode = "details"
+        self.scroll = 0
+    elif action == "link":
+        self.open_link(value)
+    elif action == "open":
+        self.mode = "details"
+        self.scroll = 0
+    elif action == "menu":
+        self.mode = "menu"
+        self.menu_index = 0
+    elif action == "quit":
+        raise SystemExit(0)
+    elif action == "newer":
+        self.sel = max(0, self.sel - 1)
+        self.scroll = 0
+    elif action == "older":
+        self.sel = min(count - 1, self.sel + 1)
+        self.scroll = 0
+    elif action == "back":
+        self.mode = "main"
+
+
+Dashboard.on_mouse = _on_mouse
+
+
 def snapshot():
     m = Model(Transcripts())
     m.load()
@@ -711,7 +906,12 @@ def main():
     if "--once" in sys.argv:
         snapshot()
         return 0
-    curses.wrapper(lambda screen: Dashboard(screen).loop())
+    os.environ.setdefault("ESCDELAY", "25")
+    try:
+        curses.wrapper(lambda screen: Dashboard(screen).loop())
+    finally:
+        sys.stdout.write(MOUSE_OFF)
+        sys.stdout.flush()
     return 0
 
 
