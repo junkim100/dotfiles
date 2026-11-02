@@ -378,4 +378,5 @@ The loop DMs from its own Slack app so its messages notify the user, stay apart 
 - Usage limits are remembered in the state until their reset time, so later ticks route around an exhausted harness without retrying it first; `S harness <name> --clear` lifts one early.
 - Each worker keeps its scratch checkout under `/tmp/slack-pr-review/` for follow-up questions. Remove old ones with `git -C <local clone> worktree remove --force <path>` when they are no longer needed.
 - Everything posted is recorded in `posted.json` next to its payload, with the Slack reply that allowed it.
+- Dashboard: `python3 <this skill's directory>/scripts/dashboard.py` is a terminal UI over the loop: schedule on or paused, the live run, reviews in flight and tracked, questions waiting for the user, and the last runs with their summaries or errors. Its keys resume or pause the schedule, run now, stop or restart the live run, and switch the coordinator between Codex and Claude Code. `--once` prints a plain-text snapshot.
 - To start over, delete `~/.local/state/slack-pr-review/state.json`. Reports under `reviews/` do not depend on it.
