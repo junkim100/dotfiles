@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Terminal dashboard for the slack-pr-review loop.
 
-The screen is a status view first: the loop is meant to stay running, so nothing a stray key press can do pauses or stops it. One key is live, `c`, which starts a check right away while the 10-minute schedule keeps going. Everything else (stop or restart the current check, pause or resume the schedule, switch the coordinator) lives in the actions menu behind `a`, and every action that interrupts or changes the loop asks to confirm. `d` opens the latest check's full summary, `q` quits.
+The screen is a status view first: the loop is meant to stay running, so no single key press acts on it. Up and down select a check in the Recent checks list and Enter opens that check's full summary (left and right step to the previous or next check from there). Every action lives in the actions menu behind `a`: check now (one check right away while the 10-minute schedule keeps going), stop or restart the current check, pause or resume the schedule, and switch the coordinator; each one that interrupts or changes the loop asks to confirm. `q` quits.
 
 It shows the loop's health (running on schedule, paused, or failing, with the reason), the current check, every review in progress, waiting on the user, or tracked, the questions waiting in the bot DM, and the recent checks with each one's summary or error from its Codex transcript. Stopping a check closes its terminal and releases the loop claim; review workers keep going and the next check resumes them.
 
@@ -107,11 +107,15 @@ class Transcripts:
 
     def __init__(self):
         self.cache = {}
+        self.matched = {}
 
     def for_run(self, started):
         """(finished, summary, error) of the transcript that began within 90 s of the run's start, or None."""
         if started is None:
             return None
+        known = self.matched.get(started)
+        if known:
+            return self.parse(known)
         best = None
         for root in SESSION_GLOBS:
             for base in glob.glob(root):
@@ -126,7 +130,10 @@ class Transcripts:
                         gap = (t - started).total_seconds()
                         if -5 <= gap <= 90 and (best is None or abs(gap) < best[0]):
                             best = (abs(gap), path)
-        return self.parse(best[1]) if best else None
+        if not best:
+            return None
+        self.matched[started] = best[1]
+        return self.parse(best[1])
 
     def parse(self, path):
         try:
@@ -151,7 +158,7 @@ class Transcripts:
                     error = (payload.get("error") or {}).get("message") or error
                 elif payload.get("type") == "agent_message":
                     last = payload.get("message") or last
-        result = (done, (last or "").strip(), error)
+        result = (done, (last or "").strip(), error, path)
         self.cache[path] = (mtime, result)
         return result
 
@@ -197,6 +204,12 @@ def headline(text, width):
     return ""
 
 
+def claim_exit(text):
+    """True when a check ended at once because another check held the loop claim."""
+    t = (text or "").lower()
+    return ("claim" in t or "실행권" in text or "already" in t) and ("another" in t or "다른" in text) and len(t) < 600
+
+
 def short_error(error):
     if not error:
         return ""
@@ -230,7 +243,7 @@ class Model:
                 shown, _ = orca_json(["automations", "show", "--id", found["id"]])
                 self.auto = (shown or {}).get("automation", shown) or found
                 runs, _ = orca_json(["automations", "runs", "--id", found["id"]])
-                self.runs = (runs or {}).get("runs", [])[:10]
+                self.runs = (runs or {}).get("runs", [])[:40]
             else:
                 self.errors.append("Orca automation '{}' not found".format(AUTOMATION_NAME))
         self.state, err = load_state()
@@ -292,6 +305,8 @@ class Dashboard:
         self.mode = "main"
         self.menu_index = 0
         self.scroll = 0
+        self.sel = 0
+        self.offset = 0
         self.toast = ""
         self.toast_until = 0
         curses.curs_set(0)
@@ -380,9 +395,14 @@ class Dashboard:
             self.put(y, 3, "#{:<6}".format(pr.split("#")[-1]), curses.A_BOLD)
             self.put(y, 11, "{:<19}".format(STATUS_LABEL.get(status, status)), attr)
             detail = ""
-            if status in LIVE_REVIEW:
+            if status in ("fix_queued", "fix_running"):
+                fixes = r.get("fixes") or [{}]
+                detail = "fix check {} {}".format(fixes[-1].get("n", ""), "…" if status == "fix_running" else "queued")
+            elif status in LIVE_REVIEW:
                 chips = []
                 for stage, wk in (r.get("workers") or {}).items():
+                    if stage.startswith("fix-"):
+                        continue
                     mark = {"running": "…", "succeeded": "✓", "done": "✓", "failed": "✗", "skipped": "–"}.get(wk.get("state"), "?")
                     chips.append("{} {}".format(STAGE_LABEL.get(stage, stage), mark))
                 detail = "  ".join(chips)
@@ -422,26 +442,41 @@ class Dashboard:
             y += 1
         y += 1
 
-        y = self.rule(y, "Recent checks")
-        for r, started, tr in checks[: max(2, min(6, h - y - 3))]:
+        self.sel = max(0, min(self.sel, len(checks) - 1))
+        rows = max(3, h - y - 4)
+        if self.sel < self.offset:
+            self.offset = self.sel
+        elif self.sel >= self.offset + rows:
+            self.offset = self.sel - rows + 1
+        y = self.rule(y, "Recent checks  ({} of {})".format(self.sel + 1 if checks else 0, len(checks)))
+        for i, (r, started, tr) in enumerate(checks[self.offset: self.offset + rows], start=self.offset):
             if tr is None:
                 mark, attr, text = "?", curses.A_DIM, "no transcript"
             elif tr[2]:
                 mark, attr, text = "✗", self.c["red"], "failed: " + short_error(tr[2])
             elif not tr[0]:
                 mark, attr, text = "…", self.c["green"], "running"
+            elif claim_exit(tr[1]):
+                mark, attr, text = "–", curses.A_DIM, "skipped: another check was already running"
             else:
                 mark, attr, text = "✓", self.c["green"], headline(tr[1], w - 20) or "no summary"
-            self.put(y, 1, mark, attr)
-            self.put(y, 3, clock(started), curses.A_DIM)
-            self.put(y, 10, text, attr if tr is None or tr[2] or not tr[0] else 0)
+            if i == self.sel:
+                self.put(y, 0, " " * (w - 1), curses.A_REVERSE)
+                self.put(y, 0, "▶", curses.A_REVERSE | curses.A_BOLD)
+                self.put(y, 1, mark, curses.A_REVERSE | curses.A_BOLD)
+                self.put(y, 3, clock(started), curses.A_REVERSE)
+                self.put(y, 10, fit(text, w - 12), curses.A_REVERSE)
+            else:
+                self.put(y, 1, mark, attr)
+                self.put(y, 3, clock(started), curses.A_DIM)
+                self.put(y, 10, fit(text, w - 12), attr if mark != "✓" else 0)
             y += 1
 
         if m.errors:
             self.put(h - 2, 1, m.errors[0], self.c["red"])
         elif self.toast and time.time() < self.toast_until:
             self.put(h - 2, 1, self.toast, self.c["cyan"])
-        footer = " c check now    a actions    d latest summary    q quit "
+        footer = " ↑↓ select a check    Enter open it    a actions    q quit "
         self.put(h - 1, 0, " " * (w - 1), curses.A_REVERSE)
         self.put(h - 1, 0, footer, curses.A_REVERSE)
         self.put(h - 1, w - 26, "refreshes every {}s".format(REFRESH_SEC), curses.A_REVERSE | curses.A_DIM)
@@ -562,14 +597,17 @@ class Dashboard:
         s = self.screen
         s.erase()
         h, w = s.getmaxyx()
-        latest = next(((r, t, tr) for r, t, tr in self.model.checks() if tr and (tr[1] or tr[2])), None)
-        self.put(0, 0, " Latest check summary ", curses.A_BOLD | curses.A_REVERSE)
-        if not latest:
-            self.put(2, 1, "No check summary found yet.", curses.A_DIM)
+        checks = self.model.checks()
+        self.put(0, 0, " Check summary ", curses.A_BOLD | curses.A_REVERSE)
+        if not checks:
+            self.put(2, 1, "No checks yet.", curses.A_DIM)
         else:
-            r, started, tr = latest
-            self.put(0, 24, "check #{} at {}{}".format(r.get("runNumber"), clock(started), "" if tr[0] else " (still running)"), curses.A_DIM)
-            body = ("FAILED: " + tr[2] + "\n\n" if tr[2] else "") + (tr[1] or "")
+            self.sel = max(0, min(self.sel, len(checks) - 1))
+            r, started, tr = checks[self.sel]
+            status = "no transcript" if tr is None else "failed" if tr[2] else "still running" if not tr[0] else "finished"
+            self.put(0, 16, "check #{} at {} · {} · {} of {}".format(r.get("runNumber"), clock(started), status, self.sel + 1, len(checks)), curses.A_BOLD)
+            self.put(1, 1, "From: " + (tr[3] if tr else "no Codex transcript matched this check's start time"), curses.A_DIM)
+            body = "" if tr is None else ("FAILED: " + tr[2] + "\n\n" if tr[2] else "") + (tr[1] or ("(no message yet)" if not tr[0] else "(the check ended without a message)"))
             lines = []
             for raw in body.splitlines():
                 raw = raw.replace("**", "")
@@ -577,10 +615,10 @@ class Dashboard:
                     lines.append(raw[: w - 3])
                     raw = raw[w - 3:]
                 lines.append(raw)
-            for i, line in enumerate(lines[self.scroll: self.scroll + h - 3]):
-                self.put(i + 2, 1, line, self.c["red"] if line.startswith("FAILED") else 0)
+            for i, line in enumerate(lines[self.scroll: self.scroll + h - 4]):
+                self.put(i + 3, 1, line, self.c["red"] if line.startswith("FAILED") else 0)
         self.put(h - 1, 0, " " * (w - 1), curses.A_REVERSE)
-        self.put(h - 1, 0, " up/down scroll    Esc back ", curses.A_REVERSE)
+        self.put(h - 1, 0, " ↑↓ scroll    ← newer check    → older check    Esc back ", curses.A_REVERSE)
         s.refresh()
 
     def loop(self):
@@ -619,8 +657,14 @@ class Dashboard:
                         self.say("Nothing is running, so there is nothing to stop.")
                 continue
             if self.mode == "details":
-                if key in (27, ord("q"), ord("d"), curses.KEY_ENTER, 10, 13):
+                if key in (27, ord("q"), curses.KEY_ENTER, 10, 13):
                     self.mode = "main"
+                elif key in (curses.KEY_LEFT, ord("h")):
+                    self.sel = max(0, self.sel - 1)
+                    self.scroll = 0
+                elif key in (curses.KEY_RIGHT, ord("l")):
+                    self.sel = min(len(self.model.runs) - 1, self.sel + 1)
+                    self.scroll = 0
                 elif key in (curses.KEY_DOWN, ord("j")):
                     self.scroll += 1
                 elif key in (curses.KEY_UP, ord("k")):
@@ -632,15 +676,16 @@ class Dashboard:
                 continue
             if key == ord("q"):
                 return
-            if key == ord("c"):
-                self.check_now()
-                self.model.load()
+            if key in (curses.KEY_UP, ord("k")):
+                self.sel = max(0, self.sel - 1)
+            elif key in (curses.KEY_DOWN, ord("j")):
+                self.sel = min(len(self.model.runs) - 1, self.sel + 1)
+            elif key in (curses.KEY_ENTER, 10, 13):
+                self.mode = "details"
+                self.scroll = 0
             elif key == ord("a"):
                 self.mode = "menu"
                 self.menu_index = 0
-            elif key == ord("d"):
-                self.mode = "details"
-                self.scroll = 0
 
 
 def snapshot():
