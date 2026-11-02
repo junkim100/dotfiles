@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Terminal dashboard for the slack-pr-review loop.
 
-The screen is a status view first: the loop is meant to stay running, so no single key press acts on it. Up and down (or a click) select a row in Reviews, Waiting on you, or Recent checks, and Enter (or a double click) opens it: a check opens its summary here (left and right step to the previous or next check from there), and a review or a waiting question opens its thread in the bot DM, where the user replies. Every action lives in the actions menu behind `a`: check now (one check right away while the 10-minute schedule keeps going), stop or restart the current check, pause or resume the schedule, and switch the coordinator; each one that interrupts or changes the loop asks to confirm. `q` quits. The bottom-bar labels, menu items, and Yes or Cancel are clickable too, and the wheel moves the selection or scrolls a summary.
+The screen is a status view first: the loop is meant to stay running, so no single key press acts on it. Up and down (or a click) select a row in Reviews, Waiting on you, or Recent checks, and Enter (or a double click) opens it: a check opens its summary here (left and right step to the previous or next check from there), and a review opens its thread in the bot DM. A waiting question opens on a single click (or Enter), because it exists to be answered. Threads open in the Slack desktop app at the exact message with its thread pane showing (a slack:// link), or in the browser where the app is not installed. Every action lives in the actions menu behind `a`: check now (one check right away while the 10-minute schedule keeps going), stop or restart the current check, pause or resume the schedule, and switch the coordinator; each one that interrupts or changes the loop asks to confirm. `q` quits. The bottom-bar labels, menu items, and Yes or Cancel are clickable too, and the wheel moves the selection or scrolls a summary.
 
 It shows the loop's health (running on schedule, paused, or failing, with the reason), the current check, every review in progress, waiting on the user, or tracked, the questions the bot asked the user that still wait for a reply (with the replies each one takes), and the recent checks. A check's summary shows what it said in the bot DM, read from Slack with the bot's token: its messages by PR thread, and before each reply the user's messages it answered, then the check's own final message from its Codex transcript. Stopping a check closes its terminal and releases the loop claim; review workers keep going and the next check resumes them.
 
@@ -38,6 +38,8 @@ STATUS_LABEL = {
 }
 STAGE_LABEL = {"review-a": "Codex", "review-b": "Claude", "review-c": "Kimi", "merge": "merge", "audit": "audit", "single": "review"}
 DOUBLE_CLICK_SEC = 0.45
+# The Slack desktop app, which opens slack:// links straight at a message and its thread.
+SLACK_APP = platform.system() == "Darwin" and any(os.path.isdir(p) for p in ("/Applications/Slack.app", os.path.expanduser("~/Applications/Slack.app")))
 # A bot DM message that is one numbered comment item of a ready or fix-check DM.
 ITEM = re.compile(r"^\*{1,2}(\d+)\. ")
 ACK_MARK = {"done": "✓ done", "loading": "… working on it", "x": "✗ failed"}
@@ -303,14 +305,15 @@ def payload_items(path):
         return []
 
 
-def waiting_asks(st, thread_link):
+def waiting_asks(st, thread_target):
     """The questions the bot asked the user in its DM that still wait for a reply, oldest first: key, what is asked, how to reply, when, and the link that opens it."""
     out = []
     for key, msg in (st.get("messages") or {}).items():
         a = msg.get("ask") or {}
         if a.get("status") == "asked":
             prs = ", ".join("#" + p.split("#")[-1] for p in msg.get("prs") or []) or "A PR"
-            out.append({"key": "message/" + key, "at": kst(a.get("asked_at")), "link": a.get("permalink"), "reply": "`review` or `skip`", "what": "{}: unclear review request from {}. Review it?".format(prs, msg.get("from_name") or "someone")})
+            target = {"channel": a.get("channel"), "message": a.get("ts"), "thread": a.get("thread_ts") or a.get("ts"), "web": a.get("permalink"), "label": prs + " question"}
+            out.append({"key": "message/" + key, "at": kst(a.get("asked_at")), "target": target, "reply": "`review` or `skip`", "what": "{}: unclear review request from {}. Review it?".format(prs, msg.get("from_name") or "someone")})
     for pr, r in (st.get("reviews") or {}).items():
         a = r.get("ask") or {}
         if a.get("status") != "asked":
@@ -329,7 +332,10 @@ def waiting_asks(st, thread_link):
             reply = "`post`, `post 1 3`, `edit <n>: …`, `skip`, or `stop`"
         else:
             what, reply = "{}: a reply is needed".format(n), "in its thread"
-        out.append({"key": "review/" + pr, "at": kst(a.get("asked_at")), "link": a.get("permalink") or thread_link(r), "what": what, "reply": reply})
+        target = thread_target(pr, r)
+        if a.get("ts"):
+            target = dict(target, channel=a.get("channel") or target["channel"], message=a["ts"], thread=a.get("thread_ts") or target["thread"], web=a.get("permalink") or target["web"])
+        out.append({"key": "review/" + pr, "at": kst(a.get("asked_at")), "target": target, "what": what, "reply": reply})
     out.sort(key=lambda a: a["at"] or datetime.now(KST))
     return out
 
@@ -527,6 +533,7 @@ class Dashboard:
         self.cur = None       # (kind, key) of the selected row
         self.last_click = (None, 0)
         self.loaded_at = 0
+        self.team = None
         self.toast = ""
         self.toast_until = 0
         self.zones = []
@@ -597,7 +604,7 @@ class Dashboard:
         if kind == "check":
             self.sel, self.mode, self.scroll = value, "details", 0
         else:
-            self.open_link(value)
+            self.open_slack(value)
 
     def back_to_main(self):
         """Leave a summary with its check selected, so Enter opens it again."""
@@ -618,16 +625,45 @@ class Dashboard:
             x += cols(label) + 4
         self.put(h - 1, w - 26, "refreshes every {}s".format(REFRESH_SEC), curses.A_REVERSE | curses.A_DIM)
 
-    def open_link(self, url):
+    def open_link(self, url, done=None):
         if not url:
             self.say("No link to open for that row.")
             return
         opener = "open" if platform.system() == "Darwin" else "xdg-open"
         try:
             subprocess.Popen([opener, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            self.say("Opened " + url)
+            self.say(done or "Opened " + url)
         except OSError as exc:
             self.say("Could not open the link: {}".format(exc))
+
+    def team_id(self):
+        """The Slack workspace id, from the bot token (asked once), or None when it cannot be read."""
+        if self.team is None:
+            self.team = ""
+            try:
+                import notify  # pyright: ignore[reportMissingImports]
+                token, _, bot = notify.resolve(None)
+                if bot == "pr-review":
+                    self.team = notify.call(token, "auth.test", {}, form=True).get("team_id") or ""
+            except Exception:
+                pass
+        return self.team or None
+
+    def open_slack(self, target):
+        """Open a bot DM message with its thread in the Slack app, ready for a reply, or its web link when the app or the workspace id is missing."""
+        team = self.team_id() if SLACK_APP else None
+        if team and target.get("channel") and target.get("message"):
+            url = "slack://channel?team={}&id={}&message={}".format(team, target["channel"], target["message"])
+            if target.get("thread"):
+                url += "&thread_ts=" + target["thread"]
+            self.open_link(url, "Opened the {} thread in Slack. Reply there.".format(target.get("label") or "bot DM"))
+        else:
+            self.open_link(target.get("web"), "Opened the {} thread in the browser. Reply there.".format(target.get("label") or "bot DM"))
+
+    def thread_target(self, pr, review):
+        """Where a PR's bot DM thread is: the root message, its thread, and a web link for when the Slack app is not available."""
+        thread = review.get("thread") or {}
+        return {"channel": thread.get("channel"), "message": thread.get("ts"), "thread": thread.get("ts"), "web": self.thread_link(review), "label": "#" + pr.split("#")[-1]}
 
     def thread_link(self, review):
         """The PR's bot DM thread (its root message), or the PR on GitHub when no thread link can be built."""
@@ -689,9 +725,9 @@ class Dashboard:
                 rows.append((pr, r, status, updated))
         rank = {v: i for i, v in enumerate(LIVE_REVIEW + WAITING + TRACKED)}
         rows.sort(key=lambda x: (rank.get(x[2], 99), -(x[3].timestamp() if x[3] else 0)))
-        asks = waiting_asks(st, self.thread_link)
-        self.items = [("review", pr, self.thread_link(r)) for pr, r, _, _ in rows]
-        self.items += [("ask", a["key"], a["link"]) for a in asks]
+        asks = waiting_asks(st, self.thread_target)
+        self.items = [("review", pr, self.thread_target(pr, r)) for pr, r, _, _ in rows]
+        self.items += [("ask", a["key"], a["target"]) for a in asks]
         self.items += [("check", check_key(r), i) for i, (r, _, _) in enumerate(checks)]
         keys = [(k, key) for k, key, _ in self.items]
         if self.cur not in keys:
@@ -734,7 +770,7 @@ class Dashboard:
         y += 1
 
         y = self.rule(y, "Waiting on you" + ("  ({})".format(len(asks)) if asks else ""))
-        self.put(y, 3, "Questions the PR Review bot asked you in Slack. Open one (Enter or double-click) and reply in its thread.", curses.A_DIM)
+        self.put(y, 3, "Questions the PR Review bot asked you in Slack. Click one (or press Enter) to jump to its thread in Slack and reply there.", curses.A_DIM)
         y += 1
         for a in asks[:4]:
             sel = self.row(y, ("ask", a["key"]))
@@ -1170,7 +1206,11 @@ def _on_mouse(self, x, y, kind):
         elif action == "menu_close":
             self.mode = "main"
         return
-    if action == "select":
+    if action == "select" and value[0] == "ask":
+        # A waiting question exists only to be answered, so one click goes straight to its thread in Slack.
+        self.cur = value
+        self.open_selected()
+    elif action == "select":
         # One click selects the row; a second click on it within DOUBLE_CLICK_SEC opens it, like Enter.
         now = time.time()
         double = self.last_click[0] == value and now - self.last_click[1] < DOUBLE_CLICK_SEC
@@ -1213,8 +1253,8 @@ def snapshot():
         if r.get("status") in LIVE_REVIEW + WAITING + TRACKED:
             status = str(r.get("status"))
             print("review #{}".format(pr.split("#")[-1]), STATUS_LABEL.get(status, status), "-", (r.get("title") or "")[:70])
-    for a in waiting_asks(m.state or {}, lambda r: r.get("url")):
-        print("waiting on you:", a["what"], "| reply", a["reply"], "in", a["link"])
+    for a in waiting_asks(m.state or {}, lambda pr, r: {"channel": None, "message": None, "thread": None, "web": r.get("url")}):
+        print("waiting on you:", a["what"], "| reply", a["reply"], "in", a["target"]["web"])
     for err in m.errors:
         print("error:", err)
 
