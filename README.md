@@ -24,10 +24,7 @@ Reruns reuse existing tools and links. Homebrew installs missing Brewfile entrie
 **macOS:**
 ```bash
 bash "$DOTFILES_DIR/macOS/install.sh"
-eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
-
-On a fresh Mac, run the macOS installer before `agents/install.sh`. The second command makes the newly installed Homebrew tools available in the current terminal; new terminals load them through the linked `.zprofile`. The Brewfile supplies Node and npm for agent plugins and Neovim tooling; NVM is optional. Existing NVM installations still load through the shell configuration.
 
 Mac App Store apps are declared in [`macOS/Brewfile`](macOS/Brewfile) using `mas "App Name", id: <App Store ID>`. The Brewfile installs `mas`, the Mac App Store command-line tool, and the macOS installer uses Homebrew Bundle to install missing apps with `--no-upgrade`. On a new Mac, sign into the App Store with the Apple account that owns the apps before running the installer.
 
