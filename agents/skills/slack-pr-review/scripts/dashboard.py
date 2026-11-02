@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Terminal dashboard for the slack-pr-review loop.
 
-The screen is a status view first: the loop is meant to stay running, so no single key press acts on it. Up and down select a check in the Recent checks list and Enter opens that check's full summary (left and right step to the previous or next check from there). Every action lives in the actions menu behind `a`: check now (one check right away while the 10-minute schedule keeps going), stop or restart the current check, pause or resume the schedule, and switch the coordinator; each one that interrupts or changes the loop asks to confirm. `q` quits.
+The screen is a status view first: the loop is meant to stay running, so no single key press acts on it. Up and down (or a click) select a row in Reviews, Waiting on you, or Recent checks, and Enter (or a double click) opens it: a check opens its summary here (left and right step to the previous or next check from there), and a review or a waiting question opens its thread in the bot DM, where the user replies. Every action lives in the actions menu behind `a`: check now (one check right away while the 10-minute schedule keeps going), stop or restart the current check, pause or resume the schedule, and switch the coordinator; each one that interrupts or changes the loop asks to confirm. `q` quits. The bottom-bar labels, menu items, and Yes or Cancel are clickable too, and the wheel moves the selection or scrolls a summary.
 
-The mouse works too: click a check to open its summary, click a review or a waiting question to open its thread in the bot DM, click `actions` or `quit` in the bottom bar, click a menu item to run it (or outside the menu to close it), click Yes or Cancel in a confirmation, and use the wheel to move through checks or scroll a summary.
-
-It shows the loop's health (running on schedule, paused, or failing, with the reason), the current check, every review in progress, waiting on the user, or tracked, the questions waiting in the bot DM, and the recent checks with each one's summary or error from its Codex transcript. Stopping a check closes its terminal and releases the loop claim; review workers keep going and the next check resumes them.
+It shows the loop's health (running on schedule, paused, or failing, with the reason), the current check, every review in progress, waiting on the user, or tracked, the questions the bot asked the user that still wait for a reply (with the replies each one takes), and the recent checks. A check's summary shows what it said in the bot DM, read from Slack with the bot's token: its messages by PR thread, and before each reply the user's messages it answered, then the check's own final message from its Codex transcript. Stopping a check closes its terminal and releases the loop claim; review workers keep going and the next check resumes them.
 
 Standard library only (curses), so it runs on the macOS system Python. `--once` prints a plain-text snapshot instead.
 """
 
 import curses
 import glob
+import threading
 import platform
 import re
 import json
@@ -24,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_PY = os.path.join(HERE, "state.py")
+sys.path.insert(0, HERE)
 AUTOMATION_NAME = "slack-pr-review"
 KST = timezone(timedelta(hours=9))
 SESSION_GLOBS = [os.path.expanduser("~/Library/Application Support/orca/codex-accounts/*/home/sessions"), os.path.expanduser("~/.codex/sessions")]
@@ -37,6 +37,10 @@ STATUS_LABEL = {
     "failed": "failed", "skipped": "skipped",
 }
 STAGE_LABEL = {"review-a": "Codex", "review-b": "Claude", "review-c": "Kimi", "merge": "merge", "audit": "audit", "single": "review"}
+DOUBLE_CLICK_SEC = 0.45
+# A bot DM message that is one numbered comment item of a ready or fix-check DM.
+ITEM = re.compile(r"^\*{1,2}(\d+)\. ")
+ACK_MARK = {"done": "✓ done", "loading": "… working on it", "x": "✗ failed"}
 
 
 def run(cmd, timeout=20):
@@ -147,22 +151,36 @@ class Transcripts:
         hit = self.cache.get(path)
         if hit and hit[0] == mtime:
             return hit[1]
-        last, done, error = None, False, None
+        last, done, error, ended, refused, claim_call = None, False, None, None, False, None
         with open(path, errors="replace") as f:
             for line in f:
+                if claim_call and claim_call in line and '"custom_tool_call_output"' in line:
+                    # The loop claim was refused (exit 3): another check holds the loop, so this one did nothing.
+                    refused = refused or bool(re.search(r'exit_code\\*":3\b', line))
+                    claim_call = None
+                    continue
+                if "state.py claim" in line and '"custom_tool_call"' in line:
+                    try:
+                        claim_call = json.loads(line).get("payload", {}).get("call_id")
+                    except ValueError:
+                        pass
+                    continue
                 if '"task_complete"' not in line and '"agent_message"' not in line:
                     continue
                 try:
-                    payload = json.loads(line).get("payload", {})
+                    record = json.loads(line)
                 except ValueError:
                     continue
+                payload = record.get("payload", {})
                 if payload.get("type") == "task_complete":
                     done = True
+                    ended = kst(record.get("timestamp")) or ended
                     last = payload.get("last_agent_message") or last
                     error = (payload.get("error") or {}).get("message") or error
                 elif payload.get("type") == "agent_message":
                     last = payload.get("message") or last
-        result = (done, (last or "").strip(), error, path)
+        # (finished, final message, error, transcript path, finish time, whether the loop claim was refused)
+        result = (done, (last or "").strip(), error, path, ended or (datetime.fromtimestamp(mtime, KST) if done else None), refused)
         self.cache[path] = (mtime, result)
         return result
 
@@ -184,6 +202,49 @@ def fit(text, width):
         out += ch
         used += w
     return out + "…"
+
+
+def cut(text, width):
+    """The longest start of text that fits in width terminal columns (at least one character)."""
+    used = 0
+    for i, ch in enumerate(text):
+        used += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+        if used > width:
+            return text[: max(1, i)]
+    return text
+
+
+def wrap(text, width):
+    """Lines of at most width terminal columns, broken at spaces where possible."""
+    out = []
+    for raw in (text or "").splitlines() or [""]:
+        line, used = "", 0
+        for word in re.split(r"(\s+)", raw):
+            if not word:
+                continue
+            if used + cols(word) > width and line.strip():
+                out.append(line.rstrip())
+                line, used = "", 0
+                if word.isspace():
+                    continue
+            while cols(word) > width:
+                head = cut(word, width - used)
+                out.append(line + head)
+                line, used, word = "", 0, word[len(head):]
+            line += word
+            used += cols(word)
+        out.append(line.rstrip())
+    return out
+
+
+def slack_plain(text):
+    """A Slack message's stored text as plain text: links become their labels, bold marks and HTML escapes go away."""
+    text = re.sub(r"<(https?://[^|>]+)\|([^>]+)>", r"\2", text or "")
+    text = re.sub(r"<(https?://[^>]+)>", r"\1", text)
+    text = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r"\1", text)
+    text = text.replace("**", "")
+    text = re.sub(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])", r"\1", text)
+    return text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
 
 
 def draw_box(win, height, width, title):
@@ -208,10 +269,12 @@ def headline(text, width):
     return ""
 
 
-def claim_exit(text):
-    """True when a check ended at once because another check held the loop claim."""
-    t = (text or "").lower()
-    return ("claim" in t or "실행권" in text or "already" in t) and ("another" in t or "다른" in text) and len(t) < 600
+def claim_exit(tr):
+    """True when a check ended at once because another check held the loop claim: its claim call exited 3, or (for a transcript where that is not visible) its short final message says so."""
+    if tr[5]:
+        return True
+    t = (tr[1] or "").lower()
+    return len(t) < 800 and ("another" in t or "다른" in t) and any(k in t for k in ("claim", "owns the loop", "already", "holds", "실행권"))
 
 
 def short_error(error):
@@ -221,6 +284,154 @@ def short_error(error):
         until = error.split("try again at", 1)[1].strip().rstrip(".") if "try again at" in error else ""
         return "out of usage" + (" until " + until if until else "")
     return error[:120]
+
+
+def check_key(run_record):
+    """A check's identity that survives new checks being added to the list."""
+    return run_record.get("id") or run_record.get("runNumber") or run_record.get("startedAt")
+
+
+def plural(n, word):
+    return "{} {}{}".format(n, word, "" if n == 1 else "s")
+
+
+def payload_items(path):
+    try:
+        with open(path) as f:
+            return [i for i in json.load(f).get("items") or [] if isinstance(i, dict)]
+    except (OSError, ValueError, TypeError, AttributeError):
+        return []
+
+
+def waiting_asks(st, thread_link):
+    """The questions the bot asked the user in its DM that still wait for a reply, oldest first: key, what is asked, how to reply, when, and the link that opens it."""
+    out = []
+    for key, msg in (st.get("messages") or {}).items():
+        a = msg.get("ask") or {}
+        if a.get("status") == "asked":
+            prs = ", ".join("#" + p.split("#")[-1] for p in msg.get("prs") or []) or "A PR"
+            out.append({"key": "message/" + key, "at": kst(a.get("asked_at")), "link": a.get("permalink"), "reply": "`review` or `skip`", "what": "{}: unclear review request from {}. Review it?".format(prs, msg.get("from_name") or "someone")})
+    for pr, r in (st.get("reviews") or {}).items():
+        a = r.get("ask") or {}
+        if a.get("status") != "asked":
+            continue
+        n = "#" + pr.split("#")[-1]
+        items = payload_items(a.get("payload"))
+        approve = bool(items) and all(i.get("type") == "approve" for i in items)
+        if a.get("kind") == "post_first":
+            what = "{} review ready: {}".format(n, "approve it with LGTM?" if approve else "post its {}?".format(plural(len(items), "comment")) if items else "post it?")
+            reply = "`post`, `post 1 3`, `edit <n>: …`, `posted`, or `skip`"
+        elif a.get("kind") == "post_fix":
+            replies = sum(1 for i in items if i.get("type") == "reply")
+            parts = ["1 reply" if replies == 1 else "{} replies".format(replies)] if replies else []
+            parts += [plural(len(items) - replies, "new comment")] if len(items) > replies else []
+            what = "{} fix check: {}".format(n, "approve it with LGTM?" if approve else "post {}?".format(" and ".join(parts)) if parts else "post it?")
+            reply = "`post`, `post 1 3`, `edit <n>: …`, `skip`, or `stop`"
+        else:
+            what, reply = "{}: a reply is needed".format(n), "in its thread"
+        out.append({"key": "review/" + pr, "at": kst(a.get("asked_at")), "link": a.get("permalink") or thread_link(r), "what": what, "reply": reply})
+    out.sort(key=lambda a: a["at"] or datetime.now(KST))
+    return out
+
+
+class SlackLog:
+    """The bot DM as the PR Review Bot sees it, so a check's summary can show what the check said there and which of the user's replies it answered.
+
+    It is read in the background, only while a summary is open, at most once a minute; a thread is read again only when it has new replies.
+    """
+
+    TTL = 60
+
+    def __init__(self):
+        self.fetched = 0
+        self.busy = False
+        self.error = None
+        self.top = []
+        self.threads = {}
+        self.bot_user = None
+
+    def refresh(self, channel, since):
+        if not channel or self.busy or time.time() - self.fetched < self.TTL:
+            return
+        self.busy = True
+        self.fetched = time.time()
+        threading.Thread(target=self._fetch, args=(channel, since), daemon=True).start()
+
+    def _fetch(self, channel, since):
+        try:
+            import notify  # the bot token and the Slack API call  # pyright: ignore[reportMissingImports]
+            token, _, bot = notify.resolve(None)
+            if bot != "pr-review":
+                raise RuntimeError("the PR Review Bot is not set up")
+            if not self.bot_user:
+                self.bot_user = notify.call(token, "auth.test", {}, form=True).get("user_id")
+
+            def pages(method, params):
+                out, cursor = [], None
+                for _ in range(10):
+                    data = notify.call(token, method, dict(params, cursor=cursor) if cursor else params, form=True)
+                    if not data.get("ok"):
+                        raise RuntimeError("{} refused: {}".format(method, data.get("error")))
+                    out += data.get("messages", [])
+                    cursor = (data.get("response_metadata") or {}).get("next_cursor")
+                    if not cursor:
+                        break
+                return out
+
+            top = pages("conversations.history", {"channel": channel, "limit": 200})
+            threads = dict(self.threads)
+            for m in top:
+                latest = m.get("latest_reply")
+                if not latest or float(latest) < since or (threads.get(m["ts"]) or (None,))[0] == latest:
+                    continue
+                threads[m["ts"]] = (latest, pages("conversations.replies", {"channel": channel, "ts": m["ts"], "limit": 200})[1:])
+            self.top, self.threads, self.error = top, threads, None
+        except Exception as exc:
+            self.error = "Could not read the bot DM: {}".format(exc)
+        finally:
+            self.busy = False
+
+    def is_bot(self, m):
+        return bool(m.get("bot_id")) or (self.bot_user and m.get("user") == self.bot_user)
+
+    def events(self, start, end):
+        """[(thread root ts, [event])] for start to end (unix seconds): the bot's messages in that window, and before each of its replies the user's messages it answered.
+
+        Each event is a dict: kind (bot, items, or you), ts, text, and for kind you the bot's reaction on it (ack: done, loading, x, or unanswered). Consecutive comment items fold into one items event listing their numbers.
+        """
+        groups = []
+        for root in self.top:
+            thread = [root] + (self.threads.get(root["ts"]) or (None, []))[1]
+            out, waiting = [], []
+            for m in thread:
+                if not self.is_bot(m):
+                    waiting.append(m)
+                    continue
+                if start <= float(m.get("ts", 0)) <= end:
+                    out += [{"kind": "you", "ts": u["ts"], "text": slack_plain(u.get("text")), "ack": self.ack(u)} for u in waiting]
+                    item = ITEM.match(m.get("text") or "")
+                    if item and out and out[-1]["kind"] == "items":
+                        out[-1]["numbers"].append(item.group(1))
+                    elif item:
+                        out.append({"kind": "items", "ts": m["ts"], "numbers": [item.group(1)]})
+                    else:
+                        out.append({"kind": "bot", "ts": m["ts"], "text": slack_plain(m.get("text"))})
+                waiting = []
+            out += [{"kind": "you", "ts": u["ts"], "text": slack_plain(u.get("text")), "ack": self.ack(u) or "unanswered"} for u in waiting if start <= float(u.get("ts", 0)) <= end]
+            for e in out:
+                if e["kind"] == "items":
+                    n = e["numbers"]
+                    e["text"] = "Comment item{} {} in the thread: the exact text that would be posted".format("s" if len(n) > 1 else "", n[0] if len(n) == 1 else "{} to {}".format(n[0], n[-1]))
+            if out:
+                groups.append((root["ts"], out))
+        groups.sort(key=lambda g: float(g[1][0]["ts"]))
+        return groups
+
+    def ack(self, m):
+        for r in m.get("reactions") or []:
+            if r.get("name") in ACK_MARK and self.bot_user in (r.get("users") or []):
+                return r["name"]
+        return None
 
 
 class Model:
@@ -306,11 +517,16 @@ class Dashboard:
     def __init__(self, screen):
         self.screen = screen
         self.model = Model(Transcripts())
+        self.slack = SlackLog()
         self.mode = "main"
         self.menu_index = 0
         self.scroll = 0
-        self.sel = 0
+        self.sel = 0          # index of the check whose summary is open
         self.offset = 0
+        self.items = []       # selectable rows of the main view, in screen order: (kind, key, value)
+        self.cur = None       # (kind, key) of the selected row
+        self.last_click = (None, 0)
+        self.loaded_at = 0
         self.toast = ""
         self.toast_until = 0
         self.zones = []
@@ -355,6 +571,40 @@ class Dashboard:
             if zy == y and x0 <= x < x1:
                 return action, value
         return None, None
+
+    def row(self, y, key):
+        """Make screen row y selectable as key; when it is the selected row, draw the selection bar and return the attribute its text takes."""
+        h, w = self.screen.getmaxyx()
+        self.zone(y, 0, w, "select", key)
+        if key != self.cur:
+            return 0
+        self.put(y, 0, " " * (w - 1), curses.A_REVERSE)
+        self.put(y, 0, "▶", curses.A_REVERSE | curses.A_BOLD)
+        return curses.A_REVERSE
+
+    def move(self, step):
+        keys = [(kind, key) for kind, key, _ in self.items]
+        if keys:
+            i = keys.index(self.cur) if self.cur in keys else 0
+            self.cur = keys[max(0, min(len(keys) - 1, i + step))]
+
+    def open_selected(self):
+        """Open the selected row: a check's summary here, or a review's or question's thread in Slack."""
+        item = next((it for it in self.items if (it[0], it[1]) == self.cur), None)
+        if not item:
+            return
+        kind, _, value = item
+        if kind == "check":
+            self.sel, self.mode, self.scroll = value, "details", 0
+        else:
+            self.open_link(value)
+
+    def back_to_main(self):
+        """Leave a summary with its check selected, so Enter opens it again."""
+        checks = self.model.checks()
+        if checks:
+            self.cur = ("check", check_key(checks[max(0, min(self.sel, len(checks) - 1))][0]))
+        self.mode = "main"
 
     def footer(self, parts):
         """Draw the bottom bar from (label, action) pairs and make each labeled part clickable."""
@@ -418,7 +668,7 @@ class Dashboard:
         cards = [
             ("Next check", "{} ({})".format(clock(nxt), ago(nxt)) if auto.get("enabled") and nxt else "paused", 0 if auto.get("enabled") else self.c["yellow"]),
             ("Current check", "running, heartbeat {}".format(ago(live[1])) if live else "none running", self.c["green"] if live else curses.A_DIM),
-            ("Last check", "{} {}".format(clock(last[1]), "failed" if last[2][2] else "ok") if last else "-", (self.c["red"] if last[2][2] else self.c["green"]) if last else 0),
+            ("Last check", "{} {}".format(clock(last[1]), "failed" if last[2][2] else "skipped, another was running" if claim_exit(last[2]) else "ok") if last else "-", (self.c["red"] if last[2][2] else curses.A_DIM if claim_exit(last[2]) else self.c["green"]) if last else 0),
             ("Coordinator", "{}{}".format(auto.get("agentId") or "?", ", out of usage" if level == "failing" and "usage" in text else ""), self.c["red"] if level == "failing" and "usage" in text else 0),
         ]
         for i, (title, value, attr) in enumerate(cards):
@@ -439,15 +689,24 @@ class Dashboard:
                 rows.append((pr, r, status, updated))
         rank = {v: i for i, v in enumerate(LIVE_REVIEW + WAITING + TRACKED)}
         rows.sort(key=lambda x: (rank.get(x[2], 99), -(x[3].timestamp() if x[3] else 0)))
+        asks = waiting_asks(st, self.thread_link)
+        self.items = [("review", pr, self.thread_link(r)) for pr, r, _, _ in rows]
+        self.items += [("ask", a["key"], a["link"]) for a in asks]
+        self.items += [("check", check_key(r), i) for i, (r, _, _) in enumerate(checks)]
+        keys = [(k, key) for k, key, _ in self.items]
+        if self.cur not in keys:
+            self.cur = next((x for x in keys if x[0] == "check"), keys[0] if keys else None)
+
         y = self.rule(y, "Reviews")
-        budget = max(3, h - y - 13)
+        budget = max(3, h - y - 15)
         for pr, r, status, updated in rows[:budget]:
-            self.zone(y, 0, w, "link", self.thread_link(r))
+            sel = self.row(y, ("review", pr))
             attr = self.c["green"] if status in LIVE_REVIEW else self.c["yellow"] if status in WAITING else self.c["blue"] if status in TRACKED else curses.A_DIM
             dot = "●" if status in LIVE_REVIEW + WAITING + TRACKED else "○"
-            self.put(y, 1, dot, attr)
-            self.put(y, 3, "#{:<6}".format(pr.split("#")[-1]), curses.A_BOLD)
-            self.put(y, 11, "{:<19}".format(STATUS_LABEL.get(status, status)), attr)
+            label = "merged" if r.get("pr_state") == "MERGED" and status not in LIVE_REVIEW else STATUS_LABEL.get(status, status)
+            self.put(y, 1, dot, attr | sel)
+            self.put(y, 3, "#{:<6}".format(pr.split("#")[-1]), curses.A_BOLD | sel)
+            self.put(y, 11, "{:<19}".format(label), attr | sel)
             detail = ""
             if status in ("fix_queued", "fix_running"):
                 fixes = r.get("fixes") or [{}]
@@ -463,8 +722,8 @@ class Dashboard:
             else:
                 detail = "updated " + ago(updated)
             title = (r.get("title") or "").split("] ", 1)[-1]
-            self.put(y, 31, fit(title, max(10, w - 31 - cols(detail) - 4)))
-            self.put(y, max(31, w - len(detail) - 2), detail, curses.A_DIM if status not in LIVE_REVIEW else attr)
+            self.put(y, 31, fit(title, max(10, w - 31 - cols(detail) - 4)), sel)
+            self.put(y, max(31, w - len(detail) - 2), detail, (curses.A_DIM if status not in LIVE_REVIEW else attr) | sel)
             y += 1
         if not rows:
             self.put(y, 3, "nothing in progress", curses.A_DIM)
@@ -474,65 +733,53 @@ class Dashboard:
             y += 1
         y += 1
 
-        asks = []
-        for key, msg in (st.get("messages") or {}).items():
-            a = msg.get("ask") or {}
-            if a.get("status") == "asked":
-                prs = ", ".join("#" + p.split("#")[-1] for p in msg.get("prs") or []) or "?"
-                asks.append((kst(a.get("asked_at")), "{}: review it? (asked by {})".format(prs, msg.get("from_name") or "?"), a.get("permalink")))
-        for pr, r in reviews.items():
-            a = r.get("ask") or {}
-            if a.get("status") == "asked":
-                what = {"post_first": "post the review?", "post_fix": "post the fix-check follow-up?"}.get(a.get("kind"), "reply needed")
-                asks.append((kst(a.get("asked_at")), "#{}: {}".format(pr.split("#")[-1], what), a.get("permalink") or self.thread_link(r)))
         y = self.rule(y, "Waiting on you" + ("  ({})".format(len(asks)) if asks else ""))
-        for at, line, link in sorted(asks, key=lambda a: a[0] or now)[:4]:
-            self.zone(y, 0, w, "link", link)
-            self.put(y, 1, "●", self.c["yellow"])
-            self.put(y, 3, line)
-            self.put(y, w - 14, ago(at), curses.A_DIM)
+        self.put(y, 3, "Questions the PR Review bot asked you in Slack. Open one (Enter or double-click) and reply in its thread.", curses.A_DIM)
+        y += 1
+        for a in asks[:4]:
+            sel = self.row(y, ("ask", a["key"]))
+            self.put(y, 1, "●", self.c["yellow"] | sel)
+            self.put(y, 3, fit(a["what"], w - 30), curses.A_BOLD | sel)
+            self.put(y, 4 + cols(fit(a["what"], w - 30)), fit("reply " + a["reply"], max(0, w - 22 - cols(a["what"]))), curses.A_DIM | sel)
+            self.put(y, w - 14, ago(a["at"]), curses.A_DIM | sel)
             y += 1
         if not asks:
-            self.put(y, 3, "nothing; reply in the bot DM thread when something shows up here", curses.A_DIM)
+            self.put(y, 3, "nothing right now", curses.A_DIM)
             y += 1
         y += 1
 
-        self.sel = max(0, min(self.sel, len(checks) - 1))
+        index = next((i for k, key, i in self.items if k == "check" and (k, key) == self.cur), None)
         rows = max(3, h - y - 4)
-        if self.sel < self.offset:
-            self.offset = self.sel
-        elif self.sel >= self.offset + rows:
-            self.offset = self.sel - rows + 1
-        y = self.rule(y, "Recent checks  ({} of {})".format(self.sel + 1 if checks else 0, len(checks)))
+        if index is not None:
+            if index < self.offset:
+                self.offset = index
+            elif index >= self.offset + rows:
+                self.offset = index - rows + 1
+        self.offset = max(0, min(self.offset, max(0, len(checks) - rows)))
+        y = self.rule(y, "Recent checks  ({}{})".format("{} of ".format(index + 1) if index is not None else "", len(checks)))
         for i, (r, started, tr) in enumerate(checks[self.offset: self.offset + rows], start=self.offset):
-            self.zone(y, 0, w, "check", i)
+            sel = self.row(y, ("check", check_key(r)))
             if tr is None:
                 mark, attr, text = "?", curses.A_DIM, "no transcript"
             elif tr[2]:
                 mark, attr, text = "✗", self.c["red"], "failed: " + short_error(tr[2])
             elif not tr[0]:
                 mark, attr, text = "…", self.c["green"], "running"
-            elif claim_exit(tr[1]):
+            elif claim_exit(tr):
                 mark, attr, text = "–", curses.A_DIM, "skipped: another check was already running"
             else:
                 mark, attr, text = "✓", self.c["green"], headline(tr[1], w - 20) or "no summary"
-            if i == self.sel:
-                self.put(y, 0, " " * (w - 1), curses.A_REVERSE)
-                self.put(y, 0, "▶", curses.A_REVERSE | curses.A_BOLD)
-                self.put(y, 1, mark, curses.A_REVERSE | curses.A_BOLD)
-                self.put(y, 3, clock(started), curses.A_REVERSE)
-                self.put(y, 10, fit(text, w - 12), curses.A_REVERSE)
-            else:
-                self.put(y, 1, mark, attr)
-                self.put(y, 3, clock(started), curses.A_DIM)
-                self.put(y, 10, fit(text, w - 12), attr if mark != "✓" else 0)
+            self.put(y, 1, mark, (attr if not sel else 0) | sel | curses.A_BOLD * bool(sel))
+            self.put(y, 3, clock(started), (curses.A_DIM if not sel else 0) | sel)
+            self.put(y, 10, fit(text, w - 12), ((attr if mark != "✓" else 0) if not sel else 0) | sel)
             y += 1
 
         if m.errors:
             self.put(h - 2, 1, m.errors[0], self.c["red"])
         elif self.toast and time.time() < self.toast_until:
             self.put(h - 2, 1, self.toast, self.c["cyan"])
-        self.footer([("↑↓ or click a check", None), ("Enter open it", "open"), ("a actions", "menu"), ("q quit", "quit")])
+        kind = (self.cur or ("",))[0]
+        self.footer([("↑↓ or click select", None), ("Enter open " + ("its summary" if kind == "check" else "its Slack thread"), "open"), ("a actions", "menu"), ("q quit", "quit")])
         s.refresh()
 
     # actions menu
@@ -671,28 +918,92 @@ class Dashboard:
         checks = self.model.checks()
         self.put(0, 0, " Check summary ", curses.A_BOLD | curses.A_REVERSE)
         if not checks:
-            self.put(2, 1, "No checks yet.", curses.A_DIM)
+            lines = [("No checks yet.", curses.A_DIM)]
         else:
             self.sel = max(0, min(self.sel, len(checks) - 1))
             r, started, tr = checks[self.sel]
-            status = "no transcript" if tr is None else "failed" if tr[2] else "still running" if not tr[0] else "finished"
+            now = datetime.now(KST)
+            if tr is None:
+                status = "no transcript"
+            elif tr[2]:
+                status = "failed"
+            elif not tr[0]:
+                status = "running for " + span((now - started).total_seconds()) if started else "running"
+            else:
+                status = "finished at {}{}".format(clock(tr[4]), " after " + span((tr[4] - started).total_seconds()) if tr[4] and started else "")
             self.put(0, 16, "check #{} at {} · {} · {} of {}".format(r.get("runNumber"), clock(started), status, self.sel + 1, len(checks)), curses.A_BOLD)
             self.put(1, 1, "From: " + (tr[3] if tr else "no Codex transcript matched this check's start time"), curses.A_DIM)
-            body = "" if tr is None else ("FAILED: " + tr[2] + "\n\n" if tr[2] else "") + (tr[1] or ("(no message yet)" if not tr[0] else "(the check ended without a message)"))
-            lines = []
-            for raw in body.splitlines():
-                raw = raw.replace("**", "")
-                while len(raw) > w - 3:
-                    lines.append(raw[: w - 3])
-                    raw = raw[w - 3:]
-                lines.append(raw)
-            for i, line in enumerate(lines[self.scroll: self.scroll + h - 4]):
-                self.put(i + 3, 1, line, self.c["red"] if line.startswith("FAILED") else 0)
+            lines = self.detail_lines(started, tr, w - 3)
+        room = h - 4
+        self.scroll = max(0, min(self.scroll, len(lines) - room))
+        for i, (line, attr) in enumerate(lines[self.scroll: self.scroll + room]):
+            self.put(i + 3, 1, line, attr)
+        if len(lines) > room:
+            self.put(2, w - 24, "lines {}-{} of {}".format(self.scroll + 1, min(len(lines), self.scroll + room), len(lines)), curses.A_DIM)
         self.footer([("↑↓ or wheel scroll", None), ("← newer check", "newer"), ("→ older check", "older"), ("Esc back", "back")])
         s.refresh()
 
+    def detail_lines(self, started, tr, width):
+        """What a check did: its messages in the bot DM with the replies of yours it answered, then its own final message."""
+        if tr is None:
+            return [("No Codex transcript matched this check's start time, so there is nothing to show.", curses.A_DIM)]
+        out = []
+        if tr[2]:
+            out += [(line, self.c["red"]) for line in wrap("FAILED: " + tr[2], width)] + [("", 0)]
+        if tr[0] and claim_exit(tr):
+            out += [("This check ended at once: another check was already running and holding the loop.", curses.A_DIM), ("", 0)]
+        elif started:
+            out += self.dm_lines(started, tr, width)
+        out.append(("What the check reported (its final message)", curses.A_BOLD))
+        body = tr[1] or ("(no message yet)" if not tr[0] else "(the check ended without a message)")
+        for raw in body.splitlines():
+            out += [("  " + line, 0) for line in wrap(raw.replace("**", ""), width - 2)]
+        return out
+
+    def dm_lines(self, started, tr, width):
+        st = self.model.state or {}
+        threads, channel = {}, None
+        for pr, r in (st.get("reviews") or {}).items():
+            t = r.get("thread") or {}
+            if t.get("ts"):
+                threads[t["ts"]] = "#{} {}".format(pr.split("#")[-1], (r.get("title") or "").split("] ", 1)[-1])
+                channel = channel or t.get("channel")
+        for msg in (st.get("messages") or {}).values():
+            a = msg.get("ask") or {}
+            root = a.get("thread_ts") or a.get("ts")
+            if root and root not in threads:
+                threads[root] = "Question about {}".format(", ".join("#" + p.split("#")[-1] for p in msg.get("prs") or []) or "a review request")
+        oldest = min((c[1] for c in self.model.checks() if c[1]), default=started)
+        self.slack.refresh(channel, oldest.timestamp() - 3600)
+        out = [("In the bot DM during this check", curses.A_BOLD)]
+        if self.slack.error:
+            return out + [("  " + self.slack.error, self.c["red"]), ("", 0)]
+        if not self.slack.top:
+            return out + [("  reading the bot DM…", curses.A_DIM), ("", 0)]
+        end = (tr[4].timestamp() if tr[4] else time.time()) if tr[0] else time.time()
+        groups = self.slack.events(started.timestamp() - 5, end + 5)
+        if not groups:
+            out.append(("  nothing was sent to the bot DM during this check", curses.A_DIM))
+        day = started.date()
+        stamp = lambda ts: datetime.fromtimestamp(float(ts), KST).strftime("%H:%M" if datetime.fromtimestamp(float(ts), KST).date() == day else "%b %d %H:%M")
+        clock_width = max([len(stamp(e["ts"])) for _, events in groups for e in events] or [5])
+        for root, events in groups:
+            out.append(("  " + fit(threads.get(root, "A message outside the PR threads"), width - 2), curses.A_BOLD))
+            for e in events:
+                prefix = "    {:<{}}  {}  ".format(stamp(e["ts"]), clock_width, "You" if e["kind"] == "you" else "Bot")
+                attr = (self.c["cyan"] | curses.A_BOLD) if e["kind"] == "you" else curses.A_DIM if e["kind"] == "items" else 0
+                for j, line in enumerate(wrap(e["text"], max(20, width - cols(prefix)))):
+                    out.append(((prefix if j == 0 else " " * cols(prefix)) + line, attr))
+                if e["kind"] == "you":
+                    mark = "no reply from this check yet" if e["ack"] == "unanswered" else ACK_MARK.get(e["ack"] or "")
+                    if mark:
+                        out.append((" " * cols(prefix) + mark, curses.A_DIM))
+            out.append(("", 0))
+        return out + [("", 0)] if not groups else out
+
     def loop(self):
         self.model.load()
+        self.loaded_at = time.time()
         while True:
             if self.mode == "menu":
                 self.draw_menu()
@@ -700,9 +1011,13 @@ class Dashboard:
                 self.draw_details()
             else:
                 self.draw_main()
+            # Redraw soon while the bot DM is being read, so its messages appear as soon as they arrive.
+            self.screen.timeout(300 if self.slack.busy else REFRESH_SEC * 1000)
             key = self.screen.getch()
             if key == -1:
-                self.model.load()
+                if time.time() - self.loaded_at >= REFRESH_SEC:
+                    self.model.load()
+                    self.loaded_at = time.time()
                 continue
             if key == curses.KEY_RESIZE:
                 continue
@@ -742,7 +1057,7 @@ class Dashboard:
                 continue
             if self.mode == "details":
                 if key in (27, ord("q"), curses.KEY_ENTER, 10, 13):
-                    self.mode = "main"
+                    self.back_to_main()
                 elif key in (curses.KEY_LEFT, ord("h")):
                     self.sel = max(0, self.sel - 1)
                     self.scroll = 0
@@ -761,12 +1076,11 @@ class Dashboard:
             if key == ord("q"):
                 return
             if key in (curses.KEY_UP, ord("k")):
-                self.sel = max(0, self.sel - 1)
+                self.move(-1)
             elif key in (curses.KEY_DOWN, ord("j")):
-                self.sel = min(len(self.model.runs) - 1, self.sel + 1)
+                self.move(1)
             elif key in (curses.KEY_ENTER, 10, 13):
-                self.mode = "details"
-                self.scroll = 0
+                self.open_selected()
             elif key == ord("a"):
                 self.mode = "menu"
                 self.menu_index = 0
@@ -836,7 +1150,7 @@ def _on_mouse(self, x, y, kind):
         if self.mode == "details":
             self.scroll = max(0, self.scroll + step * 3)
         elif self.mode == "main":
-            self.sel = max(0, min(count - 1, self.sel + step))
+            self.move(step)
         return
     if kind != "click":
         return
@@ -856,15 +1170,16 @@ def _on_mouse(self, x, y, kind):
         elif action == "menu_close":
             self.mode = "main"
         return
-    if action == "check":
-        self.sel = value
-        self.mode = "details"
-        self.scroll = 0
-    elif action == "link":
-        self.open_link(value)
+    if action == "select":
+        # One click selects the row; a second click on it within DOUBLE_CLICK_SEC opens it, like Enter.
+        now = time.time()
+        double = self.last_click[0] == value and now - self.last_click[1] < DOUBLE_CLICK_SEC
+        self.cur = value
+        self.last_click = (None, 0) if double else (value, now)
+        if double:
+            self.open_selected()
     elif action == "open":
-        self.mode = "details"
-        self.scroll = 0
+        self.open_selected()
     elif action == "menu":
         self.mode = "menu"
         self.menu_index = 0
@@ -877,7 +1192,7 @@ def _on_mouse(self, x, y, kind):
         self.sel = min(count - 1, self.sel + 1)
         self.scroll = 0
     elif action == "back":
-        self.mode = "main"
+        self.back_to_main()
 
 
 Dashboard.on_mouse = _on_mouse
@@ -898,6 +1213,8 @@ def snapshot():
         if r.get("status") in LIVE_REVIEW + WAITING + TRACKED:
             status = str(r.get("status"))
             print("review #{}".format(pr.split("#")[-1]), STATUS_LABEL.get(status, status), "-", (r.get("title") or "")[:70])
+    for a in waiting_asks(m.state or {}, lambda r: r.get("url")):
+        print("waiting on you:", a["what"], "| reply", a["reply"], "in", a["link"])
     for err in m.errors:
         print("error:", err)
 

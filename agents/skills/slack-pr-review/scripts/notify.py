@@ -16,8 +16,10 @@ import urllib.parse
 import urllib.request
 
 API = "https://slack.com/api/"
-# The one state reaction a PR thread's root carries; --state swaps to one of these and removes the others.
-STATES = {"loading": "loading", "done": "done", "failed": "x", "skipped": "heavy_minus_sign"}
+# The one state reaction a PR thread's root carries; --state swaps to one of these (none clears it) and removes the others. roots.py picks the state from the review and the PR.
+STATES = {"loading": "loading", "merged": "merged", "failed": "x", "skipped": "heavy_minus_sign", "none": None}
+# :done: was the finished state before :merged:; --state removes it from a root, and --state done means none.
+OLD_STATES = ("done",)
 BOT_ENV = os.path.expanduser(os.environ.get("SLACK_PR_REVIEW_BOT_ENV") or "~/.config/slack-pr-review/bot.env")
 
 
@@ -117,8 +119,8 @@ def set_state(token, args):
     if not (args.channel and args.ts):
         print("state: --channel and --ts are required")
         return 1
-    wanted = STATES[args.state]
-    for name in STATES.values():
+    wanted = STATES.get(args.state)
+    for name in [n for n in STATES.values() if n] + list(OLD_STATES):
         method, harmless = ("reactions.add", "already_reacted") if name == wanted else ("reactions.remove", "no_reaction")
         try:
             data = call(token, method, {"channel": args.channel, "timestamp": args.ts, "name": name}, form=True)
@@ -141,7 +143,7 @@ def main():
     parser.add_argument("--ts", help="the message to react to, with --react or --unreact")
     parser.add_argument("--react", help="add this reaction (an emoji name without colons) to --ts as the bot")
     parser.add_argument("--unreact", help="remove this reaction of the bot from --ts first")
-    parser.add_argument("--state", choices=sorted(STATES), help="set the PR thread root's state reaction on --ts: loading, done, failed, or skipped; the other state reactions are removed")
+    parser.add_argument("--state", choices=sorted(STATES) + list(OLD_STATES), help="set the PR thread root's state reaction on --ts: loading, merged, failed, skipped, or none; the other state reactions are removed (roots.py chooses the state for you)")
     parser.add_argument("--which", action="store_true", help="print which bot would send, without sending")
     parser.add_argument("--setup", action="store_true", help="store the PR Review Bot token (prompted, never echoed) and send a test DM")
     parser.add_argument("--user", help="the user's Slack member ID, for --setup")
