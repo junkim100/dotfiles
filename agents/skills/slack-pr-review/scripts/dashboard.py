@@ -1009,7 +1009,7 @@ class Dashboard:
         elif self.toast and time.time() < self.toast_until:
             self.put(h - 2, 1, self.toast, self.c["cyan"])
         kind = (self.cur or ("",))[0]
-        self.footer([("↑↓ or click select", None), ("Enter open " + ("its summary" if kind == "check" else "its Slack thread"), "open"), ("f filter checks", "cycle_filter"), ("a actions", "menu"), ("q quit", "quit")])
+        self.footer([("Enter open " + ("its summary" if kind == "check" else "its Slack thread"), "open"), ("f filter checks", "cycle_filter"), ("a actions", "menu"), ("q quit", "quit")])
         s.refresh()
 
     # actions menu
@@ -1172,7 +1172,7 @@ class Dashboard:
             self.put(i + 3, 1, line, attr)
         if len(lines) > room:
             self.put(2, w - 24, "lines {}-{} of {}".format(self.scroll + 1, min(len(lines), self.scroll + room), len(lines)), curses.A_DIM)
-        self.footer([("↑↓ or wheel scroll", None), ("← newer check", "newer"), ("→ older check", "older"), ("Esc back", "back")])
+        self.footer([("← newer check", "newer"), ("→ older check", "older"), ("Esc back", "back")])
         s.refresh()
 
     def detail_lines(self, started, tr, width):
