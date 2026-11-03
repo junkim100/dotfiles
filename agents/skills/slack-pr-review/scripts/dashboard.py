@@ -3,7 +3,7 @@
 
 The screen is a status view first: the loop is meant to stay running, so no single key press acts on it. Up and down (or a click) select a row in Reviews, Waiting on you, or Recent checks, and Enter (or a double click) opens it: a check opens its summary here (left and right step to the previous or next check from there), and a review opens its thread in the bot DM. A waiting question opens on a single click (or Enter), because it exists to be answered. Threads open in the Slack desktop app at the exact message with its thread pane showing (a slack:// link), or in the browser where the app is not installed. Every action lives in the actions menu behind `a`: check now (one check right away while the 10-minute schedule keeps going), stop or restart the current check, pause or resume the schedule, and switch the coordinator; each one that interrupts or changes the loop asks to confirm. `q` quits. The bottom-bar labels, menu items, and Yes or Cancel are clickable too, and the wheel moves the selection or scrolls a summary.
 
-It shows the loop's health (running on schedule, paused, or failing, with the reason), the current check, every review in progress, waiting on the user, or tracked, the questions the bot asked the user that still wait for a reply (with the replies each one takes), and the recent checks. A check's summary shows what it said in the bot DM, read from Slack with the bot's token: its messages by PR thread, and before each reply the user's messages it answered, then the check's own final message from its Codex transcript. Stopping a check closes its terminal and releases the loop claim; review workers keep going and the next check resumes them.
+It shows the loop's health (running on schedule, paused, or failing, with the reason), the current check, every review in progress, waiting on the user, or tracked, the questions the bot asked the user that still wait for a reply (with the replies each one takes), and the recent checks. Each check is sorted into did something (with a plain line of what it did, by PR, read from its messages in the bot DM and its transcript), nothing new, skipped (another check held the loop), or failed; the filter chips (or `f`) show one kind or all, Did something is the default, and All folds runs of quiet or skipped checks into one row. A check started outside the schedule says whether a reply of the user's or Check now started it. A check's summary shows what it said in the bot DM, read from Slack with the bot's token: its messages by PR thread, and before each reply the user's messages it answered, then the check's own final message from its Codex transcript. Stopping a check closes its terminal and releases the loop claim; review workers keep going and the next check resumes them.
 
 Standard library only (curses), so it runs on the macOS system Python. `--once` prints a plain-text snapshot instead.
 """
@@ -39,6 +39,23 @@ STATUS_LABEL = {
 }
 STAGE_LABEL = {"review-a": "Codex", "review-b": "Claude", "review-c": "Kimi", "merge": "merge", "audit": "audit", "single": "review"}
 DOUBLE_CLICK_SEC = 0.45
+# The filter chips of Recent checks; "did" also shows running and failed checks, so the default view is everything worth reading.
+FILTERS = [("did", "Did something"), ("quiet", "Nothing new"), ("skipped", "Skipped"), ("failed", "Failed"), ("all", "All")]
+KIND_MARK = {"did": "●", "running": "…", "quiet": "○", "skipped": "–", "failed": "✗", "unknown": "?"}
+# The bot DM templates (SKILL.md step 8), matched on a message's first line, as the words the check list uses.
+PHRASES = [
+    (re.compile(r"review started"), "started a review"),
+    (re.compile(r"review ready"), "review ready for you"),
+    (re.compile(r"fix check started"), "started a fix check"),
+    (re.compile(r"^Fix check ready"), "fix check ready for you"),
+    (re.compile(r"^Posted to GitHub"), "posted to GitHub"),
+    (re.compile(r"tracking ended"), "stopped tracking"),
+    (re.compile(r"failed:"), "reported a failure"),
+    (re.compile(r"not reviewed"), "decided not to review"),
+    (re.compile(r"asked again"), "noted a repeat request"),
+    (re.compile(r"^Review request"), "asked you about a request"),
+    (re.compile(r"no new commits or replies"), "noted nothing new on GitHub yet"),
+]
 # The Slack desktop app, which opens slack:// links straight at a message and its thread.
 SLACK_APP = platform.system() == "Darwin" and any(os.path.isdir(p) for p in ("/Applications/Slack.app", os.path.expanduser("~/Applications/Slack.app")))
 # A bot DM message that is one numbered comment item of a ready or fix-check DM.
@@ -155,8 +172,15 @@ class Transcripts:
         if hit and hit[0] == mtime:
             return hit[1]
         last, done, error, ended, refused, claim_call = None, False, None, None, False, None
+        actions = {"posts": 0, "workers": 0, "messages": 0}
         with open(path, errors="replace") as f:
             for line in f:
+                if '"custom_tool_call"' in line:
+                    # Count invocations only (python3 .../notify.py ...), not commands that read the scripts; a notify call that only reacts is not a message.
+                    actions["posts"] += len(re.findall(r"ghreview\.py\W{1,6}post\b", line))
+                    actions["workers"] += len(re.findall(r"orchestration\W{1,6}worker-start", line)) + line.count("kimi -p")
+                    calls = re.findall(r"python3 \S*notify\.py([^\"]{0,300})", line)
+                    actions["messages"] += sum(1 for args in calls if not re.search(r"--(?:react|unreact|state|which|setup|help)", args))
                 if claim_call and claim_call in line and '"custom_tool_call_output"' in line:
                     # The loop claim was refused (exit 3): another check holds the loop, so this one did nothing.
                     refused = refused or bool(re.search(r'exit_code\\*":3\b', line))
@@ -182,8 +206,8 @@ class Transcripts:
                     error = (payload.get("error") or {}).get("message") or error
                 elif payload.get("type") == "agent_message":
                     last = payload.get("message") or last
-        # (finished, final message, error, transcript path, finish time, whether the loop claim was refused)
-        result = (done, (last or "").strip(), error, path, ended or (datetime.fromtimestamp(mtime, KST) if done else None), refused)
+        # (finished, final message, error, transcript path, finish time, whether the loop claim was refused, counts of posts, workers started, and DMs sent)
+        result = (done, (last or "").strip(), error, path, ended or (datetime.fromtimestamp(mtime, KST) if done else None), refused, actions)
         self.cache[path] = (mtime, result)
         return result
 
@@ -305,6 +329,28 @@ def watcher_status():
     return "ok", "Reply watcher: on, looked {}".format(ago(last))
 
 
+def describe(groups, labels):
+    """One plain line of what a check did in the bot DM, by PR, such as "#1794: posted to GitHub, answered you"."""
+    parts = []
+    for root, events in groups:
+        did, heard = [], False
+        for e in events:
+            if e["kind"] == "you":
+                heard = True
+                if e.get("ack") == "unanswered" and "your reply still waits" not in did:
+                    did.append("your reply still waits")
+                continue
+            if e["kind"] == "items":
+                continue
+            first = (e["text"].strip().splitlines() or [""])[0]
+            phrase = next((words for rx, words in PHRASES if rx.search(first)), "answered you" if heard else "sent a note")
+            if phrase not in did:
+                did.append(phrase)
+        if did:
+            parts.append("{}: {}".format(labels.get(root, "bot DM"), ", ".join(did)))
+    return " · ".join(parts)
+
+
 def check_key(run_record):
     """A check's identity that survives new checks being added to the list."""
     return run_record.get("id") or run_record.get("runNumber") or run_record.get("startedAt")
@@ -372,6 +418,7 @@ class SlackLog:
         self.top = []
         self.threads = {}
         self.bot_user = None
+        self.version = 0  # bumped each time a read finishes, so results computed from the old data are recomputed
 
     def refresh(self, channel, since):
         if not channel or self.busy or time.time() - self.fetched < self.TTL:
@@ -409,6 +456,7 @@ class SlackLog:
                     continue
                 threads[m["ts"]] = (latest, pages("conversations.replies", {"channel": channel, "ts": m["ts"], "limit": 200})[1:])
             self.top, self.threads, self.error = top, threads, None
+            self.version += 1
         except Exception as exc:
             self.error = "Could not read the bot DM: {}".format(exc)
         finally:
@@ -481,7 +529,7 @@ class Model:
                 shown, _ = orca_json(["automations", "show", "--id", found["id"]])
                 self.auto = (shown or {}).get("automation", shown) or found
                 runs, _ = orca_json(["automations", "runs", "--id", found["id"]])
-                self.runs = (runs or {}).get("runs", [])[:40]
+                self.runs = (runs or {}).get("runs", [])[:100]
             else:
                 self.errors.append("Orca automation '{}' not found".format(AUTOMATION_NAME))
         self.state, err = load_state()
@@ -545,12 +593,16 @@ class Dashboard:
         self.menu_index = 0
         self.scroll = 0
         self.sel = 0          # index of the check whose summary is open
+        self.detail_key = None
         self.offset = 0
         self.items = []       # selectable rows of the main view, in screen order: (kind, key, value)
         self.cur = None       # (kind, key) of the selected row
         self.last_click = (None, 0)
         self.loaded_at = 0
         self.team = None
+        self.filter = "did"
+        self.visible = []     # indices of the checks the current filter shows, newest first
+        self.kind_cache = {}
         self.toast = ""
         self.toast_until = 0
         self.zones = []
@@ -606,6 +658,93 @@ class Dashboard:
         self.put(y, 0, "▶", curses.A_REVERSE | curses.A_BOLD)
         return curses.A_REVERSE
 
+    def dm_threads(self):
+        """({thread root ts: "#N title"}, {thread root ts: "#N"}, the bot DM channel) from the state's PR and question threads."""
+        st = self.model.state or {}
+        full, short, channel = {}, {}, None
+        for pr, r in (st.get("reviews") or {}).items():
+            t = r.get("thread") or {}
+            if t.get("ts"):
+                full[t["ts"]] = "#{} {}".format(pr.split("#")[-1], (r.get("title") or "").split("] ", 1)[-1])
+                short[t["ts"]] = "#" + pr.split("#")[-1]
+                channel = channel or t.get("channel")
+        for msg in (st.get("messages") or {}).values():
+            a = msg.get("ask") or {}
+            root = a.get("thread_ts") or a.get("ts")
+            if root and root not in full:
+                prs = ", ".join("#" + p.split("#")[-1] for p in msg.get("prs") or []) or "a review request"
+                full[root], short[root] = "Question about " + prs, "question about " + prs
+        return full, short, channel
+
+    def refresh_slack(self):
+        _, _, channel = self.dm_threads()
+        checks = self.model.checks()
+        oldest = min((c[1] for c in checks if c[1]), default=datetime.now(KST))
+        self.slack.refresh(channel, oldest.timestamp() - 3600)
+
+    def classify(self, started, tr):
+        """(kind, text) for one check: did (and what it did, from the bot DM and its transcript), running, quiet, skipped, failed, or unknown."""
+        if tr is None:
+            return "unknown", "no Codex transcript found for this check"
+        if tr[2]:
+            return "failed", "failed: " + short_error(tr[2])
+        if tr[0] and claim_exit(tr):
+            return "skipped", "skipped: another check was still running"
+        key = (tr[3], tr[4], self.slack.version)
+        if tr[0] and key in self.kind_cache:
+            return self.kind_cache[key]
+        end = (tr[4].timestamp() if tr[4] else time.time()) if tr[0] else time.time()
+        text = describe(self.slack.events(started.timestamp() - 5, end + 5), self.dm_threads()[1]) if started and self.slack.top else ""
+        acts = tr[6]
+        extra = ["started {}".format(plural(acts["workers"], "review agent"))] if acts["workers"] else []
+        if not text and acts["posts"]:
+            extra.append("posted to GitHub")
+        if not text and acts["messages"]:
+            extra.append("sent {}".format(plural(acts["messages"], "DM message")))
+        text = "; ".join(t for t in (text, ", ".join(extra)) if t)
+        if not tr[0]:
+            return "running", "running now" + (": " + text if text else "")
+        result = ("did", text) if text else ("quiet", "nothing new to act on")
+        self.kind_cache[key] = result
+        return result
+
+    def trigger(self, run_record, started):
+        """How a check started: on schedule, after the user's reply (the reply watcher started it), or from Check now."""
+        if run_record.get("trigger") == "scheduled" or started is None:
+            return ""
+        path = os.path.join(os.environ.get("SLACK_PR_REVIEW_HOME") or os.path.expanduser("~/.local/state/slack-pr-review"), "watch.json")
+        try:
+            with open(path) as f:
+                starts = json.load(f).get("started") or []
+        except (OSError, ValueError):
+            starts = []
+        t = started.timestamp()
+        return "started by your reply" if any(-5 <= t - float(x) <= 120 for x in starts) else "started by Check now"
+
+    def check_rows(self, checks):
+        """The Recent checks rows the current filter shows, newest first. All folds runs of quiet or skipped checks into one row."""
+        kinds = [self.classify(started, tr) for _, started, tr in checks]
+        self.counts = {"did": 0, "quiet": 0, "skipped": 0, "failed": 0, "all": len(checks)}
+        for kind, _ in kinds:
+            self.counts[{"running": "did", "unknown": "failed"}.get(kind, kind)] += 1
+        rows = []
+        for i, ((r, started, tr), (kind, text)) in enumerate(zip(checks, kinds)):
+            group = {"running": "did", "unknown": "failed"}.get(kind, kind)
+            if self.filter != "all" and group != self.filter:
+                continue
+            last = rows[-1] if rows else None
+            if self.filter == "all" and kind in ("quiet", "skipped") and last and last["kind"] == kind and last["indices"][-1] == i - 1:
+                last["indices"].append(i)
+                last["oldest"] = started
+                continue
+            rows.append({"key": ("check", check_key(r)), "kind": kind, "indices": [i], "started": started, "oldest": started, "text": text, "trigger": self.trigger(r, started)})
+        for row in rows:
+            n = len(row["indices"])
+            if n > 1:
+                row["text"] = "{} checks since {}: {}".format(n, clock(row["oldest"]), "nothing new to act on" if row["kind"] == "quiet" else "all skipped, another check was still running")
+        self.visible = [i for row in rows for i in row["indices"]]
+        return rows
+
     def move(self, step):
         keys = [(kind, key) for kind, key, _ in self.items]
         if keys:
@@ -619,16 +758,40 @@ class Dashboard:
             return
         kind, _, value = item
         if kind == "check":
+            checks = self.model.checks()
             self.sel, self.mode, self.scroll = value, "details", 0
+            self.detail_key = check_key(checks[value][0]) if value < len(checks) else None
         else:
             self.open_slack(value)
 
     def back_to_main(self):
-        """Leave a summary with its check selected, so Enter opens it again."""
+        """Leave a summary with its check's row selected (the folded row that holds it, in All), so Enter opens it again."""
         checks = self.model.checks()
         if checks:
-            self.cur = ("check", check_key(checks[max(0, min(self.sel, len(checks) - 1))][0]))
+            index = self.detail_index(checks)
+            row = next((row for row in self.check_rows(checks) if index in row["indices"]), None)
+            self.cur = row["key"] if row else ("check", check_key(checks[index][0]))
         self.mode = "main"
+
+    def detail_index(self, checks):
+        """Index of the check whose summary is open, found by its key, so a new check arriving does not change it."""
+        index = next((i for i, (r, _, _) in enumerate(checks) if check_key(r) == self.detail_key), None)
+        self.sel = index if index is not None else max(0, min(self.sel, len(checks) - 1))
+        return self.sel
+
+    def step(self, direction):
+        """Open the newer (-1) or older (+1) check among those the current filter shows."""
+        checks = self.model.checks()
+        if not checks:
+            return
+        index = self.detail_index(checks)
+        shown = [i for row in self.check_rows(checks) for i in row["indices"]] or list(range(len(checks)))
+        if index in shown:
+            j = shown.index(index) + direction
+            index = shown[j] if 0 <= j < len(shown) else index
+        else:
+            index = max(0, min(len(checks) - 1, index + direction))
+        self.sel, self.detail_key, self.scroll = index, check_key(checks[index][0]), 0
 
     def footer(self, parts):
         """Draw the bottom bar from (label, action) pairs and make each labeled part clickable."""
@@ -747,7 +910,9 @@ class Dashboard:
         asks = waiting_asks(st, self.thread_target)
         self.items = [("review", pr, self.thread_target(pr, r)) for pr, r, _, _ in rows]
         self.items += [("ask", a["key"], a["target"]) for a in asks]
-        self.items += [("check", check_key(r), i) for i, (r, _, _) in enumerate(checks)]
+        self.refresh_slack()
+        check_rows = self.check_rows(checks)
+        self.items += [("check", row["key"][1], row["indices"][0]) for row in check_rows]
         keys = [(k, key) for k, key, _ in self.items]
         if self.cur not in keys:
             self.cur = next((x for x in keys if x[0] == "check"), keys[0] if keys else None)
@@ -803,30 +968,40 @@ class Dashboard:
             y += 1
         y += 1
 
-        index = next((i for k, key, i in self.items if k == "check" and (k, key) == self.cur), None)
-        rows = max(3, h - y - 4)
-        if index is not None:
-            if index < self.offset:
-                self.offset = index
-            elif index >= self.offset + rows:
-                self.offset = index - rows + 1
-        self.offset = max(0, min(self.offset, max(0, len(checks) - rows)))
-        y = self.rule(y, "Recent checks  ({}{})".format("{} of ".format(index + 1) if index is not None else "", len(checks)))
-        for i, (r, started, tr) in enumerate(checks[self.offset: self.offset + rows], start=self.offset):
-            sel = self.row(y, ("check", check_key(r)))
-            if tr is None:
-                mark, attr, text = "?", curses.A_DIM, "no transcript"
-            elif tr[2]:
-                mark, attr, text = "✗", self.c["red"], "failed: " + short_error(tr[2])
-            elif not tr[0]:
-                mark, attr, text = "…", self.c["green"], "running"
-            elif claim_exit(tr):
-                mark, attr, text = "–", curses.A_DIM, "skipped: another check was already running"
-            else:
-                mark, attr, text = "✓", self.c["green"], headline(tr[1], w - 20) or "no summary"
-            self.put(y, 1, mark, (attr if not sel else 0) | sel | curses.A_BOLD * bool(sel))
-            self.put(y, 3, clock(started), (curses.A_DIM if not sel else 0) | sel)
-            self.put(y, 10, fit(text, w - 12), ((attr if mark != "✓" else 0) if not sel else 0) | sel)
+        y = self.rule(y, "Recent checks")
+        x = 19
+        for name, label in FILTERS:
+            chip = " {} {} ".format(label, self.counts.get(name, 0))
+            self.put(y - 1, x, chip, (curses.A_REVERSE | curses.A_BOLD) if name == self.filter else curses.A_DIM)
+            self.zone(y - 1, x, x + cols(chip), "filter", name)
+            x += cols(chip) + 1
+        self.put(y - 1, x + 1, "f switch", curses.A_DIM)
+        self.put(y, 3, "A check is one pass of the loop (every 10 minutes, and right after you reply): it reads Slack, acts on your replies, and starts or finishes reviews.", curses.A_DIM)
+        y += 1
+        rows = max(3, h - y - 3)
+        pos = next((j for j, row in enumerate(check_rows) if row["key"] == self.cur), None)
+        if pos is not None:
+            if pos < self.offset:
+                self.offset = pos
+            elif pos >= self.offset + rows:
+                self.offset = pos - rows + 1
+        self.offset = max(0, min(self.offset, max(0, len(check_rows) - rows)))
+        if not check_rows:
+            self.put(y, 3, "no checks in this view; press f or click another filter", curses.A_DIM)
+        shown_rows = check_rows[self.offset: self.offset + rows]
+        text_x = 3 + max([cols(clock(row["started"])) for row in shown_rows] or [5]) + 2
+        for row in shown_rows:
+            sel = self.row(y, row["key"])
+            kind = row["kind"]
+            attr = {"did": 0, "running": self.c["green"], "failed": self.c["red"], "unknown": curses.A_DIM}.get(kind, curses.A_DIM)
+            mark_attr = {"did": self.c["green"], "running": self.c["green"], "failed": self.c["red"]}.get(kind, curses.A_DIM)
+            tag = row["trigger"]
+            self.put(y, 1, KIND_MARK[kind], (mark_attr if not sel else 0) | sel | curses.A_BOLD * bool(sel))
+            self.put(y, 3, clock(row["started"]), (curses.A_DIM if not sel else 0) | sel)
+            room = w - text_x - 2 - (cols(tag) + 3 if tag else 0)
+            self.put(y, text_x, fit(row["text"], room), (attr if not sel else 0) | sel)
+            if tag:
+                self.put(y, w - cols(tag) - 2, tag, curses.A_DIM | sel)
             y += 1
 
         if m.errors:
@@ -834,7 +1009,7 @@ class Dashboard:
         elif self.toast and time.time() < self.toast_until:
             self.put(h - 2, 1, self.toast, self.c["cyan"])
         kind = (self.cur or ("",))[0]
-        self.footer([("↑↓ or click select", None), ("Enter open " + ("its summary" if kind == "check" else "its Slack thread"), "open"), ("a actions", "menu"), ("q quit", "quit")])
+        self.footer([("↑↓ or click select", None), ("Enter open " + ("its summary" if kind == "check" else "its Slack thread"), "open"), ("f filter checks", "cycle_filter"), ("a actions", "menu"), ("q quit", "quit")])
         s.refresh()
 
     # actions menu
@@ -975,8 +1150,9 @@ class Dashboard:
         if not checks:
             lines = [("No checks yet.", curses.A_DIM)]
         else:
-            self.sel = max(0, min(self.sel, len(checks) - 1))
-            r, started, tr = checks[self.sel]
+            self.refresh_slack()
+            r, started, tr = checks[self.detail_index(checks)]
+            shown = [i for row in self.check_rows(checks) for i in row["indices"]]
             now = datetime.now(KST)
             if tr is None:
                 status = "no transcript"
@@ -986,7 +1162,8 @@ class Dashboard:
                 status = "running for " + span((now - started).total_seconds()) if started else "running"
             else:
                 status = "finished at {}{}".format(clock(tr[4]), " after " + span((tr[4] - started).total_seconds()) if tr[4] and started else "")
-            self.put(0, 16, "check #{} at {} · {} · {} of {}".format(r.get("runNumber"), clock(started), status, self.sel + 1, len(checks)), curses.A_BOLD)
+            where = "{} of {} in {}".format(shown.index(self.sel) + 1, len(shown), dict(FILTERS)[self.filter]) if self.sel in shown else "{} of {}".format(self.sel + 1, len(checks))
+            self.put(0, 16, "check #{} at {} · {} · {}".format(r.get("runNumber"), clock(started), status, where), curses.A_BOLD)
             self.put(1, 1, "From: " + (tr[3] if tr else "no Codex transcript matched this check's start time"), curses.A_DIM)
             lines = self.detail_lines(started, tr, w - 3)
         room = h - 4
@@ -1002,7 +1179,8 @@ class Dashboard:
         """What a check did: its messages in the bot DM with the replies of yours it answered, then its own final message."""
         if tr is None:
             return [("No Codex transcript matched this check's start time, so there is nothing to show.", curses.A_DIM)]
-        out = []
+        kind, text = self.classify(started, tr)
+        out = [(line, curses.A_BOLD) for line in wrap("What it did: " + text, width)] + [("", 0)]
         if tr[2]:
             out += [(line, self.c["red"]) for line in wrap("FAILED: " + tr[2], width)] + [("", 0)]
         if tr[0] and claim_exit(tr):
@@ -1016,20 +1194,7 @@ class Dashboard:
         return out
 
     def dm_lines(self, started, tr, width):
-        st = self.model.state or {}
-        threads, channel = {}, None
-        for pr, r in (st.get("reviews") or {}).items():
-            t = r.get("thread") or {}
-            if t.get("ts"):
-                threads[t["ts"]] = "#{} {}".format(pr.split("#")[-1], (r.get("title") or "").split("] ", 1)[-1])
-                channel = channel or t.get("channel")
-        for msg in (st.get("messages") or {}).values():
-            a = msg.get("ask") or {}
-            root = a.get("thread_ts") or a.get("ts")
-            if root and root not in threads:
-                threads[root] = "Question about {}".format(", ".join("#" + p.split("#")[-1] for p in msg.get("prs") or []) or "a review request")
-        oldest = min((c[1] for c in self.model.checks() if c[1]), default=started)
-        self.slack.refresh(channel, oldest.timestamp() - 3600)
+        threads = self.dm_threads()[0]
         out = [("In the bot DM during this check", curses.A_BOLD)]
         if self.slack.error:
             return out + [("  " + self.slack.error, self.c["red"]), ("", 0)]
@@ -1114,11 +1279,9 @@ class Dashboard:
                 if key in (27, ord("q"), curses.KEY_ENTER, 10, 13):
                     self.back_to_main()
                 elif key in (curses.KEY_LEFT, ord("h")):
-                    self.sel = max(0, self.sel - 1)
-                    self.scroll = 0
+                    self.step(-1)
                 elif key in (curses.KEY_RIGHT, ord("l")):
-                    self.sel = min(len(self.model.runs) - 1, self.sel + 1)
-                    self.scroll = 0
+                    self.step(1)
                 elif key in (curses.KEY_DOWN, ord("j")):
                     self.scroll += 1
                 elif key in (curses.KEY_UP, ord("k")):
@@ -1136,6 +1299,10 @@ class Dashboard:
                 self.move(1)
             elif key in (curses.KEY_ENTER, 10, 13):
                 self.open_selected()
+            elif key == ord("f"):
+                names = [name for name, _ in FILTERS]
+                self.filter = names[(names.index(self.filter) + 1) % len(names)]
+                self.offset = 0
             elif key == ord("a"):
                 self.mode = "menu"
                 self.menu_index = 0
@@ -1199,7 +1366,6 @@ def decode_mouse(seq):
 
 def _on_mouse(self, x, y, kind):
     """Clicks and the wheel, in whichever view is showing."""
-    count = len(self.model.runs)
     if kind in ("wheel_up", "wheel_down"):
         step = -1 if kind == "wheel_up" else 1
         if self.mode == "details":
@@ -1239,17 +1405,20 @@ def _on_mouse(self, x, y, kind):
             self.open_selected()
     elif action == "open":
         self.open_selected()
+    elif action == "filter":
+        self.filter, self.offset = value, 0
+    elif action == "cycle_filter":
+        names = [name for name, _ in FILTERS]
+        self.filter, self.offset = names[(names.index(self.filter) + 1) % len(names)], 0
     elif action == "menu":
         self.mode = "menu"
         self.menu_index = 0
     elif action == "quit":
         raise SystemExit(0)
     elif action == "newer":
-        self.sel = max(0, self.sel - 1)
-        self.scroll = 0
+        self.step(-1)
     elif action == "older":
-        self.sel = min(count - 1, self.sel + 1)
-        self.scroll = 0
+        self.step(1)
     elif action == "back":
         self.back_to_main()
 
@@ -1266,9 +1435,16 @@ def snapshot():
     print("loop:", level.upper(), "-", text)
     print("next check:", clock(kst(auto.get("nextRunAt"))) if auto.get("enabled") else "paused", "| coordinator:", auto.get("agentId"), "| current check:", "running" if live else "none")
     print(watcher_status()[1])
-    for r, started, tr in m.checks()[:5]:
-        status = "no transcript" if tr is None else ("failed: " + short_error(tr[2])) if tr[2] else "running" if not tr[0] else "skipped: another check was already running" if claim_exit(tr) else headline(tr[1], 110)
-        print("check", clock(started), status)
+    view = Dashboard.__new__(Dashboard)  # the check list without a screen: same categories as the TUI
+    view.model, view.slack, view.kind_cache, view.filter = m, SlackLog(), {}, "did"
+    _, _, channel = view.dm_threads()
+    oldest = min((c[1] for c in m.checks() if c[1]), default=datetime.now(KST))
+    if channel:
+        view.slack._fetch(channel, oldest.timestamp() - 3600)
+    rows = view.check_rows(m.checks())
+    print("checks: " + ", ".join("{} {}".format(view.counts[name], label.lower()) for name, label in FILTERS if name != "all") + " (of the last {})".format(view.counts["all"]))
+    for row in rows[:8]:
+        print("check", clock(row["started"]), KIND_MARK[row["kind"]], row["text"][:150], ("(" + row["trigger"] + ")") if row["trigger"] else "")
     for pr, r in ((m.state or {}).get("reviews") or {}).items():
         if r.get("status") in LIVE_REVIEW + WAITING + TRACKED:
             status = str(r.get("status"))

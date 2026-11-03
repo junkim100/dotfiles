@@ -262,6 +262,7 @@ def act(watch, waiting):
             return
         orca(["automations", "run", auto["id"]])
         record = {"kind": "start", "at": now}
+        watch["started"] = (watch.get("started") or [])[-49:] + [now]  # the dashboard marks these checks "started by your reply"
         log("started a check for {} repl{}".format(len(due), "y" if len(due) == 1 else "ies"))
     for entry in due:
         entry.setdefault("actions", []).append(record)
