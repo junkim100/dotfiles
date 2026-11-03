@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_PY = os.path.join(HERE, "state.py")
 sys.path.insert(0, HERE)
+sys.dont_write_bytecode = True  # importing notify and state must not leave __pycache__ in this git checkout
 AUTOMATION_NAME = "slack-pr-review"
 KST = timezone(timedelta(hours=9))
 SESSION_GLOBS = [os.path.expanduser("~/Library/Application Support/orca/codex-accounts/*/home/sessions"), os.path.expanduser("~/.codex/sessions")]

@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, HERE)
+sys.dont_write_bytecode = True  # importing notify and state must not leave __pycache__ in this git checkout
 import notify  # noqa: E402  # pyright: ignore[reportMissingImports]
 import state  # noqa: E402  # pyright: ignore[reportMissingImports]
 

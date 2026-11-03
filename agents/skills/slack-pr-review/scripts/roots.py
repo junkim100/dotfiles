@@ -13,6 +13,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.dont_write_bytecode = True  # importing notify and state must not leave __pycache__ in this git checkout
 import notify  # noqa: E402  # pyright: ignore[reportMissingImports]
 import state  # noqa: E402  # pyright: ignore[reportMissingImports]
 
