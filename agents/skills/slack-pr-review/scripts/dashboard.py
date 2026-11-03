@@ -288,6 +288,22 @@ def short_error(error):
     return error[:120]
 
 
+def watcher_status():
+    """(level, text) for the reply watcher from its watch.json: ok when it polled in the last two minutes."""
+    path = os.path.join(os.environ.get("SLACK_PR_REVIEW_HOME") or os.path.expanduser("~/.local/state/slack-pr-review"), "watch.json")
+    try:
+        with open(path) as f:
+            w = json.load(f)
+    except (OSError, ValueError):
+        return "off", "Reply watcher: not installed (watch.py --install)"
+    last = kst(w.get("last_poll"))
+    if last is None or (datetime.now(KST) - last).total_seconds() > 120:
+        return "off", "Reply watcher: stopped, last looked {}".format(ago(last))
+    if w.get("error"):
+        return "error", "Reply watcher: " + str(w["error"])[:60]
+    return "ok", "Reply watcher: on, looked {}".format(ago(last))
+
+
 def check_key(run_record):
     """A check's identity that survives new checks being added to the list."""
     return run_record.get("id") or run_record.get("runNumber") or run_record.get("startedAt")
@@ -713,6 +729,8 @@ class Dashboard:
             self.put(y + 1, x, value[: col - 2], attr | curses.A_BOLD)
         y += 3
         self.put(y, 1, "Reviewers: Codex, Claude Code, Kimi (effort {}) for big PRs; one reviewer for small PRs".format(m.kimi_effort), curses.A_DIM)
+        wlevel, wtext = watcher_status()
+        self.put(y, max(1, w - cols(wtext) - 2), wtext, {"ok": self.c["green"], "off": self.c["red"], "error": self.c["yellow"]}[wlevel])
         y += 2
 
         st = m.state or {}
@@ -1246,6 +1264,7 @@ def snapshot():
     live = m.live()
     print("loop:", level.upper(), "-", text)
     print("next check:", clock(kst(auto.get("nextRunAt"))) if auto.get("enabled") else "paused", "| coordinator:", auto.get("agentId"), "| current check:", "running" if live else "none")
+    print(watcher_status()[1])
     for r, started, tr in m.checks()[:5]:
         status = "no transcript" if tr is None else ("failed: " + short_error(tr[2])) if tr[2] else "running" if not tr[0] else "skipped: another check was already running" if claim_exit(tr) else headline(tr[1], 110)
         print("check", clock(started), status)
