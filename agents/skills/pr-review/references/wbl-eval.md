@@ -34,7 +34,7 @@ The guideline's operating loop and its review-only checks are the backbone of a 
 
 ## Mapping findings onto the guideline
 
-Map a finding onto the guideline instead of arguing it from first principles. Cite the item in the report and the checklist; in the comment, name `GUIDELINE.md` and state the rule in words without its number (house rule G2).
+Map a finding onto the guideline instead of arguing it from first principles. Cite the item in the report, the checklist, and the draft's `items`; the comment itself asks for the fix directly and does not mention the guideline (house rule G2).
 
 | what you found | lens | guideline |
 |---|---|---|

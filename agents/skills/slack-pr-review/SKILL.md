@@ -41,7 +41,7 @@ A PR stays `tracking` with no time limit: it ends only with `approved`, `closed`
 | `GH` | `gh api user --jq .login` |
 | `TEAMS` | The Slack user groups whose mentions count as asking the user's team: `S06H6FU93FU`. Search results show a group mention as `<@S...>`; message text may show it as `<!subteam^S...>`. Add a group here when the user names another one. |
 | `S` | `python3 <this skill's directory>/scripts/state.py`. State lives in `~/.local/state/slack-pr-review/` (`state.json`, plus `reviews/<owner>-<repo>-<N>-<sha7>/` per review, with `post/` for the first post and `fix-<k>/` per fix check). `S --help` lists the subcommands; JSON payloads go on stdin. |
-| `GHR` | `python3 <this skill's directory>/scripts/ghreview.py` (it never writes a review body: every request is posted as its own comment, inline at its line when the line is in the diff, else as a file comment or a PR comment): `threads` (the PR state and every thread `GH` started, with replies), `payload` (build the first post from a ledger record), `check`, `render`, `edit`, and `post`. Its docstring defines the payload schema. |
+| `GHR` | `python3 <this skill's directory>/scripts/ghreview.py` (it never writes a review body: every request is posted as its own comment, inline at its line when the line is in the diff, else as a file comment or a PR comment): `threads` (the PR state and every thread `GH` started, with replies), `payload` (build the first post from a ledger record), `check`, `render`, `outline`, `counts`, `edit`, and `post`. Its docstring defines the payload schema. |
 | `NOTIFY` | `python3 <this skill's directory>/scripts/notify.py --env /Users/junkim/solar-system/eval/wbl-eval/.env`: sends the message on stdin (standard markdown) as a DM from the PR Review Bot (see Setup), or from the eval notifier bot until that is set up, and prints `{"channel", "ts", "permalink", "bot"}`; `--channel <D id> --thread-ts <ts>` replies in that message's thread, and `--channel <D id> --ts <ts> [--unreact <emoji>] [--react <emoji>]` swaps the bot's reaction on a message instead of sending one. A DM the user sends to themselves never notifies them, so `slack_send_message(channel_id=ME)` is only the fallback. |
 | `ROOTS` | `python3 <this skill's directory>/scripts/roots.py [owner/repo#N ...]`: sets the one state reaction on each PR thread's root from the review's status and the PR's GitHub state (step 8, Threads and reactions), for the PRs named or, with none, for every PR thread. Run it right after every status change of a review that has a thread; it changes only what differs. |
 | `INBOX` | `python3 <this skill's directory>/scripts/watch.py --pending`: one JSON line (`channel`, `ts`, `thread_ts`, `pr`, `text`) per reply of the user's in the bot DM that no tick has handled yet (no bot reaction on it, and newer than its thread's `handled_ts`). It reads Slack with the bot token in about two seconds, so run it whenever this skill says. |
@@ -286,7 +286,7 @@ Threads and reactions. The user wants to see, the moment the loop notices someth
 - :done: is for the user's own replies, when what they asked for is done (a post, comments left, an approval, an answer to a question): :loading: while acting on them, then :done:, or :x: when it failed, as step 1a describes. Notices, results, and items carry no reactions.
 - When a reply in one thread joins a review that already has another PR thread, answer it there with one line linking the PR thread. Each ask records `thread_ts` (the root) next to `ts` (the ask message itself).
 
-Items: after a ready or fix-check DM, post each string of `GHR render <payload>` as its own reply in the PR thread, in order, so the user reads exactly what would be posted.
+Items: after a ready or fix-check DM, post each string of `GHR render <payload>` as its own reply in the PR thread, in order, so the user reads exactly what would be posted. An item that only edits prose (a document, the PR body, a comment or docstring) carries `document edit` in its header, so the user can tell it from a code fix; the mark stays in Slack and never reaches GitHub.
 
 Started (the thread root, sent when step 3 starts a review for a PR with no thread):
 
@@ -323,8 +323,8 @@ Ready (asks `post_first`). Lead with the answer, keep one fact per line, and giv
 **Asked by** <name> in [<#channel or DM>](<permalink>), <Mon D HH:MM KST>   (every requester when several asked)
 **What it does** <one plain sentence on what the PR changes, from its body and the report; no file names>
 **Verdict** <the review's verdict, its first sentence only>
-**Comments to post** <c> (<b> blocking, <c-b> non-blocking)
-<GHR outline <payload>: one numbered line per comment, its plain-English why and file:line, blocking ones marked>
+**Comments to post** <c> (<b> blocking, <c-b> non-blocking; <k> code fixes, <d> document edits)   (the numbers from `GHR counts <payload>`)
+<GHR outline <payload>: one numbered line per comment, its plain-English why and file:line, blocking ones and document edits marked>
 **Earlier comments** <r> resolved, <p> partly, <u> unresolved   (only for a follow-up review)
 **Reviewed** `<sha7>` · <files> files, <lines> lines · <single review on <harness> | Codex, Claude Code and Kimi reviewers (or what happened to the Kimi review), Claude Code merge, Codex audit>
 
@@ -343,7 +343,7 @@ Fix check (asks `post_fix`):
 Checked `<from7>..<head7>` after <the trigger: <name>'s message in [<#channel or DM>](<permalink>) | a re-requested review | the author's replies on GitHub | a push after the last check>
 Your comments: <f> fixed, <a> answered, <p> partly fixed, <u> not fixed, <d> disputed (<b> blocking still open)
 New problems since your comments: <k> (<b> blocking; <i> introduced by the new commits, <m> already there at the first review)
-Proposal: approve with "LGTM!" | <r> replies and <c> new comments, numbered below in this thread
+Proposal: approve with "LGTM!" | <r> replies and <c> new comments (<k> code fixes, <d> document edits), numbered below in this thread
 Report: `<FIX_DIR>/fixcheck.md`
 
 Reply `post` to post it, `post 1 3` for some items, `edit <n>: <text>` to change one, `skip` to post nothing and keep watching, or `stop` to stop tracking this PR.

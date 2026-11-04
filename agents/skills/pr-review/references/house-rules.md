@@ -14,12 +14,11 @@ Sources point at the 2026-10-21 review study kept locally under `~/.local/state/
 - Limit: a validator or test that CI does not run, a failure that appears only after merging with the base, or a check that passes for the wrong reason is not visible; comment it.
 - Source: user feedback 2026-08 (W2 follow-up H1241); counterexample of a posted local-validator finding in W2 (S17).
 
-### G2. State the guideline rule in words, not its number
+### G2. Ask directly and leave the guideline out of comments
 - Scope: repositories with a review guideline. Phase: writing.
-- Rule: when a finding violates the guideline, the comment says what the guideline requires and what the code does instead, in words: `GUIDELINE.md에서는 profile의 parameters를 전부 실제 request까지 전달하도록 되어 있는데, 여기서는 ...`. When the applicable document is `GUIDELINE.md`, name that file instead of calling it `내부 가이드라인`. Never write item numbers (`item 7`, `P9`, `25c`) in a comment; they stay in the report and the checklist table, which are for the user. Do not invoke the guideline for a finding no rule covers, and never cite internal knowledge bases (a wiki, meeting notes) in a comment; cite code, pinned upstream permalinks, or the PR itself.
-- Limit: when the user settles a point outside the guideline for one PR (a team decision, an accepted exception) or asks for a comment without guideline references, follow that for that PR.
-- Source: user feedback 2026-10-25 ("I don't want the reviews to mention specific guideline numbers ... just mention according to the guideline"). This replaces the 2026-10-22 version that put item numbers in comments; the guideline-first review itself (2026-10-22, "the most important thing is following the repo guideline properly") is unchanged.
-- Source: user feedback 2026-10-26 on PR #1694: comments should say `GUIDELINE.md`, not `내부 가이드라인`. The decisions to omit the CI and general PR comments remain specific to that review.
+- Rule: the guideline decides what to flag, not how the comment reads. A comment says what the code or document does, what goes wrong, and what to change, as it would for any other finding, and never says a rule requires it. Do not name `GUIDELINE.md`, write `내부 가이드라인`, write item numbers (`item 7`, `P9`, `25c`), or justify the request with phrases such as `규칙에 맞게`, `계약에 따라`, or `~하도록 되어 있어서`. The rule mapping and item numbers stay in the report, the checklist table, and the draft's `items`, which are for the user. Never cite internal knowledge bases (a wiki, meeting notes) in a comment; cite code, pinned upstream permalinks, or the PR itself.
+- Limit: a comment about the guideline file itself (a PR that edits `GUIDELINE.md`, as in W4) names the file because it is the subject. When the user settles a point for one PR or asks for the rule to be cited, follow that for that PR.
+- Source: user feedback 2026-11-04 ("You are overly citing the guideline in the reviews. You can just ask without saying that it's due to the guideline."). This replaces the 2026-10-25 and 2026-10-26 versions, which had comments state the rule in words and name `GUIDELINE.md`; the guideline-first review itself (2026-10-22, "the most important thing is following the repo guideline properly") is unchanged.
 
 ### G3. Tone and words
 - Scope: Korean comments. Phase: writing.

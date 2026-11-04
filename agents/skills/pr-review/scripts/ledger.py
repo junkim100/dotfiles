@@ -14,6 +14,7 @@ review.json (input to `save`, JSON on stdin or already in <dir>/review.json):
        "file": "path" | null, "line": 12 | null,
        "held_reason": "<code>" (required when channel is held; see HELD_REASONS),
        "kind": "defect" | "question", "blocking": true, "severity": "High", "impact": "primary",
+       "change": "code" | "docs" (required on a post draft; docs = the requested edit touches only prose),
        "why": "one plain-English line", "mechanism": "kebab-slug",
        "items": ["26", "P2"] (guideline items the finding violates; optional),
        "asks": ["one change or decision"] (optional; a post draft may list only one)}
@@ -23,7 +24,7 @@ review.json (input to `save`, JSON on stdin or already in <dir>/review.json):
     "agent": "claude-code" | "codex", "model": "...", "started_at": "<ISO 8601 UTC>",
     "gaps": ["..."], "checklist": [{"item": "item 7", "result": "violation", "evidence": "path:line"}]
   }
-`save` rejects a post draft with more than one ask and a checklist row whose result is pass when a draft or report-only finding lists that item; it adds saved_at and skill_version, keeps earlier feedback, and keeps each draft's first wording as first_body when a later save changes it.
+`save` rejects a post draft with more than one ask, without a change, or whose body cites the guideline (house rule G2), and a checklist row whose result is pass when a draft or report-only finding lists that item; it adds saved_at and skill_version, keeps earlier feedback, and keeps each draft's first wording as first_body when a later save changes it.
 """
 
 from __future__ import annotations
@@ -55,6 +56,8 @@ HELD_REASONS = {
     "not-actionable",
     "fixed-on-target",
 }
+# A comment asks for the fix directly and leaves the guideline out (house rule G2); a comment on the guideline file itself may name it.
+GUIDELINE_CITE = re.compile(r"GUIDELINE|내부 가이드라인|가이드라인(에서|에 따라|에 맞|상|대로|에는)")
 FEEDBACK_ACTIONS = {"edit", "drop", "accept", "missed", "wrong", "rule"}
 # Share of a draft's characters found in one post. Calibrated on the 141 drafts of the 2026-10-21 study:
 # every unposted draft scored at most 0.34 against the user's posts, and 0.45 recovers all verbatim posts
@@ -143,6 +146,10 @@ def validate(rec: dict) -> list[str]:
             errors.append(f"{where} line must be an integer or null")
         if d.get("channel") == "post" and len(d.get("asks") or []) > 1:
             errors.append(f"{where} asks for {len(d['asks'])} changes; split it into one draft per ask")
+        if d.get("channel") == "post" and d.get("change") not in ("code", "docs"):
+            errors.append(f"{where} change must be code or docs")
+        if d.get("channel") == "post" and Path(d.get("file") or "").name != "GUIDELINE.md" and GUIDELINE_CITE.search(d.get("body", "")):
+            errors.append(f"{where} cites the guideline in its body; ask for the change directly (house rule G2)")
     violated: dict[str, str] = {}
     findings = [(d.get("id"), d) for d in rec.get("drafts", []) if isinstance(d, dict)]
     findings += [(f"report_only[{i}]", f) for i, f in enumerate(rec.get("report_only", [])) if isinstance(f, dict)]

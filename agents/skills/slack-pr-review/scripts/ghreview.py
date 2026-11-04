@@ -6,12 +6,14 @@ A payload is one JSON file holding everything a single post would send:
   {"repo": "owner/repo", "pr": 123, "kind": "first_review" | "fixcheck", "commit_id": "<sha>", "base": "main",
    "verdict": "approve" | "changes" | null,
    "items": [
-     {"n": 1, "type": "comment", "path": "src/x.py", "line": 12, "body": "...", "blocking": true, "draft": "D1"},
+     {"n": 1, "type": "comment", "path": "src/x.py", "line": 12, "body": "...", "blocking": true, "change": "code", "draft": "D1"},
      {"n": 2, "type": "file_comment", "path": "src/y.py", "body": "..."},   a comment on a changed file whose line is outside the diff
      {"n": 3, "type": "pr_comment", "body": "..."},                  one PR conversation comment (no file, or a file the PR does not change)
      {"n": 4, "type": "reply", "in_reply_to": 456, "body": "...", "thread_url": "..."},
      {"n": 1, "type": "approve", "body": "LGTM!"}                    an approval is always the only item
    ]}
+
+An item's `change` is "docs" when the requested edit touches only prose (a documentation file, the PR body, or a comment or docstring) and "code" otherwise; the Slack text marks docs items as a document edit, so the user can tell them from code fixes, and it never reaches GitHub. An item without it is judged by its file type, or by asking about the PR body. `check` fills it in and refuses a body that cites the guideline (pr-review's house rule G2), unless the comment is on the guideline file itself.
 
 Every item is its own comment and nothing is ever written into a review body: the user wants each request posted separately. `post` sends the line comments together as one COMMENT review with no body at commit_id (falling back to one review comment each if GitHub insists on a body), each file comment and PR comment on its own, each reply to its thread, and an approval as an APPROVE review whose body is the approval text. It posts only when the PR is open and, for an approval, only while the head is still commit_id. A legacy "body" item is treated as a pr_comment. It needs --approval naming the user's Slack reply that allowed it, records every call in posted.json next to the payload, and skips items already posted, so a retry never posts twice. Runs on the macOS system Python (3.9).
 """
@@ -26,6 +28,9 @@ import sys
 from datetime import datetime, timezone
 
 TYPES = ("comment", "file_comment", "pr_comment", "reply", "approve")
+DOC_FILES = (".md", ".mdx", ".rst", ".adoc", ".txt")
+PR_BODY = re.compile(r"PR 본문|PR body|PR description|^본문")
+GUIDELINE_CITE = re.compile(r"GUIDELINE|내부 가이드라인|가이드라인(에서|에 따라|에 맞|상|대로|에는)")
 META_QUERY = """
 query($owner: String!, $repo: String!, $n: Int!) {
   repository(owner: $owner, name: $repo) {
@@ -175,6 +180,15 @@ def save_payload(path, payload):
     os.replace(tmp, path)
 
 
+def change_of(item):
+    """code or docs: the item's own `change`, else docs for a documentation file or a PR comment about the PR body."""
+    if item.get("change") in ("code", "docs"):
+        return item["change"]
+    if (item.get("path") or "").lower().endswith(DOC_FILES):
+        return "docs"
+    return "docs" if item.get("type") == "pr_comment" and PR_BODY.search(item.get("body") or "") else "code"
+
+
 def validate(payload):
     errors = []
     for key in ("repo", "pr", "kind", "commit_id", "items"):
@@ -197,6 +211,8 @@ def validate(payload):
             errors.append(where + ": a file comment needs path")
         if kind == "reply" and not isinstance(item.get("in_reply_to"), int):
             errors.append(where + ": a reply needs the integer in_reply_to of the thread's first comment")
+        if item.get("change") not in (None, "code", "docs"):
+            errors.append(where + ": change must be code or docs")
     if any(i.get("type") == "approve" for i in items) and len(items) != 1:
         errors.append("an approval must be the payload's only item")
     return errors
@@ -216,6 +232,7 @@ def cmd_payload(args):
             item.update({"type": "file_comment", "path": d["file"]})
         else:
             item["type"] = "pr_comment"
+        item["change"] = change_of(dict(item, change=d.get("change")))
         items.append(item)
     if not items:
         items = [{"n": 1, "type": "approve", "body": args.approve_body}]
@@ -233,6 +250,13 @@ def cmd_check(args):
     if errors:
         print("invalid payload:\n  " + "\n  ".join(errors))
         return 1
+    cites = ["item {}".format(i["n"]) for i in payload["items"] if GUIDELINE_CITE.search(i.get("body") or "") and os.path.basename(i.get("path") or "") != "GUIDELINE.md"]
+    if cites:
+        print("invalid payload:\n  {} cite the guideline; ask for the change directly (pr-review house rule G2)".format(", ".join(cites)))
+        return 1
+    for item in payload["items"]:
+        if item["type"] != "approve":
+            item["change"] = change_of(item)
     comments = [i for i in payload["items"] if i["type"] == "comment"]
     moved = []
     if comments:
@@ -261,17 +285,18 @@ def cmd_check(args):
 
 def render_item(item, payload):
     blocking = {True: "blocking", False: "non-blocking"}.get(item.get("blocking"))
+    docs = " · document edit" if item["type"] != "approve" and change_of(item) == "docs" else ""
     if item["type"] == "approve":
         head = "**{}. Approve** at `{}`".format(item["n"], payload["commit_id"][:7])
     elif item["type"] == "comment":
-        head = "**{}. {}** `{}:{}`".format(item["n"], blocking or "comment", item["path"], item["line"])
+        head = "**{}. {}{}** `{}:{}`".format(item["n"], blocking or "comment", docs, item["path"], item["line"])
     elif item["type"] == "file_comment":
-        head = "**{}. {}** `{}` (file comment)".format(item["n"], blocking or "comment", item["path"])
+        head = "**{}. {}{}** `{}` (file comment)".format(item["n"], blocking or "comment", docs, item["path"])
     elif item["type"] == "reply":
         where = item.get("thread_url")
-        head = "**{}. Reply** {}".format(item["n"], "in [this thread]({})".format(where) if where else "to comment {}".format(item["in_reply_to"]))
+        head = "**{}. Reply{}** {}".format(item["n"], docs, "in [this thread]({})".format(where) if where else "to comment {}".format(item["in_reply_to"]))
     else:
-        head = "**{}. PR comment**{}".format(item["n"], " ({})".format(blocking) if blocking else "")
+        head = "**{}. PR comment{}**{}".format(item["n"], docs, " ({})".format(blocking) if blocking else "")
     return head + "\n\n" + item["body"]
 
 
@@ -295,20 +320,30 @@ def short_why(item):
 
 
 def cmd_outline(args):
-    """Print the numbered one-line list of items for the top of a DM, blocking ones marked, capped at --max."""
+    """Print the numbered one-line list of items for the top of a DM, blocking ones and document edits marked, capped at --max."""
     payload = load_payload(args.payload)
     lines = []
     for item in payload["items"][:args.max]:
         if item["type"] == "approve":
             lines.append("{}. Approve with \"{}\"".format(item["n"], item["body"]))
             continue
-        where = "`{}:{}`".format(Path_name(item["path"]), item["line"]) if item.get("line") else ("`{}`".format(Path_name(item["path"])) if item.get("path") else "PR comment")
-        mark = "**blocking** " if item.get("blocking") else ""
+        where = "`{}:{}`".format(Path_name(item["path"]), item["line"]) if item.get("line") else ("`{}`".format(Path_name(item["path"])) if item.get("path") else "reply" if item["type"] == "reply" else "PR comment")
+        mark = ("**blocking** " if item.get("blocking") else "") + ("**document edit** " if change_of(item) == "docs" else "")
         lines.append("{}. {}{} ({})".format(item["n"], mark, short_why(item), where))
     rest = len(payload["items"]) - args.max
     if rest > 0:
         lines.append("...and {} more, all in the thread".format(rest))
     print("\n".join(lines))
+    return 0
+
+
+def cmd_counts(args):
+    """Print how many items a DM should report: comments, blocking, non_blocking, replies, code, and docs, as JSON."""
+    items = [i for i in load_payload(args.payload)["items"] if i["type"] != "approve"]
+    blocking = sum(1 for i in items if i.get("blocking"))
+    docs = sum(1 for i in items if change_of(i) == "docs")
+    replies = sum(1 for i in items if i["type"] == "reply")
+    print(json.dumps({"comments": len(items), "blocking": blocking, "non_blocking": len(items) - blocking, "replies": replies, "new": len(items) - replies, "code": len(items) - docs, "docs": docs}))
     return 0
 
 
@@ -475,10 +510,14 @@ def main():
     p.add_argument("--item", type=int)
     p.set_defaults(func=cmd_render)
 
-    p = sub.add_parser("outline", help="print the numbered one-line list of items (blocking marked) for the top of a DM")
+    p = sub.add_parser("outline", help="print the numbered one-line list of items (blocking ones and document edits marked) for the top of a DM")
     p.add_argument("payload")
     p.add_argument("--max", type=int, default=8)
     p.set_defaults(func=cmd_outline)
+
+    p = sub.add_parser("counts", help="print the item counts a DM reports (comments, blocking, non_blocking, replies, new, code, docs) as JSON")
+    p.add_argument("payload")
+    p.set_defaults(func=cmd_counts)
 
     p = sub.add_parser("edit", help="replace item N's body with the text on stdin")
     p.add_argument("payload")
