@@ -27,6 +27,7 @@ sys.path.insert(0, HERE)
 sys.dont_write_bytecode = True  # importing notify and state must not leave __pycache__ in this git checkout
 AUTOMATION_NAME = "slack-pr-review"
 KST = timezone(timedelta(hours=9))
+CLAUDE_PROJECTS = os.path.expanduser("~/.claude/projects")
 SESSION_GLOBS = [os.path.expanduser("~/Library/Application Support/orca/codex-accounts/*/home/sessions"), os.path.expanduser("~/.codex/sessions")]
 REFRESH_SEC = 10
 LIVE_REVIEW = ("queued", "running", "gate_flat", "fix_queued", "fix_running")
@@ -39,6 +40,8 @@ STATUS_LABEL = {
 }
 STAGE_LABEL = {"review-a": "Codex", "review-b": "Claude", "review-c": "Kimi", "merge": "merge", "audit": "audit", "single": "review"}
 DOUBLE_CLICK_SEC = 0.45
+# How each coordinator invokes the skill: Codex names a skill with $, Claude Code runs it as a slash command.
+SKILL_PROMPT = {"codex": "$slack-pr-review", "claude": "/slack-pr-review"}
 # The filter chips of Recent checks; "did" also shows running and failed checks, so the default view is everything worth reading.
 FILTERS = [("did", "Did something"), ("quiet", "Nothing new"), ("skipped", "Skipped"), ("failed", "Failed"), ("all", "All")]
 KIND_MARK = {"did": "●", "running": "…", "quiet": "○", "skipped": "–", "failed": "✗", "unknown": "?"}
@@ -131,11 +134,63 @@ def ago(dt):
 
 
 class Transcripts:
-    """Final messages of the loop's Codex runs, matched to Orca runs by start time."""
+    """Final messages of the loop's runs, matched to Orca runs by start time: Codex rollouts, or Claude Code sessions when Claude Code is the coordinator."""
 
     def __init__(self):
         self.cache = {}
         self.matched = {}
+
+    @staticmethod
+    def first_prompt_is_loop(path):
+        """True when the session's first user message is the /slack-pr-review command (records before it can be large, so read by line)."""
+        try:
+            with open(path, errors="replace") as f:
+                for n, line in enumerate(f):
+                    if '"type":"user"' in line.replace(" ", ""):
+                        return "<command-name>/slack-pr-review</command-name>" in line
+                    if n > 400:
+                        return False
+        except OSError:
+            pass
+        return False
+
+    def parse_claude(self, path, mtime):
+        """The same tuple as parse() for a Claude Code session: done once its last turn ended with text and the file has been quiet for 30 s (the CLI stays open afterwards)."""
+        last, error, ended, refused, end_turn, claim_ids = None, None, None, False, False, set()
+        actions = {"posts": 0, "workers": 0, "messages": 0}
+        with open(path, errors="replace") as f:
+            for line in f:
+                if '"assistant"' not in line and '"tool_result"' not in line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except ValueError:
+                    continue
+                content = (record.get("message") or {}).get("content")
+                if record.get("type") == "assistant" and isinstance(content, list):
+                    end_turn = (record.get("message") or {}).get("stop_reason") == "end_turn"
+                    texts = [x.get("text") for x in content if x.get("type") == "text" and (x.get("text") or "").strip()]
+                    if record.get("isApiErrorMessage") and texts:
+                        error = texts[-1]
+                    elif texts:
+                        last, ended = texts[-1], kst(record.get("timestamp"))
+                    for x in content:
+                        if x.get("type") == "tool_use":
+                            command = json.dumps(x.get("input") or {})
+                            if "state.py claim" in command:
+                                claim_ids.add(x.get("id"))
+                            actions["posts"] += len(re.findall(r"ghreview\.py\W{1,6}post\b", command))
+                            actions["workers"] += len(re.findall(r"orchestration\W{1,6}worker-start", command)) + command.count("kimi -p")
+                            calls = re.findall(r"notify\.py([^\"]{0,300})", command)
+                            actions["messages"] += sum(1 for args in calls if not re.search(r"--(?:react|unreact|state|which|setup|help)", args))
+                elif record.get("type") == "user" and isinstance(content, list):
+                    end_turn = False
+                    for x in content:
+                        if x.get("type") == "tool_result" and x.get("tool_use_id") in claim_ids:
+                            body = json.dumps(x.get("content"))
+                            refused = refused or bool(re.search(r"Exit code 3\b|exit=3\b", body))
+        done = end_turn and time.time() - mtime > 30
+        return (done, (last or "").strip(), error, path, ended if done else None, refused, actions)
 
     def for_run(self, started):
         """(finished, summary, error) of the transcript that began within 90 s of the run's start, or None."""
@@ -159,9 +214,28 @@ class Transcripts:
                         if -5 <= gap <= 90 and (best is None or abs(gap) < best[0]):
                             best = (abs(gap), path)
         if not best:
+            best = self.claude_session(started)
+        if not best:
             return None
         self.matched[started] = best[1]
         return self.parse(best[1])
+
+    def claude_session(self, started):
+        """(gap, path) of the Claude Code session created within 90 s of the run's start whose first prompt is the slack-pr-review command."""
+        best = None
+        t0 = started.timestamp()
+        for path in glob.glob(os.path.join(CLAUDE_PROJECTS, "*", "*.jsonl")):
+            try:
+                st = os.stat(path)
+            except OSError:
+                continue
+            born = getattr(st, "st_birthtime", st.st_ctime)
+            gap = born - t0
+            if not -5 <= gap <= 90 or st.st_mtime < t0:
+                continue
+            if self.first_prompt_is_loop(path) and (best is None or abs(gap) < best[0]):
+                best = (abs(gap), path)
+        return best
 
     def parse(self, path):
         try:
@@ -171,6 +245,10 @@ class Transcripts:
         hit = self.cache.get(path)
         if hit and hit[0] == mtime:
             return hit[1]
+        if path.startswith(CLAUDE_PROJECTS):
+            result = self.parse_claude(path, mtime)
+            self.cache[path] = (mtime, result)
+            return result
         last, done, error, ended, refused, claim_call = None, False, None, None, False, None
         actions = {"posts": 0, "workers": 0, "messages": 0}
         with open(path, errors="replace") as f:
@@ -1110,7 +1188,7 @@ class Dashboard:
         elif action == "switch":
             new = "claude" if auto.get("agentId") == "codex" else "codex"
             if self.confirm("Switch the coordinator to {}? Later checks start in {}.".format(new, new)):
-                _, err = orca_json(["automations", "edit", auto["id"], "--provider", new])
+                _, err = orca_json(["automations", "edit", auto["id"], "--provider", new, "--prompt", SKILL_PROMPT[new]])
                 self.say(err or "Coordinator is now {}.".format(new))
 
     def check_now(self, quiet=False):
